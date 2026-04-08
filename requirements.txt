@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+ollama
+pymupdf
+playwright
+markdown
+PyYAML
+python-multipart
+# If someone wants to use markitdown later, they can install it:
+# markitdown
