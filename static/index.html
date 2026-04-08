@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Pepper Labs AI</title>
+    <!-- Modern Typography: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css?v=1775478814.07235">
+</head>
+<body>
+    
+    <div class="page-wrapper">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-top">
+                <a href="/" class="home-link" title="Home">
+                    <img src="/static/pepperlabs%20(1).png" alt="PEPPER LABS" style="height: 36px; width: auto; object-fit: contain;" class="company-logo-img">
+                </a>
+                <button class="icon-toggle-btn" id="sidebarCloseBtn" title="Close sidebar">
+                    <i class="fa-solid fa-angles-left"></i>
+                </button>
+            </div>
+            
+            <div class="sidebar-nav-menu">
+                <button class="nav-menu-btn active" title="Chat" id="newChatBtn"><i class="fa-solid fa-plus"></i> <span class="nav-text">Chat</span></button>
+                <button class="nav-menu-btn" title="Search History" id="openSearchModalBtn"><i class="fa-solid fa-search"></i> <span class="nav-text">Search</span></button>                <button class="nav-menu-btn" title="AI Agent" id="agentModeBtn"><i class="fa-solid fa-cube"></i> <span class="nav-text">Agent</span></button>
+            </div>
+
+            <div class="sidebar-content">
+                <div class="history-dropdown-header" id="historyToggleBtn"><span class="nav-text">History</span> <i class="fa-solid fa-chevron-down nav-text"></i></div>
+                <ul class="history-list" id="historyList">
+                    <li class="history-placeholder"><span class="nav-text">Loading history...</span></li>
+                </ul>
+            </div>
+            <div class="sidebar-footer">
+                 <button class="icon-toggle-btn expand-btn hidden" id="sidebarExpandBtn" title="Expand sidebar">
+                    <i class="fa-solid fa-angles-right"></i>
+                </button>
+                <button class="login-btn sidebar-user-btn" id="showLoginBtn">
+                    <div class="user-avatar-mimic"></div> 
+                    <span class="nav-text" id="userDisplay">Login</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Workspace -->
+        <div class="main-content">
+            
+            <header class="mobile-header" id="mobileHeader">
+                <button class="icon-toggle-btn" id="sidebarOpenBtn" title="Open sidebar">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+                <div class="mobile-logo-container">
+                    <span class="mobile-logo-text">PEPPER LABS</span>
+                </div>
+                <div style="width: 32px"></div> <!-- Spacer -->
+            </header>
+
+            <div class="app-container centered-landing">
+                <main class="chat-area" id="chatArea">
+                    <div class="greeting-container" id="logoContainer">
+                        <h2>
+                            <span class="logo-text">
+                                <i class="fa-solid fa-leaf"></i> PEPPER LABS
+                            </span><br/>
+                            How can I help you today?
+                        </h2>
+                    </div>
+                    <div class="messages" id="messagesContainer"></div>
+                </main>
+                
+                <!-- Two-row input bar -->
+                <div class="input-wrapper">
+                    <div class="liquid-glass-input">
+                        
+                        <!-- Attachments preview bar -->
+                        <div id="attachmentsPreview" class="attachments-preview"></div>
+
+                        <div class="input-top-row">
+                            <input type="text" id="userInput" placeholder="What do you want to know?" autocomplete="off" />
+                        </div>
+                        <div class="input-bottom-row">
+                            <div class="toggles-container">
+                                <button class="toggle-switch" id="thinkToggle" title="Toggle Think Mode">
+                                    <i class="fa-solid fa-brain" style="color:#d8b4e2;"></i> <span>Think Mode</span>
+                                </button>
+                                <button class="toggle-switch" id="webToggle" title="Toggle Search Mode">
+                                    <i class="fa-solid fa-globe" style="color:#72bcd4;"></i> <span>Search Mode</span>
+                                </button>
+                            </div>
+                            <div class="submit-group">
+                                <input type="file" id="fileInput" multiple accept=".pdf,image/*,.txt" style="display: none;" />
+                                <button class="icon-btn" title="Upload files" id="uploadBtn" style="display: none;">
+                                    <i class="fa-solid fa-paperclip"></i>
+                                </button>
+                                <button class="submit-btn" id="submitBtn" title="Send (Enter)">
+                                    <i class="fa-solid fa-arrow-up"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Auth Modal -->
+    <div class="modal-overlay" id="authModal">
+        <div class="modal-content liquid-glass-panel">
+            <button class="modal-close" id="closeAuthBtn"><i class="fa-solid fa-xmark"></i></button>
+            <div class="auth-tabs">
+                <button class="auth-tab active" data-tab="login">Login</button>
+                <button class="auth-tab" data-tab="register">Register</button>
+            </div>
+            <form id="loginForm" class="auth-form active">
+                <div class="input-group">
+                    <label>Username</label>
+                    <input type="text" id="loginUsername" required autocomplete="username">
+                </div>
+                <div class="input-group">
+                    <label>Password</label>
+                    <input type="password" id="loginPassword" required autocomplete="current-password">
+                </div>
+                <div class="auth-error" id="loginError"></div>
+                <button type="submit" class="auth-submitBtn">Log In</button>
+            </form>
+            <form id="registerForm" class="auth-form">
+                <div class="input-group">
+                    <label>Username</label>
+                    <input type="text" id="registerUsername" required autocomplete="username">
+                </div>
+                <div class="input-group">
+                    <label>Password</label>
+                    <input type="password" id="registerPassword" required autocomplete="new-password">
+                </div>
+                <div class="auth-error" id="registerError"></div>
+                <button type="submit" class="auth-submitBtn">Create Account</button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Search History Modal -->
+    <div class="modal-overlay" id="searchHistoryModal">
+        <div class="modal-content liquid-glass-panel large-modal">
+            <button class="modal-close" id="closeSearchModalBtn"><i class="fa-solid fa-xmark"></i></button>
+            
+            <div class="search-modal-top-bar">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                <input type="text" id="historySearchInput" placeholder="Search..." autocomplete="off">
+            </div>
+            <div class="search-modal-layout">
+                <!-- Left Pane: Search & List -->
+                <div class="search-sidebar">
+                    <ul class="history-list history-search-list" id="modalHistoryList">
+                        <!-- Populated dynamically via JS -->
+                    </ul>
+                </div>
+                
+                <!-- Right Pane: Live Preview -->
+                <div class="search-preview-pane">
+                    <div class="preview-empty-state" id="previewEmptyState">
+                        Select a conversation to preview
+                    </div>
+                    <div class="preview-content hidden" id="previewContent">
+                        <h3 class="preview-title" id="previewTitle"></h3>
+                        <div class="preview-messages" id="previewMessages"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Math: KaTeX -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+    <!-- Code: Prism.js -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-core.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+    <!-- Markdown -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="/static/script.js?v=1775490596.91085"></script>
+</body>
+</html>

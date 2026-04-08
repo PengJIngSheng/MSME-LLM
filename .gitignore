@@ -1,0 +1,40 @@
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Models and Large Files
+*.gguf
+*.bin
+*.pt
+*.pth
+*.safetensors
+*.onnx
+
+# Application Data
+user_uploads/
+debug_pdf.log
+*.log
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Cache
+.cache/
