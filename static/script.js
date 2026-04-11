@@ -554,24 +554,11 @@ function appendMessage(text, role, msgObj = null, msgIndex = null, feedbackVal =
                 </button>
             `;
             const btn = dlCard.querySelector('.pdf-dl-btn');
-            btn.addEventListener('click', async () => {
-                btn.disabled = true;
-                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Preparing…';
-                try {
-                    const resp = await fetch(pdfUrl);
-                    if (!resp.ok) throw new Error(`${resp.status}`);
-                    const blob = await resp.blob();
-                    const objUrl = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = objUrl; a.download = pdfName;
-                    document.body.appendChild(a); a.click(); a.remove();
-                    setTimeout(() => URL.revokeObjectURL(objUrl), 5000);
-                    btn.innerHTML = '<i class="fa-solid fa-check"></i> Downloaded!';
-                    btn.style.background = '#16a34a';
-                } catch (err) {
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="fa-solid fa-download"></i> Retry Download';
-                }
+            btn.addEventListener('click', () => {
+                // Simplest possible download: let browser handle it natively
+                window.open(pdfUrl, '_blank');
+                btn.innerHTML = '<i class="fa-solid fa-check"></i> Downloaded!';
+                btn.style.background = '#16a34a';
             });
             wrapper.appendChild(dlCard);
         }
@@ -1007,28 +994,11 @@ async function handleSend(isResume = false, resumeIndex = null) {
 
                         // Use fetch→Blob to force save-as dialog (avoids "file wasn't available" browser error)
                         const btn = dlCard.querySelector('.pdf-dl-btn');
-                        btn.addEventListener('click', async () => {
-                            btn.disabled = true;
-                            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Preparing…';
-                            try {
-                                const resp = await fetch(pdfUrl);
-                                if (!resp.ok) throw new Error(`Server returned ${resp.status}`);
-                                const blob = await resp.blob();
-                                const objectUrl = URL.createObjectURL(blob);
-                                const a = document.createElement('a');
-                                a.href = objectUrl;
-                                a.download = pdfName;
-                                document.body.appendChild(a);
-                                a.click();
-                                a.remove();
-                                setTimeout(() => URL.revokeObjectURL(objectUrl), 5000);
-                                btn.innerHTML = '<i class="fa-solid fa-check"></i> Downloaded!';
-                                btn.style.background = '#16a34a';
-                            } catch (err) {
-                                btn.disabled = false;
-                                btn.innerHTML = '<i class="fa-solid fa-download"></i> Retry Download';
-                                console.error('PDF download error:', err);
-                            }
+                        btn.addEventListener('click', () => {
+                            // Simplest possible download: let browser handle it natively
+                            window.open(pdfUrl, '_blank');
+                            btn.innerHTML = '<i class="fa-solid fa-check"></i> Downloaded!';
+                            btn.style.background = '#16a34a';
                         });
 
                         assistantWrapper.appendChild(dlCard);

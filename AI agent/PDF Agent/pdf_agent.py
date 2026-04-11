@@ -4,11 +4,11 @@ pdf_agent.py  ─ Context-Aware Document Analysis Agent
 Stage flow
 ----------
 init          → PDF received → wait_template
-                Model: deep analysis + asks about template
+                Model: deep analysis + asks one routing question
 
-wait_template → template PDF uploaded   → generate  (with template)
-              → "直接生成" / "no"        → generate  (auto-detected type layout)
-              → unclear                 → re-ask
+ wait_template → template PDF uploaded   → generate  (with template, no second ask)
+              → "直接生成" / "没有样板"  → generate  (auto-detected type layout)
+              → unclear                  → re-ask
 
 generate      → model outputs full structured report → generate_pdf_now = True
 refine        → user requests changes               → generate_pdf_now = True
@@ -31,8 +31,162 @@ _DIRECT_WORDS = [
     '直接', '直接生成', '没有', '无', 'no', 'none', 'default', 'skip',
     '不用', '不需要', 'without', 'proceed', 'just generate', '就行了',
     '随便', '默认', '直接做', '自动', '帮我生成', '生成吧', '可以了',
+    '没有样板', '没有模板', '没有模版', '直接生成即可', '由你设计',
+    '你来设计', '自主设计', '自由发挥',
 ]
 def _is_direct(t): return any(w in t.lower() for w in _DIRECT_WORDS)
+
+_TEMPLATE_YES_WORDS = [
+    '是的', '按这个来', '按这个做', '照这个来', '按样板来', '按模板来',
+    '按模版来', '用这个模板', '用这个模版', '就按这个', '确认', '开始吧',
+    'yes', 'yep', 'yeah', 'sure', 'ok', 'okay', 'go ahead',
+    'use this template', 'use this one', 'this template',
+]
+def _is_template_yes(t): return any(w in t.lower() for w in _TEMPLATE_YES_WORDS)
+
+
+# ─── Language Helpers ─────────────────────────────────────────────────────────
+def _detect_reply_lang(text: str) -> str:
+    """
+    Detect the reply language from the latest user message.
+    We keep this lightweight and deterministic for routing stability.
+    """
+    t = (text or "").strip()
+    if not t:
+        return "en"
+    if re.search('[\u4e00-\u9fff]', t):
+        return "zh"
+    if re.search('[\u3040-\u30ff]', t):
+        return "ja"
+    if re.search('[\uac00-\ud7af]', t):
+        return "ko"
+    if re.search('[\u0600-\u06ff]', t):
+        return "ar"
+    if re.search('[\u0e00-\u0e7f]', t):
+        return "th"
+    words = re.findall(r"[a-zA-Z']+", t.lower())
+    if words:
+        malay_markers = {
+            "saya", "nak", "tak", "boleh", "dengan", "yang", "tidak",
+            "untuk", "dalam", "atau", "sudah", "akan", "dari", "juga",
+            "kepada", "tolong", "kami", "kita", "awak", "mereka", "kalau",
+        }
+        spanish_markers = {
+            "yo", "tu", "usted", "nosotros", "ellos", "una", "es", "que", "en", "con",
+            "por", "para", "gracias", "hola", "puedes", "resumir", "este", "mi", "porfavor",
+        }
+        french_markers = {
+            "je", "tu", "il", "elle", "nous", "vous", "ils", "une", "est", "que",
+            "dans", "avec", "bonjour", "merci", "pouvez", "resumer", "ce", "mon",
+        }
+        german_markers = {
+            "ich", "du", "er", "sie", "wir", "ihr", "der", "die", "das", "ist",
+            "und", "mit", "nicht", "danke", "hallo", "kannst", "zusammenfassen", "dieses", "mein",
+        }
+        scores = {
+            "ms": sum(1 for w in words if w in malay_markers),
+            "es": sum(1 for w in words if w in spanish_markers),
+            "fr": sum(1 for w in words if w in french_markers),
+            "de": sum(1 for w in words if w in german_markers),
+        }
+        best_lang, best_score = max(scores.items(), key=lambda x: x[1])
+        if best_score >= 2:
+            return best_lang
+    return "en"
+
+
+def _language_rule(lang: str) -> str:
+    if lang == "zh":
+        return "语言规则（最高优先级）：你必须全程使用简体中文回复用户，包括分析、提问与后续内容。"
+    if lang == "ja":
+        return "Language rule (highest priority): Reply entirely in Japanese for all analysis, questions, and follow-ups."
+    if lang == "ko":
+        return "Language rule (highest priority): Reply entirely in Korean for all analysis, questions, and follow-ups."
+    if lang == "ar":
+        return "Language rule (highest priority): Reply entirely in Arabic for all analysis, questions, and follow-ups."
+    if lang == "th":
+        return "Language rule (highest priority): Reply entirely in Thai for all analysis, questions, and follow-ups."
+    if lang == "ms":
+        return "Language rule (highest priority): Reply entirely in Malay for all analysis, questions, and follow-ups."
+    if lang == "es":
+        return "Language rule (highest priority): Reply entirely in Spanish for all analysis, questions, and follow-ups."
+    if lang == "fr":
+        return "Language rule (highest priority): Reply entirely in French for all analysis, questions, and follow-ups."
+    if lang == "de":
+        return "Language rule (highest priority): Reply entirely in German for all analysis, questions, and follow-ups."
+    return "Language rule (highest priority): Reply entirely in English for all analysis, questions, and follow-ups."
+
+
+def get_routing_question(lang: str = "en") -> str:
+    """
+    Public helper used by server-side fallback injection as well.
+    """
+    if lang == "zh":
+        return (
+            "我已经完成了数据的深度分析。关于生成最终报告，您是否有现成的 PDF 样板/模版希望我模仿其设计？"
+            "如果有，请直接上传；如果没有，我可以为您自主设计一套专业方案。您希望如何处理？"
+        )
+    if lang == "ja":
+        return (
+            "データの詳細分析が完了しました。最終レポートの作成について、"
+            "デザインを参照する既存の PDF テンプレートはありますか？"
+            "ある場合はアップロードしてください。ない場合は、私がプロ仕様のレイアウトを設計できます。"
+            "どのように進めますか？"
+        )
+    if lang == "ko":
+        return (
+            "데이터에 대한 심층 분석을 완료했습니다. 최종 보고서 생성과 관련해, "
+            "제가 참고할 기존 PDF 샘플/템플릿이 있으신가요? "
+            "있다면 바로 업로드해 주세요. 없다면 제가 전문적인 레이아웃으로 직접 설계해 드릴 수 있습니다. "
+            "어떻게 진행할까요?"
+        )
+    if lang == "ar":
+        return (
+            "لقد أكملت التحليل المتعمق لبياناتك. بخصوص إنشاء التقرير النهائي، "
+            "هل لديك نموذج/قالب PDF جاهز تريدني أن أحاكي تصميمه؟ "
+            "إذا كان لديك، ارفعه مباشرة. وإذا لم يكن لديك، يمكنني تصميم نسخة احترافية لك. "
+            "كيف تفضّل المتابعة؟"
+        )
+    if lang == "th":
+        return (
+            "ฉันวิเคราะห์ข้อมูลเชิงลึกของคุณเสร็จแล้ว สำหรับการสร้างรายงานฉบับสุดท้าย "
+            "คุณมีไฟล์ตัวอย่าง/เทมเพลต PDF ที่ต้องการให้ฉันยึดตามดีไซน์หรือไม่? "
+            "ถ้ามี โปรดอัปโหลดได้เลย; ถ้าไม่มี ฉันสามารถออกแบบเลย์เอาต์แบบมืออาชีพให้ได้ "
+            "คุณต้องการดำเนินการแบบไหน?"
+        )
+    if lang == "ms":
+        return (
+            "Saya telah selesai membuat analisis mendalam terhadap data anda. Untuk laporan akhir, "
+            "adakah anda mempunyai sampel/templat PDF sedia ada yang anda mahu saya ikut reka bentuknya? "
+            "Jika ya, sila muat naik terus; jika tidak, saya boleh reka susun atur profesional untuk anda. "
+            "Bagaimana anda mahu teruskan?"
+        )
+    if lang == "es":
+        return (
+            "He completado un análisis profundo de tus datos. Para el informe final, "
+            "¿tienes una plantilla/muestra PDF existente que quieras que siga? "
+            "Si la tienes, súbela directamente; si no, puedo diseñar una versión profesional para ti. "
+            "¿Cómo te gustaría proceder?"
+        )
+    if lang == "fr":
+        return (
+            "J’ai terminé une analyse approfondie de vos données. Pour le rapport final, "
+            "avez-vous un modèle/exemple PDF existant que vous souhaitez que je suive ? "
+            "Si oui, téléversez-le directement ; sinon, je peux concevoir une mise en page professionnelle pour vous. "
+            "Comment souhaitez-vous procéder ?"
+        )
+    if lang == "de":
+        return (
+            "Ich habe die Datenanalyse vollständig abgeschlossen. Für den Abschlussbericht: "
+            "Haben Sie eine vorhandene PDF-Vorlage/ein Muster, an dem ich mich beim Design orientieren soll? "
+            "Falls ja, laden Sie es bitte direkt hoch; falls nein, kann ich ein professionelles Layout für Sie entwerfen. "
+            "Wie möchten Sie vorgehen?"
+        )
+    return (
+        "I have completed a deep analysis of your data. For the final report, do you have an existing PDF sample/template "
+        "you want me to follow? If yes, please upload it directly; if not, I can design a professional layout for you. "
+        "How would you like to proceed?"
+    )
 
 # ─── Logging ──────────────────────────────────────────────────────────────────
 def _log(msg: str):
@@ -490,10 +644,16 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
             "doc_type":         "general",
             "generate_pdf_now": False,
             "use_fast_model":   True,   # fast during analysis, think during generation
+            "reply_lang":       "en",
         }
 
     state = agent_memory[chat_id]
     state["generate_pdf_now"] = False
+    if (user_message or "").strip():
+        state["reply_lang"] = _detect_reply_lang(user_message)
+    reply_lang = state.get("reply_lang", "en")
+    routing_q = get_routing_question(reply_lang)
+    lang_rule = _language_rule(reply_lang)
     _log(f"\n[turn] chat={chat_id} stage={state['stage']} msg={user_message[:80]!r}")
 
     new_text, new_names = _extract_attachments(attachments)
@@ -508,22 +668,49 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
             state["source_data"] += new_text
             state["doc_type"]      = _detect_doc_type(state["source_data"])
             state["stage"]         = "wait_template"
-            state["use_fast_model"]= True   # analysis: fast model, no think overhead
+            state["use_fast_model"]= False   # analysis: switch to think model for deeper deepseek analysis
             doc_list = ", ".join(new_names) or "the uploaded document"
             dtype    = state["doc_type"].replace("_", " ").title()
-            _log(f"[agent] Detected doc_type={state['doc_type']} → fast_model for analysis")
+            _log(f"[agent] Detected doc_type={state['doc_type']} → think_model for deep analysis")
             instruction = (
-                f"You are an Elite Document Analysis Expert specializing in "
-                f"**{dtype}** documents. "
-                f"The user has uploaded: **{doc_list}**.\n\n"
-                "TASK:\n"
-                "1. Perform a THOROUGH, in-depth analysis of the entire document "
-                "in <agent_memory_source_data>.\n"
-                "2. Answer the user's question with precision — use structured "
-                "headings, bullet points, and tables where appropriate.\n"
-                "3. End your response with EXACTLY this question "
-                "   '✅ Analysis complete. Do you have a PDF template to follow? "
-                "If not, reply **\"直接生成\"** for the default professional layout.'"
+                "# Role\n"
+                "你是一位顶尖的数据分析与商业情报专家，拥有金融 CFA、审计 ACCA、管理咨询 McKinsey 级别的深度分析能力。\n"
+                "你的任务是对用户上传的原始资料进行极致详尽、多维度、可追溯的深层解构。\n\n"
+                "# 分析框架（你必须按照以下 6 个维度逐一展开，每个维度都要有实质性的详细内容）\n\n"
+                "## 1. 文档全景扫描 (Document Overview)\n"
+                "- 精确识别文档类型（财务报表/年报/审计报告/战略规划/教学资料/合同/其他）\n"
+                "- 涉及的组织全名、行业归属、报告周期\n"
+                "- 用 1-2 段话概述文档的核心结论与战略意图\n\n"
+                "## 2. 关键数据深度提取 (Data Extraction)\n"
+                "⚠️ 这是最重要的环节。你必须把文档中的所有核心数据用 Markdown 表格完整呈现：\n"
+                "- 所有金额、百分比、比率、指标等数值型数据，必须以表格形式组织\n"
+                "- 如有多年度/多周期数据，必须制作年度对比表（含同比变化率）\n"
+                "- 如有分项数据（如收入构成、支出明细），必须制作分类汇总表\n"
+                "- 标注数据来源，确保可追溯\n\n"
+                "## 3. 趋势与变化分析 (Trend & Change Analysis)\n"
+                "- 逐项分析关键指标的同比/环比变化（必须给出具体数值和百分比）\n"
+                "- 识别增长最快和下降最快的TOP 3项目，并分析背后原因\n"
+                "- 用表格展示趋势变化摘要\n\n"
+                "## 4. 结构与构成拆解 (Composition Breakdown)\n"
+                "- 收入/支出/资产/负债的构成比例，用表格展示各项占比\n"
+                "- 识别主要驱动因素和核心构成项\n"
+                "- 评估结构性集中风险（如是否过度依赖单一来源）\n\n"
+                "## 5. 风险识别与深层洞察 (Risk & Hidden Insights)\n"
+                "- 基于数据推导出至少3个潜在风险点\n"
+                "- 发掘数据中隐含的正面信号和负面信号\n"
+                "- 指出数据中的异常值或不一致之处\n\n"
+                "## 6. 专业建议与行动方向 (Recommendations)\n"
+                "- 针对每个风险点给出可执行的应对策略\n"
+                "- 提供至少3条战略性建议\n\n"
+                "# 格式硬性要求\n"
+                "- 涉及数字对比时，必须使用 Markdown 表格（| 列名 | 数据 | 语法）\n"
+                "- 每个维度至少写 3-5 行实质性内容，严禁一笔带过\n"
+                "- 分析必须基于文档中的真实数据，禁止编造数据\n\n"
+                "# 结尾引导（分析写完后，必须在最末尾单独一行输出以下提问，一字不漏）：\n"
+                f"\u201c{routing_q}\u201d\n\n"
+                "---\n"
+                "现在开始你的深度分析：\n"
+                "<agent_memory_source_data>"
             )
         else:
             state["use_fast_model"] = True
@@ -538,51 +725,148 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
     # ══════════════════════════════════════════════════════════════════════════
     elif state["stage"] == "wait_template":
         if new_text:
-            state["template_data"]  = new_text
+            layout_report = ""
+            table_structures = ""
+            for att in (attachments or []):
+                path = att.get("saved_path", "")
+                if path and path.lower().endswith(".pdf"):
+                    try:
+                        import pdfplumber
+                        with pdfplumber.open(path) as pdf:
+                            pages = len(pdf.pages)
+                            table_count = 0
+                            for pi, page in enumerate(pdf.pages):
+                                found = page.find_tables()
+                                table_count += len(found)
+                                for ti, tbl in enumerate(found[:8]):
+                                    extracted = tbl.extract()
+                                    if extracted and len(extracted) >= 1:
+                                        header = extracted[0]
+                                        sample_rows = extracted[1:3]
+                                        table_structures += f"\n--- Table {ti+1} (Page {pi+1}) ---\n"
+                                        table_structures += "| " + " | ".join(str(c or "") for c in header) + " |\n"
+                                        table_structures += "| " + " | ".join("---" for _ in header) + " |\n"
+                                        for row in sample_rows:
+                                            table_structures += "| " + " | ".join(str(c or "") for c in row) + " |\n"
+                            has_tables = "有" if table_count > 0 else "无"
+                            layout_report += f"\n[Layout Scan - {att.get('original_name', 'Doc')}]: Pages={pages}, Tables={table_count} ({has_tables}表格)\n"
+                    except Exception as e:
+                        _log(f"[pdfplumber error] {e}")
+            
+            state["template_data"]  = new_text + layout_report
             state["stage"]           = "generate"
             state["generate_pdf_now"]= True
-            state["use_fast_model"]  = False  # report generation: use think model
+            state["use_fast_model"]  = False
             tname = ", ".join(new_names) or "the template"
-            _log(f"[agent] Template uploaded → type={state['doc_type']} think_model=True")
+            
             instruction = (
-                f"The user provided a TEMPLATE document: **{tname}**.\n\n"
-                "TASK: Generate a COMPLETE professional report that:\n"
-                "1. Mirrors the EXACT section structure from <agent_memory_template_data>\n"
-                "2. Fills every section with accurate data from <agent_memory_source_data>\n"
-                "3. Uses Markdown tables for ALL numerical/comparative data\n"
-                "4. Bolds all key figures, dates, and critical terms\n\n"
-                "Output will be rendered as a premium downloadable PDF. "
-                "Be thorough and accurate — no filler text."
+                "你是一位顶尖的文档智能分析与专业排版专家。\n\n"
+                f"用户上传了参考样板：**{tname}**。\n"
+                "你现在必须完成两个步骤：先进行深度思考并识别模版类型，然后生成高端专业的报告。\n\n"
+                "# 步骤一：Chain of Thought 深度思考（开篇2-3句话向用户展示你的识别结论）\n\n"
+                "请深入分析样板的文字内容、结构布局、表格形态，判断它属于以下哪种类型，\n"
+                "并根据类型决定你的生成策略：\n\n"
+                "📊 **财务报表/分析报告**\n"
+                "   → 生成策略：必须包含完整的收支对比表、资产负债表、比率分析表、趋势对比表\n"
+                "   → 视觉要求：金额列右对齐，百分比变化用+/-标识，关键异常值用**加粗**标注\n\n"
+                "📋 **年度报告/工作汇报**\n"
+                "   → 生成策略：必须包含年度KPI表、部门绩效表、数据同比表\n"
+                "   → 视觉要求：使用分级标题(h1/h2/h3)清晰划分板块，重要结论**加粗**\n\n"
+                "📚 **教学/学术文档**\n"
+                "   → 生成策略：必须包含课程结构表、评估标准表、内容大纲表\n"
+                "   → 视觉要求：步骤编号清晰，重点用**加粗**标注，逻辑层次分明\n\n"
+                "💼 **商业计划/项目提案**\n"
+                "   → 生成策略：必须包含市场分析表、财务预测表、里程碑时间表\n"
+                "   → 视觉要求：数据可视化优先，关键指标**加粗**高亮\n\n"
+                "📑 **其他类型**\n"
+                "   → 根据样板特征自行判断最合适的表格和排版策略\n\n"
+                "开篇用1-2句话向用户确认你的识别结论，例如：\n"
+                "\"我识别到这是一份[XX类型]文档，包含[N]个核心数据表格。现在按此模版风格生成完整报告：\"\n\n"
+                "# 步骤二：直接输出高端专业报告（紧接在确认之后）\n\n"
+                "━━━━━━ ⚠️ 表格生成最高优先级规则 ⚠️ ━━━━━━\n"
+                "所有数据展示必须使用 Markdown 表格（| 和 --- 语法）。\n"
+                "绝对禁止用纯文本、bullet points 或编号列表替代表格。\n"
+                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                "底层探测引擎从模版中提取到的真实表格结构（你必须复刻这些表格框架并填入源数据）：\n"
+                f"{table_structures}\n\n"
+                "## 生成硬性规则\n"
+                "1. **章节结构**：严格复刻样板的标题层级(#/##/###)和段落顺序\n"
+                "2. **表格复刻**：按上方提取的表格结构，生成对应的Markdown表格，列名与样板对齐\n"
+                "3. **数据填充**：从第一阶段的深度分析中提取真实数据填入表格，金额必须准确\n"
+                "4. **视觉优化**：\n"
+                "   - 用 **加粗** 标注关键数据和重要结论\n"
+                "   - 用分级标题让报告层次分明\n"
+                "   - 金额数据保持数值格式（千位分隔符）\n"
+                "5. **纯净输出**：禁止一切问候语、多余解释、闲聊。直接从 # 标题开始输出报告正文\n\n"
+                f"模版布局扫描：{layout_report}\n\n"
+                "锁定参考模版：\n"
+                "<agent_memory_template_data>\n"
+                "源数据词典池：\n"
+                "<agent_memory_source_data>"
+            )
+
+        elif state.get("template_data") and _is_template_yes(user_message):
+            state["stage"]           = "generate"
+            state["generate_pdf_now"]= True
+            state["use_fast_model"]  = False
+            instruction = (
+                "角色设定：你是一位精通文档智能（Document Intelligence）与排版渲染的专家级 AI 助手。\n\n"
+                "【执行指令：生成策略（Precision Generation）】\n"
+                "用户已指定沿用当前的分析蓝本进行生成。\n\n"
+                "1. 表格重建：如果原模版有表格，生成内容时必须完整调用 Markdown 表格组件进行复刻结构，**严禁使用纯文本模拟表格排版**。\n"
+                "2. 内容填充：将源数据精准填入对应的表格位置，保持逻辑对齐一致性（如：金额自动计算校对）。\n"
+                "3. 零损坏强制要求：你在输出完毕后服务器会立即挂载出下载按钮，你必须负责确保输出的 Markdown 语法完美包裹对齐，杜绝渲染引擎抛出任何异常。\n\n"
+                "回答规范性：全篇只保留供打印的规范结构全文，严禁出现任何多余的客套话或打招呼。\n\n"
+                "锁定模版并开始生成：\n"
+                "<agent_memory_template_data>\n"
+                "<agent_memory_source_data>"
             )
 
         elif _is_direct(user_message):
             state["stage"]           = "generate"
             state["generate_pdf_now"]= True
-            state["use_fast_model"]  = False  # report generation: use think model
+            state["use_fast_model"]  = False
             doc_type = state.get("doc_type", "general")
-            # Get the type-specific structure template
             structure = _STRUCTURE.get(doc_type, _STRUCTURE["general"])
 
             instruction = (
+                "角色设定：你是一位精通文档智能与自动排版渲染的专家级 AI 助手。\n\n"
                 f"DOCUMENT TYPE DETECTED: **{doc_type.replace('_', ' ').upper()}**\n\n"
                 f"{structure}\n\n"
-                "——————————————————————————————————————————\n"
-                "NOW GENERATE: Using the structure above as your MANDATORY TEMPLATE, "
-                "produce a COMPLETE report populated entirely with real data "
-                "from <agent_memory_source_data>.\n"
-                "Do NOT use placeholder text. Every section heading, every table row, "
-                "every bullet must contain real information from the source document.\n"
-                "This Markdown output will be automatically converted to a "
-                "professionally styled downloadable PDF."
+                "【执行指令：自主生成策略】\n"
+                "用户明确表示不需要指定样板，要求你直接生成。\n"
+                "请严格按照以上提供的行业标准模版结构，自主设计专业清晰排版。\n"
+                "1. 表格重建：原分析报告中涉及到数值比对的数据必须通过高度严谨的 Markdown 表格完整具现。\n"
+                "2. 零损坏要求：保证最终所有的文本都能安全无损地进入底层生成引擎。\n"
+                "回答规范性：严禁口语闲聊，直接从 `# [标题]` 开始吐出最终排版内容即可。\n\n"
+                "源文档数据参考：<agent_memory_source_data>"
             )
 
         else:
             instruction = (
-                "The user's reply is unclear. Do NOT generate a report yet. "
-                "Politely re-ask: do they have a PDF template to upload, "
-                "or shall you proceed with the auto-detected professional layout "
-                "(reply '直接生成')?  Keep it short and clear."
+                "请不要生成任何正式报告内容，也不要追加多余说明。"
+                "只向用户重述这句话即可（引导其操作）：\n"
+                f"“{routing_q}”"
             )
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # STAGE: wait_confirmation (backward compatibility for existing chats)
+    # ══════════════════════════════════════════════════════════════════════════
+    elif state["stage"] == "wait_confirmation":
+        state["stage"]           = "generate"
+        state["generate_pdf_now"]= True
+        state["use_fast_model"]  = False
+
+        instruction = (
+            f"用户的确认或微调指示如下：\n**{user_message}**\n\n"
+            "# Fidelity Protocol\n"
+            "1. 模板即准则：严禁擅自更改模板设计、表格间距或整体核心布局。\n"
+            "2. 动态填充：将第一阶段分析出的结构化数据像填空一样精准映射到模板对应位置。\n"
+            "3. 输出要求：直接输出最终用于生成 PDF 的完整高保真 Markdown，禁止虚假占位符。\n\n"
+            "源数据词典池：<agent_memory_source_data>\n"
+            "锁定模板蓝本：<agent_memory_template_data>\n\n"
+            "现在开始直接输出最后一步用于打印的 Markdown 内容全本。"
+        )
 
     # ══════════════════════════════════════════════════════════════════════════
     # STAGE: generate (refinement loop)
@@ -593,13 +877,20 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
         state["generate_pdf_now"] = True
         doc_type = state.get("doc_type", "general")
         _log(f"[agent] Refinement → type={doc_type} generate_pdf_now=True")
-        instruction = (
-            f"You are in REPORT REFINEMENT mode (document type: {doc_type}). "
-            "A PDF was just generated. Revise, expand, or update the report "
-            "based on the user's feedback. A new PDF will be generated automatically. "
-            "Maintain the same professional structure and formatting. "
-            "No filler text — all content must be data-backed."
-        )
+        if state.get("template_data"):
+            instruction = (
+                f"你现在处于报告迭代模式（document type: {doc_type}）。"
+                "上一版 PDF 已生成。请根据用户反馈更新内容，并继续严格遵守高保真复刻协议。"
+                "保持模板视觉结构不变，只修改必要的文字、数据和对应表格内容。"
+                "新的 PDF 会在本次输出后自动生成。所有内容都必须有数据依据。"
+            )
+        else:
+            instruction = (
+                f"你现在处于报告迭代模式（document type: {doc_type}）。"
+                "上一版 PDF 已生成。请根据用户反馈修订、扩展或更新报告。"
+                "保持同样的专业结构和可打印排版，新的 PDF 会在本次输出后自动生成。"
+                "禁止 filler text，所有内容都必须有数据依据。"
+            )
 
     # ── Hidden context ────────────────────────────────────────────────────────
     ctx_parts = []
@@ -612,6 +903,7 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
             f"<agent_memory_template_data>\n{state['template_data']}\n</agent_memory_template_data>"
         )
     hidden_context = "\n\n" + "\n\n".join(ctx_parts) if ctx_parts else ""
+    instruction = f"{lang_rule}\n\n{instruction}"
 
     _log(f"[agent] → stage={state['stage']} doc_type={state.get('doc_type')} "
          f"generate_pdf_now={state['generate_pdf_now']}")

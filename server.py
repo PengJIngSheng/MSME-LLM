@@ -569,9 +569,11 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
         }
         # Agent analysis: fast_model, no extra token cap (user wants full response)
         # Agent generate: larger context for full PDF + template data
-        # Capped at 8192 to prevent 12GB VRAM OOM for 14B models on RTX 4080 Mobile
+        # STRICTLY limited to 8192! `min()` correctly enforces the cap, unlike the previous `max()`
         if agent_mode:
-            _ollama_opts["num_ctx"] = max(cfg.context_length, 8192)
+            _ollama_opts["num_ctx"] = min(cfg.context_length, 8192)
+        else:
+            _ollama_opts["num_ctx"] = min(cfg.context_length, 8192)
 
         ollama_stream = _ol.chat(
             model=_ollama_model,
@@ -583,6 +585,7 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
         gguf_all   = ""
         think_raw  = ""   # 思考内容（用于存档）
         answer_raw = ""   # 回答内容（用于存档 + 显示）
+
 
 
         # Ollama 模板始终注入 <think>，所以模型总是先输出思考，再输出回答
@@ -717,8 +720,21 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
 
         thread.join()
 
-    # === PDF Auto-Generation (Agent Mode) ===
+    # === Force mandatory interactive prompt if LLM dropped it ===
     _mem = pdf_agent.agent_memory.get(chat_id, {})
+    if agent_mode and _mem.get("stage") == "wait_template":
+        _reply_lang = _mem.get("reply_lang", "en")
+        _routing_q = pdf_agent.get_routing_question(_reply_lang)
+        mandatory_q = (
+            "\n\n---\n\n"
+            + _routing_q
+        )
+        if _routing_q not in raw_accum_text:
+            yield _sse({'text': mandatory_q})
+            raw_accum_text += mandatory_q
+            answer_text = (answer_text if answer_text else "") + mandatory_q
+
+    # === PDF Auto-Generation (Agent Mode) ===
     print(f"[PDF CHECK] agent_mode={agent_mode} generate_pdf_now={_mem.get('generate_pdf_now')} stage={_mem.get('stage')}")
     _pdf_filename = None
     if agent_mode and _mem.get("generate_pdf_now"):
@@ -801,8 +817,7 @@ from fastapi.responses import FileResponse
 @app.get("/api/download_pdf/{filename}")
 async def download_pdf(filename: str):
     """Serve a generated PDF report for download."""
-    import pathlib, re
-    # Security: only allow safe filenames (alphanumeric, dash, underscore, dot)
+    import re, os
     if not re.match(r'^[\w\-\.]+\.pdf$', filename):
         return JSONResponse(status_code=400, content={"error": "Invalid filename"})
     pdf_path = os.path.join(
@@ -811,11 +826,16 @@ async def download_pdf(filename: str):
     )
     if not os.path.isfile(pdf_path):
         return JSONResponse(status_code=404, content={"error": "File not found"})
+    file_size = os.path.getsize(pdf_path)
+    if file_size == 0:
+        return JSONResponse(status_code=500, content={"error": "File is corrupted (0 bytes)."})
+    print(f"[Download] Serving {filename} ({file_size} bytes)")
     return FileResponse(
         path=pdf_path,
+        filename=filename,
         media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename=\"{filename}\""},
     )
+
 
 
 @app.post("/api/settings")

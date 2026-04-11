@@ -26,7 +26,7 @@ if cuda_available:
         print(f"  多处理器数量:   {props.multi_processor_count}")
 
     # 3. 简单的 GPU 计算测试
-    print(f"\n{'=' * 60}")
+    print(f"\n{'=' * 60}")1
     print("  GPU 计算测试")
     print("=" * 60)
     

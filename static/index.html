@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,41 +12,48 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
+
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/static/style.css?v=1775478814.07235">
 </head>
+
 <body>
-    
+
     <div class="page-wrapper">
         <!-- Sidebar -->
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-top">
                 <a href="/" class="home-link" title="Home">
-                    <img src="/static/pepperlabs%20(1).png" alt="PEPPER LABS" style="height: 36px; width: auto; object-fit: contain;" class="company-logo-img">
+                    <img src="/static/MOF_Logo.png" alt="MOF" style="height: 36px; width: auto; object-fit: contain;"
+                        class="company-logo-img">
                 </a>
                 <button class="icon-toggle-btn" id="sidebarCloseBtn" title="Close sidebar">
                     <i class="fa-solid fa-angles-left"></i>
                 </button>
             </div>
-            
+
             <div class="sidebar-nav-menu">
-                <button class="nav-menu-btn active" title="Chat" id="newChatBtn"><i class="fa-solid fa-plus"></i> <span class="nav-text">Chat</span></button>
-                <button class="nav-menu-btn" title="Search History" id="openSearchModalBtn"><i class="fa-solid fa-search"></i> <span class="nav-text">Search</span></button>                <button class="nav-menu-btn" title="AI Agent" id="agentModeBtn"><i class="fa-solid fa-cube"></i> <span class="nav-text">Agent</span></button>
+                <button class="nav-menu-btn active" title="Chat" id="newChatBtn"><i class="fa-solid fa-plus"></i> <span
+                        class="nav-text">Chat</span></button>
+                <button class="nav-menu-btn" title="Search History" id="openSearchModalBtn"><i
+                        class="fa-solid fa-search"></i> <span class="nav-text">Search</span></button> <button
+                    class="nav-menu-btn" title="AI Agent" id="agentModeBtn"><i class="fa-solid fa-cube"></i> <span
+                        class="nav-text">Agent</span></button>
             </div>
 
             <div class="sidebar-content">
-                <div class="history-dropdown-header" id="historyToggleBtn"><span class="nav-text">History</span> <i class="fa-solid fa-chevron-down nav-text"></i></div>
+                <div class="history-dropdown-header" id="historyToggleBtn"><span class="nav-text">History</span> <i
+                        class="fa-solid fa-chevron-down nav-text"></i></div>
                 <ul class="history-list" id="historyList">
                     <li class="history-placeholder"><span class="nav-text">Loading history...</span></li>
                 </ul>
             </div>
             <div class="sidebar-footer">
-                 <button class="icon-toggle-btn expand-btn hidden" id="sidebarExpandBtn" title="Expand sidebar">
+                <button class="icon-toggle-btn expand-btn hidden" id="sidebarExpandBtn" title="Expand sidebar">
                     <i class="fa-solid fa-angles-right"></i>
                 </button>
                 <button class="login-btn sidebar-user-btn" id="showLoginBtn">
-                    <div class="user-avatar-mimic"></div> 
+                    <div class="user-avatar-mimic"></div>
                     <span class="nav-text" id="userDisplay">Login</span>
                 </button>
             </div>
@@ -53,7 +61,7 @@
 
         <!-- Main Workspace -->
         <div class="main-content">
-            
+
             <header class="mobile-header" id="mobileHeader">
                 <button class="icon-toggle-btn" id="sidebarOpenBtn" title="Open sidebar">
                     <i class="fa-solid fa-bars"></i>
@@ -69,23 +77,24 @@
                     <div class="greeting-container" id="logoContainer">
                         <h2>
                             <span class="logo-text">
-                                <i class="fa-solid fa-leaf"></i> PEPPER LABS
-                            </span><br/>
+                                <i class="fa-solid fa-leaf"></i> Ministry of Finance
+                            </span><br />
                             How can I help you today?
                         </h2>
                     </div>
                     <div class="messages" id="messagesContainer"></div>
                 </main>
-                
+
                 <!-- Two-row input bar -->
                 <div class="input-wrapper">
                     <div class="liquid-glass-input">
-                        
+
                         <!-- Attachments preview bar -->
                         <div id="attachmentsPreview" class="attachments-preview"></div>
 
                         <div class="input-top-row">
-                            <input type="text" id="userInput" placeholder="What do you want to know?" autocomplete="off" />
+                            <input type="text" id="userInput" placeholder="What do you want to know?"
+                                autocomplete="off" />
                         </div>
                         <div class="input-bottom-row">
                             <div class="toggles-container">
@@ -97,7 +106,8 @@
                                 </button>
                             </div>
                             <div class="submit-group">
-                                <input type="file" id="fileInput" multiple accept=".pdf,image/*,.txt" style="display: none;" />
+                                <input type="file" id="fileInput" multiple accept=".pdf,image/*,.txt"
+                                    style="display: none;" />
                                 <button class="icon-btn" title="Upload files" id="uploadBtn" style="display: none;">
                                     <i class="fa-solid fa-paperclip"></i>
                                 </button>
@@ -112,7 +122,7 @@
             </div>
         </div>
     </div>
-    
+
     <!-- Auth Modal -->
     <div class="modal-overlay" id="authModal">
         <div class="modal-content liquid-glass-panel">
@@ -147,12 +157,12 @@
             </form>
         </div>
     </div>
-    
+
     <!-- Search History Modal -->
     <div class="modal-overlay" id="searchHistoryModal">
         <div class="modal-content liquid-glass-panel large-modal">
             <button class="modal-close" id="closeSearchModalBtn"><i class="fa-solid fa-xmark"></i></button>
-            
+
             <div class="search-modal-top-bar">
                 <i class="fa-solid fa-magnifying-glass search-icon"></i>
                 <input type="text" id="historySearchInput" placeholder="Search..." autocomplete="off">
@@ -164,7 +174,7 @@
                         <!-- Populated dynamically via JS -->
                     </ul>
                 </div>
-                
+
                 <!-- Right Pane: Live Preview -->
                 <div class="search-preview-pane">
                     <div class="preview-empty-state" id="previewEmptyState">
@@ -178,7 +188,7 @@
             </div>
         </div>
     </div>
-    
+
     <!-- Math: KaTeX -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
@@ -191,4 +201,5 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="/static/script.js?v=1775490596.91085"></script>
 </body>
+
 </html>
