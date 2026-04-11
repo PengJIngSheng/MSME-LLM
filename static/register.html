@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - Ministry of Finance</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script>
+        // Synchronous state hydration before paint
+        const authTranslations = {
+            en: {
+                title1: "Create your account",
+                emailLog: "Sign up with Email",
+                googleLog: "Sign up with Google",
+                appleLog: "Sign up with Apple",
+                noAccount: "Already have an account?",
+                regLink: "Log in",
+                title2: "Sign up with Email",
+                emailUser: "Email or Username",
+                pass: "Password",
+                submit: "Register",
+                loginFailed: "Registration failed",
+                auth: "Registering...",
+                tos: "By continuing you agree to xAI's <a href='#' style='color:inherit;'>Terms of Service</a> and <a href='#' style='color:inherit;'>Privacy Policy</a>."
+            },
+            zh: {
+                title1: "创建您的账户",
+                emailLog: "使用邮箱注册",
+                googleLog: "使用 Google 注册",
+                appleLog: "使用 Apple 注册",
+                noAccount: "已有账户？",
+                regLink: "登录",
+                title2: "使用邮箱注册",
+                emailUser: "邮箱或用户名 (Email or Username)",
+                pass: "密码 (Password)",
+                submit: "注册 Register",
+                loginFailed: "注册失败 / Registration failed",
+                auth: "注册中 / Registering...",
+                tos: "继续即表示您同意 xAI 的 <a href='#' style='color:inherit;'>服务条款</a> 和 <a href='#' style='color:inherit;'>隐私政策</a>。"
+            },
+            ms: {
+                title1: "Cipta akaun anda",
+                emailLog: "Daftar dengan E-mel",
+                googleLog: "Daftar dengan Google",
+                appleLog: "Daftar dengan Apple",
+                noAccount: "Sudah ada akaun?",
+                regLink: "Log masuk",
+                title2: "Daftar dengan E-mel",
+                emailUser: "E-mel atau Nama Pengguna",
+                pass: "Kata Laluan",
+                submit: "Daftar",
+                loginFailed: "Pendaftaran gagal",
+                auth: "Mendaftar...",
+                tos: "Dengan meneruskan, anda bersetuju dengan <a href='#' style='color:inherit;'>Terma Perkhidmatan</a> dan <a href='#' style='color:inherit;'>Dasar Privasi</a> xAI."
+            }
+        };
+
+        let currentLang = 'en';
+        (function() {
+            const savedTheme = localStorage.getItem('pepperTheme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            currentLang = localStorage.getItem('pepperLang') || 'en';
+        })();
+    </script>
+    <style>
+        /* Core Variables (Dark Mode Default) */
+        :root {
+            --bg-left: #050508;
+            --bg-right: #030305;
+            --text-main: #ffffff;
+            --text-dim: #888888;
+            --border-color: rgba(255,255,255,0.1);
+            --focus-glow: rgba(255, 255, 255, 0.1);
+            --input-bg: rgba(255, 255, 255, 0.02);
+            --font-family: 'Inter', 'Poppins', sans-serif;
+            
+            --btn-primary-bg: #ffffff;
+            --btn-primary-text: #000000;
+            --btn-primary-hover: #e0e0e0;
+            
+            --btn-secondary-bg: transparent;
+            --btn-secondary-border: rgba(255,255,255,0.15);
+            --btn-secondary-hover: rgba(255,255,255,0.05);
+            
+            --shadow-subtle: 0 8px 30px rgba(0,0,0,0.6);
+        }
+
+        /* Light Mode Variables */
+        html[data-theme="light"] {
+            --bg-left: #ffffff;
+            --bg-right: #f4f5f8;
+            --text-main: #121212;
+            --text-dim: #666666;
+            --border-color: rgba(0,0,0,0.1);
+            --focus-glow: rgba(0, 0, 0, 0.05);
+            --input-bg: rgba(0, 0, 0, 0.02);
+            
+            --btn-primary-bg: #000000;
+            --btn-primary-text: #ffffff;
+            --btn-primary-hover: #222222;
+            
+            --btn-secondary-bg: transparent;
+            --btn-secondary-border: rgba(0,0,0,0.15);
+            --btn-secondary-hover: rgba(0,0,0,0.03);
+            
+            --shadow-subtle: 0 12px 40px rgba(0,0,0,0.05);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-right);
+            color: var(--text-main);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        .split-left {
+            width: 45%;
+            background: var(--bg-left);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            z-index: 10;
+            box-shadow: var(--shadow-subtle);
+        }
+        
+        .top-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 40px;
+        }
+        .logo-container img {
+            height: 34px;
+            object-fit: contain;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+        }
+
+        .auth-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 0 40px;
+            margin-top: -80px;
+        }
+        .auth-box {
+            width: 100%;
+            max-width: 320px;
+            position: relative;
+        }
+        .auth-title {
+            font-size: 1.7rem;
+            font-weight: 500;
+            margin-bottom: 2.2rem;
+            text-align: center;
+            color: var(--text-main);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            letter-spacing: -0.015em;
+        }
+
+        /* Mode transition classes */
+        .auth-step {
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        .hidden {
+            display: none !important;
+            opacity: 0;
+            transform: scale(0.98);
+        }
+
+        /* OAuth Buttons */
+        .oauth-btn {
+            width: 100%;
+            padding: 13px;
+            border-radius: 9px;
+            font-size: 0.92rem;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+            margin-bottom: 1rem;
+        }
+        .primary-oauth {
+            background: var(--btn-primary-bg);
+            color: var(--btn-primary-text);
+            border: none;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .primary-oauth:hover {
+            background: var(--btn-primary-hover);
+            transform: translateY(-1px);
+        }
+        .secondary-oauth {
+            background: var(--btn-secondary-bg);
+            color: var(--text-main);
+            border: 1px solid var(--btn-secondary-border);
+        }
+        .secondary-oauth:hover {
+            background: var(--btn-secondary-hover);
+            border-color: var(--text-main);
+            transform: translateY(-1px);
+        }
+        .secondary-oauth i {
+            font-size: 1.15rem;
+        }
+        
+        /* Email Form */
+        .back-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-dim);
+            font-size: 1.25rem;
+            cursor: pointer;
+            margin-bottom: 0.5rem;
+            transition: color 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+            position: absolute;
+            top: -45px;
+            left: -10px;
+            padding: 10px;
+            border-radius: 50%;
+        }
+        .back-btn:hover {
+            color: var(--text-main);
+            background: rgba(120, 120, 120, 0.1);
+        }
+        .input-group {
+            margin-bottom: 1.25rem;
+        }
+        .input-group label {
+            display: block;
+            font-size: 0.82rem;
+            color: var(--text-dim);
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+        .input-field {
+            width: 100%;
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 9px;
+            padding: 14px 16px;
+            color: var(--text-main);
+            font-size: 0.95rem;
+            font-family: inherit;
+            transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+            outline: none;
+        }
+        .input-field:focus {
+            background: transparent;
+            border-color: var(--text-main);
+            box-shadow: 0 0 0 3px var(--focus-glow);
+        }
+        .submit-btn {
+            width: 100%;
+            background: var(--btn-primary-bg);
+            color: var(--btn-primary-text);
+            border: none;
+            padding: 14px;
+            border-radius: 9px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+            margin-top: 1rem;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.1);
+        }
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            background: var(--btn-primary-hover);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+        }
+        
+        .auth-links {
+            margin-top: 2.5rem;
+            text-align: center;
+            font-size: 0.85rem;
+            color: var(--text-dim);
+        }
+        .auth-links a {
+            color: var(--text-main);
+            text-decoration: none;
+            margin-left: 4px;
+            font-weight: 600;
+            transition: opacity 0.2s;
+        }
+        .auth-links a:hover {
+            opacity: 0.7;
+        }
+        
+        .resend-links {
+            margin-top: 2rem;
+            text-align: center;
+            font-size: 0.85rem;
+            color: var(--text-dim);
+        }
+        .resend-links button {
+            background: none;
+            border: none;
+            font-family: inherit;
+            color: var(--text-main);
+            cursor: pointer;
+            margin-left: 4px;
+            font-weight: 600;
+            transition: opacity 0.2s;
+            font-size: inherit;
+        }
+        .resend-links button:hover {
+            opacity: 0.7;
+        }
+        
+        /* Toast Notification */
+        .toast {
+            position: fixed;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            opacity: 0;
+            background: var(--text-main);
+            color: var(--btn-primary-bg);
+            padding: 14px 24px;
+            border-radius: 30px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+        .toast.error {
+            background: #ff4757;
+            color: #fff;
+        }
+
+        /* 3D Tech Canvas Area */
+        .split-right {
+            width: 55%;
+            position: relative;
+            background-color: var(--bg-right);
+            overflow: hidden;
+        }
+        #techCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        .brand-footer {
+            position: absolute;
+            bottom: 35px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            text-align: center;
+            width: 100%;
+        }
+
+        @media (max-width: 900px) {
+            .split-left { width: 100%; box-shadow: none; }
+            .split-right { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="toast" id="toastBox">
+        <i class="fa-solid fa-circle-exclamation"></i> <span id="toastMsg"></span>
+    </div>
+
+    <div class="split-left">
+        <div class="top-nav">
+            <div class="logo-container">
+                <a href="/">
+                    <img src="/static/MOF_Logo.png" alt="MOF Logo">
+                </a>
+            </div>
+        </div>
+        
+        <div class="auth-container">
+            <div class="auth-box">
+                <!-- STEP 1: Method Selection -->
+                <div id="stepSelection" class="auth-step">
+                    <h2 class="auth-title" data-i18n="title1">创建您的账户</h2>
+                    
+                    <button class="oauth-btn primary-oauth" id="openEmailFormBtn">
+                        <i class="fa-regular fa-envelope" style="margin-right: 4px;"></i> <span data-i18n="emailLog">使用邮箱注册</span>
+                    </button>
+                    
+                    <button class="oauth-btn secondary-oauth" id="googleAuthBtn">
+                        <svg width="18" height="18" viewBox="0 0 48 48" style="margin-right: 6px;">
+                            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.7 17.74 9.5 24 9.5z"/>
+                            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+                            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+                        </svg>
+                        <span data-i18n="googleLog">使用 Google 注册</span>
+                    </button>
+                    
+                    <button class="oauth-btn secondary-oauth" id="appleAuthBtn">
+                        <i class="fa-brands fa-apple" style="margin-right: 4px; font-size: 1.25rem;"></i> <span data-i18n="appleLog">使用 Apple 注册</span>
+                    </button>
+                    
+                    <div class="auth-links">
+                        <span data-i18n="noAccount">已有账户？</span> <a href="/static/login.html" data-i18n="regLink">登录</a>
+                    </div>
+                </div>
+
+                <!-- STEP 2: Email Register Form -->
+                <div id="stepEmailForm" class="auth-step hidden">
+                    <button class="back-btn" id="backToSelectionBtn" title="返回"><i class="fa-solid fa-arrow-left"></i></button>
+                    <h2 class="auth-title" data-i18n="title2">使用邮箱注册</h2>
+                    
+                    <form id="standaloneRegisterForm">
+                        <div class="input-group">
+                            <label data-i18n="emailUser">邮箱或用户名 (Email or Username)</label>
+                            <input type="text" id="registerUsername" class="input-field" required autocomplete="username">
+                        </div>
+                        <div class="input-group">
+                            <label data-i18n="pass">密码 (Password)</label>
+                            <input type="password" id="registerPassword" class="input-field" required autocomplete="new-password">
+                        </div>
+                        
+                        <button type="submit" class="submit-btn" id="registerSubmitBtn" data-i18n="submit">注册 Register</button>
+                    </form>
+                </div>
+                
+            </div>
+            
+            <div class="brand-footer" id="legalText" data-i18n="tos">
+                继续即表示您同意 xAI 的 <a href="#" style="color:inherit;">服务条款</a> 和 <a href="#" style="color:inherit;">隐私政策</a>。
+            </div>
+        </div>
+    </div>
+
+    <div class="split-right">
+        <canvas id="techCanvas"></canvas>
+    </div>
+
+    <script>
+        // Apply Translations
+        function applyTranslations() {
+            const t = authTranslations[currentLang] || authTranslations.en;
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (t[key]) {
+                    el.innerHTML = t[key];
+                }
+            });
+        }
+        applyTranslations(); // Run on load
+
+        // Transition Logic
+        const stepSelection = document.getElementById('stepSelection');
+        const stepEmailForm = document.getElementById('stepEmailForm');
+        
+        document.getElementById('openEmailFormBtn').addEventListener('click', () => {
+            stepSelection.classList.add('hidden');
+            setTimeout(() => {
+                stepSelection.style.display = 'none';
+                stepEmailForm.classList.remove('hidden');
+                stepEmailForm.style.display = 'block';
+            }, 300);
+        });
+        
+        document.getElementById('backToSelectionBtn').addEventListener('click', () => {
+            stepEmailForm.classList.add('hidden');
+            setTimeout(() => {
+                stepEmailForm.style.display = 'none';
+                stepSelection.classList.remove('hidden');
+                stepSelection.style.display = 'block';
+            }, 300);
+        });
+
+        // Toast logic
+        const toastBox = document.getElementById('toastBox');
+        const toastMsg = document.getElementById('toastMsg');
+        function showToast(msg, isError=false) {
+            toastMsg.innerText = msg;
+            toastBox.className = 'toast show ' + (isError ? 'error' : '');
+            setTimeout(() => { toastBox.classList.remove('show'); }, 4000);
+        }
+
+        // Form Submit Logic
+        let googleTokenClient;
+        function initGoogleClient() {
+            if(typeof google !== 'undefined') {
+                googleTokenClient = google.accounts.oauth2.initTokenClient({
+                    client_id: '685645444928-ivt7lgsjiatv0ff0r68ckmbln1rdrrm4.apps.googleusercontent.com',
+                    scope: 'email profile openid',
+                    callback: async (tokenResponse) => {
+                        if (tokenResponse && tokenResponse.access_token) {
+                            try {
+                                showToast("Verifying Google Auth...", false);
+                                const res = await fetch('/api/auth/google', {
+                                    method: 'POST',
+                                    headers: {'Content-Type': 'application/json'},
+                                    body: JSON.stringify({token: tokenResponse.access_token})
+                                });
+                                const data = await res.json();
+                                if(res.ok && data.status === "success") {
+                                    localStorage.setItem('pepperJwt', data.access_token);
+                                    localStorage.setItem('pepperUserId', data.user_id);
+                                    localStorage.setItem('pepperUsername', data.username);
+                                    if(data.avatarUrl) localStorage.setItem('pepperAvatar', data.avatarUrl);
+                                    window.location.href = '/';
+                                } else {
+                                    showToast(data.detail || "Google Login Failed", true);
+                                }
+                            } catch (err) {
+                                showToast("Google Network Error", true);
+                            }
+                        }
+                    },
+                });
+            } else {
+                setTimeout(initGoogleClient, 100);
+            }
+        }
+        initGoogleClient();
+
+        document.getElementById('googleAuthBtn').addEventListener('click', () => {
+            if(googleTokenClient) {
+                googleTokenClient.requestAccessToken();
+            } else {
+                showToast("Google OAuth 模块加载中，请稍后再试。", true);
+            }
+        });
+        
+        document.getElementById('appleAuthBtn').addEventListener('click', () => {
+            showToast("Apple OAuth 模块正在初始化。请在后端配置 Client_ID。", false);
+        });
+
+        document.getElementById('standaloneRegisterForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('registerSubmitBtn');
+            const u = document.getElementById('registerUsername').value;
+            const p = document.getElementById('registerPassword').value;
+            const t = authTranslations[currentLang] || authTranslations.en;
+            
+            try {
+                btn.textContent = t.auth;
+                btn.disabled = true;
+                
+                const res = await fetch('/api/register', { 
+                    method: 'POST', 
+                    headers: {'Content-Type': 'application/json'}, 
+                    body: JSON.stringify({username: u, password: p}) 
+                });
+                
+                const data = await res.json();
+                
+                if (res.ok && data.status === "pending_verification") {
+                    localStorage.setItem('pendingUserId', data.user_id);
+                    window.location.href = `/static/verify.html?id=${data.user_id}`;
+                } else { 
+                    showToast(data.detail || t.loginFailed, true);
+                    btn.textContent = t.submit;
+                    btn.disabled = false;
+                }
+            } catch(error) { 
+                showToast('Network error.', true);
+                btn.textContent = t.submit;
+                btn.disabled = false;
+            }
+        });
+
+        // =========================================================================
+        // High-Tech 3D Particle Constellation Engine
+        // =========================================================================
+        const canvas = document.getElementById('techCanvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+        let particles = [];
+        
+        function resize() {
+            width = canvas.width = canvas.parentElement.clientWidth;
+            height = canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // Particle System
+        const PARTICLE_COUNT = 150;
+        const CONNECTION_DIST = 140;
+
+        for (let i = 0; i < PARTICLE_COUNT; i++) {
+            particles.push({
+                x: Math.random() * width,
+                y: Math.random() * height,
+                z: Math.random() * 2 + 0.1, // 3D depth multiplier
+                vx: (Math.random() - 0.5) * 0.6,
+                vy: (Math.random() - 0.5) * 0.6,
+                baseVx: (Math.random() - 0.5) * 0.6,
+                baseVy: (Math.random() - 0.5) * 0.6
+            });
+        }
+
+        let mouseX = -1000;
+        let mouseY = -1000;
+
+        // Interactive Tracking
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            mouseX = e.clientX - rect.left;
+            mouseY = e.clientY - rect.top;
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            mouseX = -1000;
+            mouseY = -1000;
+        });
+
+        // Shatter Effect on Click
+        canvas.addEventListener('mousedown', (e) => {
+            if(e.button !== 0) return; // Only left click
+            const rect = canvas.getBoundingClientRect();
+            let mx = e.clientX - rect.left;
+            let my = e.clientY - rect.top;
+            
+            // Blast radius
+            particles.forEach(p => {
+                let dx = p.x - mx;
+                let dy = p.y - my;
+                let dist = Math.sqrt(dx*dx + dy*dy);
+                if(dist < 250) {
+                    let force = (250 - dist) / 10; // Shatter explosive power
+                    p.vx += (dx / dist) * force;
+                    p.vy += (dy / dist) * force;
+                }
+            });
+        });
+
+        let time = 0;
+        function animate() {
+            const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+            
+            // Clear background
+            if(isLight) {
+                ctx.fillStyle = '#f4f5f8';
+            } else {
+                ctx.fillStyle = '#030305';
+            }
+            ctx.fillRect(0, 0, width, height);
+
+            // Tech Grid (Optional subtle background)
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = isLight ? 'rgba(0,0,0,0.02)' : 'rgba(255,255,255,0.02)';
+            const gridSize = 60;
+            ctx.beginPath();
+            for(let x=0; x<width; x+=gridSize) { ctx.moveTo(x, 0); ctx.lineTo(x, height); }
+            for(let y=0; y<height; y+=gridSize) { ctx.moveTo(0, y); ctx.lineTo(width, y); }
+            ctx.stroke();
+
+            // Set colors based on theme
+            const dotColor = isLight ? '10, 20, 50' : '150, 180, 255';
+            const lineColor = isLight ? '10, 20, 50' : '120, 150, 255';
+            
+            // Slowly rotate the entire network around center to give 3D orbital feel
+            time += 0.001;
+            const cx = width / 2;
+            const cy = height / 2;
+
+            particles.forEach((p, i) => {
+                // Interactive Mouse Pull/Push
+                let dxCursor = mouseX - p.x;
+                let dyCursor = mouseY - p.y;
+                let distCursor = Math.sqrt(dxCursor*dxCursor + dyCursor*dyCursor);
+                
+                // Mouse repulsion field
+                if (distCursor < 120) {
+                    let force = (120 - distCursor) / 1000;
+                    p.vx -= dxCursor * force;
+                    p.vy -= dyCursor * force;
+                }
+
+                // Physics: Friction to slow down shards after shatter explosion
+                p.vx += (p.baseVx - p.vx) * 0.02;
+                p.vy += (p.baseVy - p.vy) * 0.02;
+
+                // Drift
+                p.x += p.vx * p.z;
+                p.y += p.vy * p.z;
+
+                // Wrap around edges to simulate infinite space
+                if(p.x < -CONNECTION_DIST) p.x = width + CONNECTION_DIST;
+                if(p.x > width + CONNECTION_DIST) p.x = -CONNECTION_DIST;
+                if(p.y < -CONNECTION_DIST) p.y = height + CONNECTION_DIST;
+                if(p.y > height + CONNECTION_DIST) p.y = -CONNECTION_DIST;
+
+                // Draw Particle
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.z * 1.5, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(${dotColor}, ${0.2 + p.z*0.3})`;
+                ctx.fill();
+            });
+
+            // Connect lines
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    const pi = particles[i];
+                    const pj = particles[j];
+                    const dx = pi.x - pj.x;
+                    const dy = pi.y - pj.y;
+                    const distSQ = dx*dx + dy*dy;
+                    
+                    if (distSQ < CONNECTION_DIST * CONNECTION_DIST) {
+                        const dist = Math.sqrt(distSQ);
+                        const alpha = 1 - (dist / CONNECTION_DIST);
+                        ctx.beginPath();
+                        ctx.moveTo(pi.x, pi.y);
+                        // Add slight curve for 3D tension effect
+                        ctx.quadraticCurveTo(cx + (pi.x - cx)*0.5, cy + (pi.y - cy)*0.5, pj.x, pj.y);
+                        ctx.strokeStyle = `rgba(${lineColor}, ${alpha * 0.4})`;
+                        ctx.lineWidth = ((pi.z + pj.z)/2) * 0.5;
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+        animate();
+    </script>
+</body>
+</html>

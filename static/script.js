@@ -19,7 +19,8 @@ let isPaused = false;
 let pausedMsgIndex = null;
 
 if (currentUsername) {
-    document.getElementById('userDisplay').innerText = currentUsername;
+    const ud = document.getElementById('userDisplay');
+    if (ud) ud.innerText = currentUsername;
 }
 
 // ============ Sidebar Toggle ============
@@ -1133,83 +1134,7 @@ userInput.addEventListener('keydown', (e) => {
 });
 
 // ============ Auth ============
-const authModal = document.getElementById('authModal');
-const showLoginBtn = document.getElementById('showLoginBtn');
-const closeAuthBtn = document.getElementById('closeAuthBtn');
-const authTabs = document.querySelectorAll('.auth-tab');
-const authForms = document.querySelectorAll('.auth-form');
-const loginForm = document.getElementById('loginForm');
-const registerForm = document.getElementById('registerForm');
-const loginError = document.getElementById('loginError');
-const registerError = document.getElementById('registerError');
-
-showLoginBtn.addEventListener('click', () => {
-    if (currentUserId) {
-        if(confirm("Do you want to logout?")) {
-            localStorage.removeItem('pepperUserId');
-            localStorage.removeItem('pepperUsername');
-            currentUserId = null;
-            currentUsername = null;
-            document.getElementById('userDisplay').innerText = 'Login';
-            currentChatId = null;
-            messagesContainer.innerHTML = '';
-            loadHistory();
-            logoContainer.style.display = 'flex';
-            logoContainer.style.opacity = '1';
-        }
-        return;
-    }
-    authModal.classList.add('show');
-});
-
-closeAuthBtn.addEventListener('click', () => authModal.classList.remove('show'));
-
-authTabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-        authTabs.forEach(t => t.classList.remove('active'));
-        authForms.forEach(f => f.classList.remove('active'));
-        tab.classList.add('active');
-        document.getElementById(tab.dataset.tab + 'Form').classList.add('active');
-    });
-});
-
-loginForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    loginError.innerText = '';
-    const u = document.getElementById('loginUsername').value;
-    const p = document.getElementById('loginPassword').value;
-    try {
-        const res = await fetch('/api/login', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username:u,password:p}) });
-        const data = await res.json();
-        if (res.ok && data.status === "success") {
-            currentUserId = data.user_id; currentUsername = data.username;
-            localStorage.setItem('pepperUserId', currentUserId);
-            localStorage.setItem('pepperUsername', currentUsername);
-            document.getElementById('userDisplay').innerText = currentUsername;
-            authModal.classList.remove('show');
-            loadHistory();
-        } else { loginError.innerText = data.detail || 'Login failed'; }
-    } catch(err) { loginError.innerText = 'Network error'; }
-});
-
-registerForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    registerError.innerText = '';
-    const u = document.getElementById('registerUsername').value;
-    const p = document.getElementById('registerPassword').value;
-    try {
-        const res = await fetch('/api/register', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username:u,password:p}) });
-        const data = await res.json();
-        if (res.ok && data.status === "success") {
-            currentUserId = data.user_id; currentUsername = data.username;
-            localStorage.setItem('pepperUserId', currentUserId);
-            localStorage.setItem('pepperUsername', currentUsername);
-            document.getElementById('userDisplay').innerText = currentUsername;
-            authModal.classList.remove('show');
-            loadHistory();
-        } else { registerError.innerText = data.detail || 'Registration failed'; }
-    } catch(err) { registerError.innerText = 'Network error'; }
-});
+// Auth logic moved to index.html and modern scripts.
 
 // ============ Scroll Listener for Source Cards ============
 document.addEventListener('wheel', (e) => {
@@ -1473,3 +1398,354 @@ async function loadChatPreview(chatId, title, liElement) {
         previewMessages.innerHTML = `<div style="color:var(--primary-dim);">Failed to fetch preview.</div>`;
     }
 }
+
+// ============ Guest Navigation: Settings Dropdown, Theme & Language ============
+(function initGuestNav() {
+    const nav = document.getElementById('guestNav');
+    const gearBtn = document.getElementById('settingsGearBtn');
+    const dropdown = document.getElementById('settingsDropdown');
+    if (!nav || !gearBtn || !dropdown) return;
+
+    // Hide nav if user is logged in
+    function updateNavVisibility() {
+        nav.style.display = currentUserId ? 'none' : 'flex';
+    }
+    updateNavVisibility();
+
+    // Observe login state changes
+    const origSetItem = localStorage.setItem.bind(localStorage);
+    localStorage.setItem = function(key, val) {
+        origSetItem(key, val);
+        if (key === 'pepperUserId') setTimeout(updateNavVisibility, 100);
+    };
+
+    // ── Gear Button: Toggle Dropdown ──
+    gearBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isOpen = dropdown.classList.contains('open');
+        dropdown.classList.toggle('open', !isOpen);
+        gearBtn.classList.toggle('active', !isOpen);
+    });
+
+    // Close dropdown on outside click
+    document.addEventListener('click', (e) => {
+        if (!dropdown.contains(e.target) && e.target !== gearBtn) {
+            dropdown.classList.remove('open');
+            gearBtn.classList.remove('active');
+        }
+    });
+
+    // ── Login / Register buttons → redirect to dedicated pages ──
+    const guestLoginBtn = document.getElementById('guestLoginBtn');
+    const guestRegisterBtn = document.getElementById('guestRegisterBtn');
+
+    if (guestLoginBtn) {
+        guestLoginBtn.addEventListener('click', () => {
+            window.location.href = '/static/login.html';
+        });
+    }
+
+    if (guestRegisterBtn) {
+        guestRegisterBtn.addEventListener('click', () => {
+            window.location.href = '/static/register.html';
+        });
+    }
+
+    // ── Theme Toggle ──
+    const savedTheme = localStorage.getItem('pepperTheme') || 'dark';
+    applyTheme(savedTheme);
+
+    nav.querySelectorAll('.theme-btn').forEach(btn => {
+        if (btn.dataset.theme === savedTheme) btn.classList.add('active');
+        else btn.classList.remove('active');
+
+        btn.addEventListener('click', () => {
+            nav.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            applyTheme(btn.dataset.theme);
+            localStorage.setItem('pepperTheme', btn.dataset.theme);
+        });
+    });
+
+    function applyTheme(theme) {
+        if (theme === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            document.body.style.backgroundColor = '#000000';
+        } else {
+            document.documentElement.removeAttribute('data-theme');
+            document.body.style.backgroundColor = '';
+        }
+    }
+
+    // ── Language Selector ──
+    const savedLang = localStorage.getItem('pepperLang') || 'en';
+    applyLang(savedLang);
+
+    nav.querySelectorAll('.lang-btn').forEach(btn => {
+        if (btn.dataset.lang === savedLang) btn.classList.add('active');
+        else btn.classList.remove('active');
+
+        btn.addEventListener('click', () => {
+            nav.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            applyLang(btn.dataset.lang);
+            localStorage.setItem('pepperLang', btn.dataset.lang);
+        });
+    });
+
+    function applyLang(lang) {
+        const translations = {
+            en: {
+                greeting: 'How can I help you today?',
+                placeholder: 'What do you want to know?',
+                thinkMode: 'Think Mode',
+                searchMode: 'Search Mode',
+                login: 'Login',
+                loginBtn: 'Login',
+                registerBtn: 'Register',
+                agentGreeting: 'Your personalize AI agent',
+                settingsLabel: 'Language',
+                navChat: 'Chat',
+                navSearch: 'Search',
+                navAgent: 'Agent',
+                navHistory: 'History',
+                loadingHistory: 'Loading history...',
+                ctxSettings: 'Settings',
+                ctxTheme: 'Theme',
+                ctxLang: 'Language',
+                ctxFiles: 'Files',
+                ctxHelp: 'Help',
+                ctxLogout: 'Logout'
+            },
+            zh: {
+                greeting: '今天我能为您做些什么？',
+                placeholder: '您想了解什么？',
+                thinkMode: '思考模式',
+                searchMode: '联网搜索',
+                login: '登录',
+                loginBtn: '登录',
+                registerBtn: '注册',
+                agentGreeting: '您的专属 AI 智能助手',
+                settingsLabel: '语言',
+                navChat: '对话',
+                navSearch: '搜索',
+                navAgent: '深度分析',
+                navHistory: '历史记录',
+                loadingHistory: '加载历史中...',
+                ctxSettings: '设置',
+                ctxTheme: '主题',
+                ctxLang: '语言',
+                ctxFiles: '文件',
+                ctxHelp: '帮助',
+                ctxLogout: '退出登录'
+            },
+            ms: {
+                greeting: 'Apa yang boleh saya bantu hari ini?',
+                placeholder: 'Apa yang anda ingin tahu?',
+                thinkMode: 'Mod Pemikiran',
+                searchMode: 'Mod Carian',
+                login: 'Log Masuk',
+                loginBtn: 'Log Masuk',
+                registerBtn: 'Daftar',
+                agentGreeting: 'Ejen AI peribadi anda',
+                settingsLabel: 'Bahasa',
+                navChat: 'Sembang',
+                navSearch: 'Carian',
+                navAgent: 'Ejen',
+                navHistory: 'Sejarah',
+                loadingHistory: 'Memuatkan sejarah...',
+                ctxSettings: 'Tetapan',
+                ctxTheme: 'Tema',
+                ctxLang: 'Bahasa',
+                ctxFiles: 'Fail',
+                ctxHelp: 'Bantuan',
+                ctxLogout: 'Log Keluar'
+            }
+        };
+
+        const t = translations[lang] || translations.en;
+        const inp = document.getElementById('userInput');
+        if (inp) inp.placeholder = t.placeholder;
+        const thinkSpan = document.querySelector('#thinkToggle span');
+        if (thinkSpan) thinkSpan.textContent = t.thinkMode;
+        const webSpan = document.querySelector('#webToggle span');
+        if (webSpan) webSpan.textContent = t.searchMode;
+        if (guestLoginBtn) guestLoginBtn.textContent = t.loginBtn;
+        if (guestRegisterBtn) guestRegisterBtn.textContent = t.registerBtn;
+        
+        // Update sidebar nav items
+        const chatTxt = document.querySelector('#newChatBtn .nav-text');
+        if (chatTxt) chatTxt.textContent = t.navChat;
+        const searchTxt = document.querySelector('#openSearchModalBtn .nav-text');
+        if (searchTxt) searchTxt.textContent = t.navSearch;
+        const agentTxt = document.querySelector('#agentModeBtn .nav-text');
+        if (agentTxt) agentTxt.textContent = t.navAgent;
+        const historyTxt = document.querySelector('#historyToggleBtn .nav-text');
+        if (historyTxt) historyTxt.textContent = t.navHistory;
+        const loadHist = document.querySelector('.history-placeholder .nav-text');
+        if (loadHist) loadHist.textContent = t.loadingHistory;
+
+        // Update settings label
+        const settingsLabel = nav.querySelector('.settings-label');
+        if (settingsLabel) settingsLabel.textContent = t.settingsLabel;
+
+        // Update User Context Menu
+        const ctxSettingsTxt = document.querySelector('#ctxSettingsMenuBtn span');
+        if (ctxSettingsTxt) ctxSettingsTxt.textContent = t.ctxSettings;
+        const ctxFilesTxt = document.querySelectorAll('.ctx-menu-item span')[1];
+        if (ctxFilesTxt && !ctxFilesTxt.closest('#ctxSettingsBlock') && !ctxFilesTxt.closest('#ctxLogoutBtn')) ctxFilesTxt.textContent = t.ctxFiles;
+        const ctxHelpTxt = document.querySelectorAll('.ctx-menu-item span')[2];
+        if (ctxHelpTxt && !ctxHelpTxt.closest('#ctxLogoutBtn')) ctxHelpTxt.textContent = t.ctxHelp;
+        const ctxLogoutTxt = document.querySelector('#ctxLogoutBtn span');
+        if (ctxLogoutTxt) ctxLogoutTxt.textContent = t.ctxLogout;
+        
+        const ctxHeaders = document.querySelectorAll('.ctx-settings-header');
+        if (ctxHeaders.length >= 2) {
+            ctxHeaders[0].textContent = t.ctxTheme;
+            ctxHeaders[1].textContent = t.ctxLang;
+        }
+
+        if (!currentUserId) {
+            const ud = document.getElementById('userDisplay');
+            if (ud) ud.innerText = t.login;
+        }
+        window._pepperLang = t;
+    }
+})();
+
+// ============ Sidebar User Context Menu & Avatar Sync ============
+(function initUserContextMenu() {
+    const showLoginBtn = document.getElementById('showLoginBtn');
+    const contextMenu = document.getElementById('userContextMenu');
+    const avatarDisplay = document.getElementById('avatarDisplay');
+    const userDisplayName = document.getElementById('userDisplayName');
+    const userEmailDisplay = document.getElementById('userEmailDisplay');
+    const logoutBtn = document.getElementById('ctxLogoutBtn');
+    const settingsBtn = document.getElementById('ctxSettingsMenuBtn');
+    const settingsBlock = document.getElementById('ctxSettingsBlock');
+    const settingsIcon = document.getElementById('ctxSettingsIcon');
+    const currentUserId = localStorage.getItem('pepperUserId');
+    
+    function hashToHSL(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            hash = str.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        const h = Math.abs(hash % 360);
+        return `hsl(${h}, 70%, 60%)`;
+    }
+
+    function hydrateUser() {
+        const username = localStorage.getItem('pepperUsername');
+        const avatarUrl = localStorage.getItem('pepperAvatar');
+        
+        if (username && username.includes('@')) {
+            if (userDisplayName) userDisplayName.innerText = username.split('@')[0];
+            if (userEmailDisplay) userEmailDisplay.innerText = username;
+            
+            if (avatarUrl && avatarDisplay) {
+                avatarDisplay.innerHTML = `<img src="${avatarUrl}" alt="Avatar">`;
+                avatarDisplay.style.background = 'transparent';
+            } else if (avatarDisplay) {
+                const firstLetter = username.charAt(0).toUpperCase();
+                const bgColor = hashToHSL(username);
+                avatarDisplay.innerHTML = firstLetter;
+                avatarDisplay.style.background = `linear-gradient(135deg, ${bgColor}, #333333)`;
+            }
+        } else if (username) {
+            if (userDisplayName) userDisplayName.innerText = username;
+            if (userEmailDisplay) userEmailDisplay.innerText = '';
+            
+            if (avatarDisplay) {
+                const firstLetter = username.charAt(0).toUpperCase();
+                const bgColor = hashToHSL(username);
+                avatarDisplay.innerHTML = firstLetter;
+                avatarDisplay.style.background = `linear-gradient(135deg, ${bgColor}, #333333)`;
+            }
+        }
+    }
+    hydrateUser();
+
+    if(showLoginBtn && contextMenu) {
+        showLoginBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!localStorage.getItem('pepperUserId')) {
+                window.location.href = '/static/login.html';
+            } else {
+                const isShowing = contextMenu.classList.contains('show');
+                contextMenu.classList.toggle('show', !isShowing);
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!contextMenu.contains(e.target) && !showLoginBtn.contains(e.target)) {
+                contextMenu.classList.remove('show');
+                if(settingsBlock) settingsBlock.classList.remove('show');
+                if(settingsIcon) settingsIcon.className = 'fa-solid fa-chevron-down';
+            }
+        });
+    }
+
+    if(logoutBtn) {
+        logoutBtn.addEventListener('click', () => {
+            localStorage.removeItem('pepperJwt');
+            localStorage.removeItem('pepperUserId');
+            localStorage.removeItem('pepperUsername');
+            localStorage.removeItem('pepperAvatar');
+            window.location.href = '/static/login.html';
+        });
+    }
+
+    if(settingsBtn && settingsBlock) {
+        settingsBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = settingsBlock.classList.contains('show');
+            settingsBlock.classList.toggle('show', !isOpen);
+            if(settingsIcon) settingsIcon.className = isOpen ? 'fa-solid fa-chevron-down' : 'fa-solid fa-chevron-right';
+        });
+    }
+    
+    // Bind context settings toggles
+    const ctxThemeGroup = document.getElementById('ctxThemeToggleGroup');
+    if (ctxThemeGroup) {
+        ctxThemeGroup.querySelectorAll('.theme-btn').forEach(btn => {
+            const savedTheme = localStorage.getItem('pepperTheme') || 'dark';
+            btn.classList.toggle('active', btn.dataset.theme === savedTheme);
+            btn.addEventListener('click', () => {
+                ctxThemeGroup.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                if (btn.dataset.theme === 'dark') {
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                    document.body.style.backgroundColor = '#000000';
+                } else {
+                    document.documentElement.removeAttribute('data-theme');
+                    document.body.style.backgroundColor = '';
+                }
+                localStorage.setItem('pepperTheme', btn.dataset.theme);
+                
+                // Update top guest nav as well to keep sync if visible
+                const guestThemeGroup = document.getElementById('themeToggleGroup');
+                if(guestThemeGroup) {
+                    guestThemeGroup.querySelectorAll('.theme-btn').forEach(b => {
+                        b.classList.toggle('active', b.dataset.theme === btn.dataset.theme);
+                    });
+                }
+            });
+        });
+    }
+    
+    const ctxLangSel = document.getElementById('ctxLangSelector');
+    if (ctxLangSel) {
+        ctxLangSel.querySelectorAll('.lang-btn').forEach(btn => {
+            const currentLang = localStorage.getItem('pepperLang') || 'en';
+            btn.classList.toggle('active', btn.dataset.lang === currentLang);
+            btn.addEventListener('click', () => {
+                ctxLangSel.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                localStorage.setItem('pepperLang', btn.dataset.lang);
+                // Call global reload for language change!
+                window.location.reload();
+            });
+        });
+    }
+})();
