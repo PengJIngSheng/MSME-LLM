@@ -44,6 +44,13 @@ _DEFAULTS = {
         "host":             "0.0.0.0",
         "port":             8000,
         "max_history_turns": 20,
+        "ngrok": {
+            "enabled":       False,
+            "authtoken":     "",
+            "domain":        "",
+            "region":        "",
+            "bind_tls":      True,
+        },
     },
     "api_keys": {
         "bing_search": "",  # unused - DuckDuckGo only
@@ -90,6 +97,13 @@ def _load_raw() -> dict:
     else:
         print(f"  ℹ️  config.yaml not found at {_CONFIG_PATH} — using defaults")
     return _deep_merge(_DEFAULTS, raw)
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
 class _Config:
@@ -178,6 +192,31 @@ class _Config:
     @property
     def timezone(self) -> str:
         return self._raw["server"].get("timezone", "Asia/Kuala_Lumpur")
+
+    @property
+    def ngrok_enabled(self) -> bool:
+        ngrok_cfg = self._raw["server"].get("ngrok", {})
+        return _env_bool("NGROK_ENABLED", bool(ngrok_cfg.get("enabled", False)))
+
+    @property
+    def ngrok_authtoken(self) -> str:
+        ngrok_cfg = self._raw["server"].get("ngrok", {})
+        return os.getenv("NGROK_AUTHTOKEN", ngrok_cfg.get("authtoken", "") or "")
+
+    @property
+    def ngrok_domain(self) -> str:
+        ngrok_cfg = self._raw["server"].get("ngrok", {})
+        return os.getenv("NGROK_DOMAIN", ngrok_cfg.get("domain", "") or "")
+
+    @property
+    def ngrok_region(self) -> str:
+        ngrok_cfg = self._raw["server"].get("ngrok", {})
+        return os.getenv("NGROK_REGION", ngrok_cfg.get("region", "") or "")
+
+    @property
+    def ngrok_bind_tls(self) -> bool:
+        ngrok_cfg = self._raw["server"].get("ngrok", {})
+        return _env_bool("NGROK_BIND_TLS", bool(ngrok_cfg.get("bind_tls", True)))
 
     # ── API Keys (env vars take priority) ────────────────────────────────────
     @property

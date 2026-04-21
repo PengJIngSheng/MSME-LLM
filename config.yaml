@@ -61,8 +61,27 @@ generation:
 # SERVER SETTINGS
 # -----------------------------------------------------------------------------
 server:
-  host: "0.0.0.0"
+  # Bind locally; ngrok provides the public reverse proxy.
+  host: "127.0.0.1"
   port: 8000
+
+  ngrok:
+    # Override with env var NGROK_ENABLED=true/false if needed.
+    enabled: true
+
+    # Prefer env var NGROK_AUTHTOKEN instead of committing a token here.
+    authtoken: ""
+
+    # Optional reserved ngrok domain, e.g. "your-app.ngrok.app".
+    # Can also be set with NGROK_DOMAIN.
+    domain: ""
+
+    # Optional region, e.g. "us", "eu", "ap", "au", "sa", "jp", "in".
+    # Can also be set with NGROK_REGION.
+    region: ""
+
+    # Force HTTPS public URLs when supported.
+    bind_tls: true
 
   # Server timezone used for scheduling Google Workspace Calendar events
   timezone: "Asia/Kuala_Lumpur"

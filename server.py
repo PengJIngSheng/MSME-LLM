@@ -8,6 +8,7 @@ import re
 import uuid
 import datetime as dt
 import queue as queue_module
+import atexit
 from datetime import datetime
 from fastapi import FastAPI, Request, UploadFile, File
 from copy import deepcopy
@@ -90,6 +91,67 @@ fs = gridfs.GridFS(db)
 model = None
 tokenizer = None
 model_type = None
+_ngrok_public_url = None
+_ngrok_tunnel = None
+
+
+def _stop_ngrok_tunnel():
+    """Close the ngrok tunnel when the Python process exits."""
+    global _ngrok_public_url
+    if not _ngrok_public_url:
+        return
+    try:
+        from pyngrok import ngrok
+        ngrok.disconnect(_ngrok_public_url)
+        print(f"[ngrok] Closed tunnel: {_ngrok_public_url}")
+    except Exception as exc:
+        print(f"[ngrok] Tunnel cleanup failed: {exc}")
+    finally:
+        _ngrok_public_url = None
+
+
+def _start_ngrok_tunnel(port: int):
+    """Start an ngrok reverse proxy for the local FastAPI server."""
+    global _ngrok_public_url, _ngrok_tunnel
+
+    if not cfg.ngrok_enabled:
+        return None
+
+    try:
+        from pyngrok import ngrok
+        from pyngrok.conf import PyngrokConfig
+    except ImportError:
+        print("[ngrok] pyngrok is not installed. Run: pip install -r requirements.txt")
+        print("[ngrok] Continuing with local server only.")
+        return None
+
+    config_kwargs = {}
+    if cfg.ngrok_authtoken.strip():
+        config_kwargs["auth_token"] = cfg.ngrok_authtoken.strip()
+    if cfg.ngrok_region.strip():
+        config_kwargs["region"] = cfg.ngrok_region.strip()
+    pyngrok_config = PyngrokConfig(**config_kwargs) if config_kwargs else None
+
+    connect_kwargs = {
+        "proto": "http",
+        "bind_tls": cfg.ngrok_bind_tls,
+    }
+    if cfg.ngrok_domain.strip():
+        connect_kwargs["domain"] = cfg.ngrok_domain.strip()
+    if pyngrok_config:
+        connect_kwargs["pyngrok_config"] = pyngrok_config
+
+    try:
+        _ngrok_tunnel = ngrok.connect(port, **connect_kwargs)
+        _ngrok_public_url = _ngrok_tunnel.public_url
+        print(f"[ngrok] Public URL: {_ngrok_public_url}")
+        print(f"[ngrok] Forwarding to: http://127.0.0.1:{port}")
+        atexit.register(_stop_ngrok_tunnel)
+        return _ngrok_public_url
+    except Exception as exc:
+        print(f"[ngrok] Failed to start tunnel: {exc}")
+        print("[ngrok] Continuing with local server only.")
+        return None
 
 def _sse(d):
     return f"data: {json.dumps(d, ensure_ascii=False)}\n\n"
@@ -261,6 +323,9 @@ class PhaseStreamer:
 @app.on_event("startup")
 async def startup_event():
     global model, tokenizer, model_type
+    if cfg.ngrok_enabled and not _ngrok_public_url:
+        _start_ngrok_tunnel(cfg.port)
+
     print("⏳ Scanning for models...")
     available = []
     base = os.path.dirname(os.path.abspath(__file__))
@@ -277,7 +342,11 @@ async def startup_event():
         print(f"✅ Auto-selected: {name} [{model_type}]")
         ms.apply_speed_optimizations()
         model, tokenizer = ms.load_model_and_tokenizer(path, model_type)
-        print("✅ Ready on http://127.0.0.1:8000")
+        local_url = f"http://127.0.0.1:{cfg.port}"
+        if _ngrok_public_url:
+            print(f"Ready on {_ngrok_public_url} (ngrok -> {local_url})")
+        else:
+            print(f"Ready on {local_url}")
     else:
         print("❌ No models found!")
 
@@ -984,4 +1053,4 @@ async def chat_feedback(req: FeedbackRequest):
 
 if __name__ == "__main__":
     cfg.print_summary()
-    uvicorn.run("server:app", host=cfg.host, port=cfg.port, reload=False, log_level="warning", access_log=False)
+    uvicorn.run(app, host=cfg.host, port=cfg.port, reload=False, log_level="warning", access_log=False)
