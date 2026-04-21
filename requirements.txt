@@ -1,16 +1,30 @@
+# Core API Backend
 fastapi
 uvicorn
-ollama
-pymupdf
-playwright
-markdown
-PyYAML
 python-multipart
-# If someone wants to use markitdown later, they can install it:
-# markitdown
+
+# AI Models & LangChain
+ollama
+langchain
+langchain-core
+langchain-ollama
+
+# Memory & Database
+langchain-postgres
+psycopg[binary]
+psycopg2
+SQLAlchemy
+pymongo
+
+# Document Parsing
+pymupdf
+markdown
+playwright
 
 # Google Connectors
 google-api-python-client
 google-auth-httplib2
 google-auth-oauthlib
-pymongo
+
+# Utilities
+PyYAML
