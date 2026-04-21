@@ -15,7 +15,6 @@ from datetime import datetime
 # Process isolation solves Event Loop bugs under Uvicorn/Windows.
 
 # ─── Paths ────────────────────────────────────────────────────────────────────
-_ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 import tempfile
 import gridfs
 from pymongo import MongoClient
@@ -52,8 +51,8 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
 * {{ margin: 0; padding: 0; box-sizing: border-box; }}
 html {{ -webkit-print-color-adjust: exact; print-color-adjust: exact; }}
 body {{
-  font-family: 'Microsoft YaHei', 'Noto Sans SC', 'Segoe UI',
-               Inter, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, 
+               "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
   font-size: 10.5pt;
   color: #1e293b;
   line-height: 1.65;
@@ -389,7 +388,7 @@ def _md_to_html_body(md_text: str) -> str:
     md_text = re.sub(r"<think>.*?</think>", "", md_text, flags=re.DOTALL).strip()
     html = _md_lib.markdown(
         md_text,
-        extensions=["tables", "fenced_code", "nl2br", "attr_list"],
+        extensions=["tables", "fenced_code", "nl2br", "attr_list", "smarty", "toc"],
         extension_configs={"nl2br": {}},
     )
     return html
@@ -406,6 +405,8 @@ async def markdown_to_pdf(markdown_text: str, doc_type: str = "general") -> tupl
     # Extract doc title from first H1
     m = re.search(r"^# (.+)", markdown_text, re.MULTILINE)
     title = m.group(1).strip() if m else "Analysis Report"
+    if len(title) > 80:
+        title = title[:77] + "..."
 
     theme     = _theme(doc_type)
     body_html = _md_to_html_body(markdown_text)

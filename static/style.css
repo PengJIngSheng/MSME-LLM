@@ -3203,6 +3203,98 @@ h1,h2,h3,h4,h5,h6 {
 }
 
 
+/* =====================================================
+   Gmail Confirmation Card (Agent Mode)
+   ===================================================== */
+.gmail-confirm-card {
+    margin-top: 14px;
+    border-radius: var(--radius-lg);
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.07), rgba(99, 102, 241, 0.02));
+    border: 1px solid rgba(99, 102, 241, 0.22);
+    box-shadow: 0 4px 20px rgba(99, 102, 241, 0.06), inset 0 1px 0 rgba(255,255,255,0.7);
+    animation: fadeSlideUp 0.4s ease-in-out;
+    overflow: hidden;
+}
+
+.gmail-card-actions {
+    display: flex;
+    gap: 10px;
+    padding: 14px 22px;
+    justify-content: flex-start;
+}
+
+.gmail-confirm-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 24px;
+    background: #6366f1;
+    color: #ffffff;
+    border: none;
+    border-radius: var(--radius-md);
+    font-weight: 700;
+    font-size: 0.88rem;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+    white-space: nowrap;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.gmail-confirm-btn:hover {
+    background: #4f46e5;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 22px rgba(99, 102, 241, 0.4);
+}
+
+.gmail-confirm-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+}
+
+.gmail-confirm-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.gmail-cancel-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 20px;
+    background: transparent;
+    color: var(--primary-dim);
+    border: 1px solid var(--outline-variant);
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    font-size: 0.88rem;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+    white-space: nowrap;
+}
+
+.gmail-cancel-btn:hover {
+    background: rgba(220, 38, 38, 0.08);
+    border-color: rgba(220, 38, 38, 0.3);
+    color: #dc2626;
+    transform: translateY(-1px);
+}
+
+.gmail-cancel-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Dark mode Gmail card */
+[data-theme="dark"] .gmail-confirm-card {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(99, 102, 241, 0.04));
+    border-color: rgba(99, 102, 241, 0.25);
+    box-shadow: 0 4px 20px rgba(99, 102, 241, 0.08);
+}
+
 
 /* --- Sidemenu & User Context Additions --- */
 .sidebar-user-container {

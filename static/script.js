@@ -1228,6 +1228,59 @@ async function handleSend(isResume = false, resumeIndex = null) {
                         continue;
                     }
 
+                    // === GMAIL CONFIRM — detect marker in text and render buttons ===
+                    if (data.text && data.text.includes('[GMAIL_CONFIRM_PENDING]')) {
+                        // Strip the marker from displayed text
+                        frontendAnswerAccum = frontendAnswerAccum.replace('[GMAIL_CONFIRM_PENDING]', '');
+                        rawAccumText = rawAccumText.replace('[GMAIL_CONFIRM_PENDING]', '');
+                        if (contentBox) {
+                            contentBox.innerHTML = renderMd(frontendAnswerAccum);
+                        }
+
+                        // Create Gmail confirmation card
+                        const gmailCard = document.createElement('div');
+                        gmailCard.className = 'gmail-confirm-card';
+                        gmailCard.innerHTML = `
+                            <div class="gmail-card-actions">
+                                <button class="gmail-confirm-btn" id="gmailConfirm_${Date.now()}">
+                                    <i class="fa-solid fa-paper-plane"></i> Confirm Send
+                                </button>
+                                <button class="gmail-cancel-btn" id="gmailCancel_${Date.now()}">
+                                    <i class="fa-solid fa-xmark"></i> Cancel
+                                </button>
+                            </div>
+                        `;
+                        const confirmBtn = gmailCard.querySelector('.gmail-confirm-btn');
+                        const cancelBtn = gmailCard.querySelector('.gmail-cancel-btn');
+
+                        confirmBtn.addEventListener('click', () => {
+                            confirmBtn.disabled = true;
+                            cancelBtn.disabled = true;
+                            confirmBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending...';
+                            confirmBtn.style.background = '#6366f1';
+                            // Send confirm message to backend
+                            const fakeInput = document.getElementById('chatInput');
+                            if (fakeInput) {
+                                fakeInput.value = '[CONFIRM_GMAIL_SEND]';
+                                document.getElementById('submitBtn').click();
+                            }
+                        });
+                        cancelBtn.addEventListener('click', () => {
+                            confirmBtn.disabled = true;
+                            cancelBtn.disabled = true;
+                            cancelBtn.innerHTML = '<i class="fa-solid fa-check"></i> Cancelled';
+                            cancelBtn.style.background = '#dc2626';
+                            const fakeInput = document.getElementById('chatInput');
+                            if (fakeInput) {
+                                fakeInput.value = '[CANCEL_GMAIL_SEND]';
+                                document.getElementById('submitBtn').click();
+                            }
+                        });
+
+                        assistantWrapper.appendChild(gmailCard);
+                        scrollToBottom();
+                    }
+
                 } catch (e) { /* partial JSON */ }
             }
         }
@@ -1360,7 +1413,7 @@ function createAttachmentCard(att) {
     // Construct the PDF URL: prefer att.url, fallback to building from saved_path or file_id
     let pdfUrl = att.url || null;
     if (!pdfUrl && att.saved_path) {
-        // Extract filename from absolute saved_path like ".../user_uploads/uuid.pdf"
+        // Extract filename from saved_path (e.g. "uuid.pdf" from GridFS key)
         const parts = att.saved_path.replace(/\\/g, '/').split('/');
         const fname = parts[parts.length - 1];
         pdfUrl = '/uploads/' + fname;

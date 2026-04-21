@@ -750,7 +750,8 @@ def tool_docs_create(user_id: str, title: str, content: str, lang: str = "zh") -
             return f"⚠️ Ralat tidak dijangka: {str(e)}"
         return f"⚠️ 发生未知错误：{str(e)}"
 
-def tool_calendar_create(user_id: str, title: str, date_iso: str, lang: str = "zh") -> str:
+def tool_calendar_create(user_id: str, title: str, date_iso: str, lang: str = "zh",
+                         description: str = "", duration_minutes: int = 60, location: str = "") -> str:
     from googleapiclient.errors import HttpError
     try:
         creds = get_google_creds_offline(user_id, "calendar")
@@ -764,28 +765,56 @@ def tool_calendar_create(user_id: str, title: str, date_iso: str, lang: str = "z
             
         service = build('calendar', 'v3', credentials=creds)
         
-        start_dt = datetime.datetime.fromisoformat(date_iso.replace('Z', ''))
-        end_dt = start_dt + datetime.timedelta(hours=1)
+        # Parse start time — strip trailing Z if present
+        clean_iso = date_iso.replace('Z', '').strip()
+        start_dt = datetime.datetime.fromisoformat(clean_iso)
+        end_dt = start_dt + datetime.timedelta(minutes=max(duration_minutes, 15))
+        
+        # Use configured timezone (UTC+8 default)
+        from config_loader import cfg
+        timezone = cfg.timezone
         
         event = {
-          'summary': title,
-          'start': {
-            'dateTime': start_dt.isoformat() + 'Z',
-            'timeZone': 'UTC',
-          },
-          'end': {
-            'dateTime': end_dt.isoformat() + 'Z',
-            'timeZone': 'UTC',
-          },
+            'summary': title,
+            'start': {
+                'dateTime': start_dt.isoformat(),
+                'timeZone': timezone,
+            },
+            'end': {
+                'dateTime': end_dt.isoformat(),
+                'timeZone': timezone,
+            },
         }
+        if description:
+            event['description'] = description
+        if location:
+            event['location'] = location
+        
         event = service.events().insert(calendarId='primary', body=event).execute()
         
         link = event.get('htmlLink')
+        time_str = start_dt.strftime('%Y-%m-%d %H:%M')
+        dur_str = f"{duration_minutes} min"
         if lang == "en":
-            return f"✅ Event successfully created: {link}"
+            parts = [f"✅ Calendar event created successfully!",
+                     f"📌 **{title}**",
+                     f"🕐 {time_str} ({dur_str})"]
+            if location: parts.append(f"📍 {location}")
+            parts.append(f"🔗 {link}")
+            return "\n".join(parts)
         elif lang == "ms":
-            return f"✅ Acara Kalendar berjaya dicipta: {link}"
-        return f"✅ 日程已成功创建: {link}"
+            parts = [f"✅ Acara Kalendar berjaya dicipta!",
+                     f"📌 **{title}**",
+                     f"🕐 {time_str} ({dur_str})"]
+            if location: parts.append(f"📍 {location}")
+            parts.append(f"🔗 {link}")
+            return "\n".join(parts)
+        parts = [f"✅ 日程已成功创建！",
+                 f"📌 **{title}**",
+                 f"🕐 {time_str} ({dur_str})"]
+        if location: parts.append(f"📍 {location}")
+        parts.append(f"🔗 {link}")
+        return "\n".join(parts)
         
     except HttpError as error:
         if error.resp.status in [401, 403]:
@@ -815,7 +844,7 @@ GOOGLE_WORKSPACE_TOOLS_SCHEMA = [
         "type": "function",
         "function": {
             "name": "gmail_send",
-            "description": "Send an email. Use when user wants to send an email or output to someone.",
+            "description": "Send an email. Use when user wants to send an email or output to someone. IMPORTANT: If you want to write your PREVIOUS long analysis into the email, simply set 'body' to 'USE_PREVIOUS_ANALYSIS'. The backend will automatically inject your analysis text into the email for you. If the user wants you to write a NEW short text, put that new text directly into 'body'.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -831,12 +860,15 @@ GOOGLE_WORKSPACE_TOOLS_SCHEMA = [
         "type": "function",
         "function": {
             "name": "calendar_create",
-            "description": "Schedule a meeting or calendar event.",
+            "description": "Schedule a meeting or calendar event. Convert relative dates (e.g. 'tomorrow', 'next Monday') to absolute ISO format.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "title": {"type": "string"},
-                    "date_iso": {"type": "string", "description": "ISO format eg 2026-04-20T14:00:00Z"}
+                    "title": {"type": "string", "description": "Event title/summary"},
+                    "date_iso": {"type": "string", "description": "Start time in ISO format WITHOUT timezone suffix, e.g. 2026-04-20T14:00:00"},
+                    "duration_minutes": {"type": "integer", "description": "Event length in minutes. Default 60."},
+                    "description": {"type": "string", "description": "Event description or agenda notes"},
+                    "location": {"type": "string", "description": "Event location (office, meeting room, address, or online link)"}
                 },
                 "required": ["title", "date_iso"]
             }

@@ -175,6 +175,10 @@ class _Config:
     def max_history_turns(self) -> int:
         return int(self._raw["server"]["max_history_turns"])
 
+    @property
+    def timezone(self) -> str:
+        return self._raw["server"].get("timezone", "Asia/Kuala_Lumpur")
+
     # ── API Keys (env vars take priority) ────────────────────────────────────
     @property
     def bing_api_key(self) -> str:

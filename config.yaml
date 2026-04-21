@@ -64,6 +64,9 @@ server:
   host: "0.0.0.0"
   port: 8000
 
+  # Server timezone used for scheduling Google Workspace Calendar events
+  timezone: "Asia/Kuala_Lumpur"
+
   # Number of conversation turns to keep in memory (per session)
   max_history_turns: 20
 

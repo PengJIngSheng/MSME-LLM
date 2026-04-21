@@ -31,18 +31,29 @@ _gwt_spec.loader.exec_module(_gwt)
 # Target nouns (the "what")
 _TARGETS = [
     "google docs", "google drive", "google doc", "gdocs", "gdrive",
-    "gmail", "calendar",
+    "gmail", "calendar", "google calendar",
     "邮箱", "邮件", "云盘", "云端硬盘", "文档", "日历", "日程",
     "docs", "drive",
+    "meeting", "appointment", "event", "schedule",
+    "会议", "预约", "排期", "安排", "约会",
 ]
 
 # Action verbs (the "do")
 _VERBS = [
     "发送", "发", "存进", "写入", "上传", "保存", "创建", "新建",
     "写进", "写到", "同步", "导出", "传到", "放到", "存到",
+    "安排", "预约", "排",
     "send", "upload", "save", "create", "write", "export",
     "sync", "put", "move", "transfer", "compose", "draft",
+    "schedule", "book", "set up", "arrange",
 ]
+
+# Gmail confirmation pending storage: chat_id -> {recipient, subject, body, attachment_path, lang}
+_pending_gmail: dict = {}
+
+# Special confirm/cancel message markers
+_CONFIRM_GMAIL = "[CONFIRM_GMAIL_SEND]"
+_CANCEL_GMAIL = "[CANCEL_GMAIL_SEND]"
 
 def is_google_request(msg: str) -> bool:
     """
@@ -50,14 +61,19 @@ def is_google_request(msg: str) -> bool:
     Returns True only when BOTH a target noun AND an action verb are present,
     OR when an explicit branded phrase like "google docs" is detected with
     any surrounding context implying action.
+    Also intercepts Gmail confirm/cancel messages.
     """
     if not msg or not msg.strip():
         return False
 
-    low = msg.lower()
+    low = msg.lower().strip()
+
+    # Gmail confirm/cancel → always intercept
+    if msg.strip() in (_CONFIRM_GMAIL, _CANCEL_GMAIL):
+        return True
 
     # Explicit branded phrases → immediate intercept
-    explicit_brands = ["google docs", "google doc", "google drive", "gdocs", "gdrive", "gmail"]
+    explicit_brands = ["google docs", "google doc", "google drive", "gdocs", "gdrive", "gmail", "google calendar"]
     if any(b in low for b in explicit_brands):
         return True
 
@@ -127,6 +143,40 @@ async def process_google_request(
     """
     lang = _detect_lang(current_msg)
     
+    # ── Handle Gmail confirmation / cancellation ──
+    if current_msg.strip() == _CONFIRM_GMAIL:
+        pending = _pending_gmail.pop(user_id, None)
+        if not pending:
+            if lang == "zh":
+                return "⚙️ **Google Workspace**\n\n⚠️ 没有待发送的邮件。"
+            return "⚙️ **Google Workspace**\n\n⚠️ No pending email to send."
+        # Execute the actual send
+        result = _gwt.tool_gmail_send(
+            user_id,
+            pending["recipient"],
+            pending["subject"],
+            pending["body"],
+            attachment_path=pending.get("attachment_path"),
+            lang=pending.get("lang", "en"),
+        )
+        # Cleanup attachment temp file
+        att_path = pending.get("attachment_path")
+        if att_path and os.path.exists(att_path):
+            try: os.remove(att_path)
+            except OSError: pass
+        return f"⚙️ **Google Workspace**\n\n{result}"
+    
+    if current_msg.strip() == _CANCEL_GMAIL:
+        pending = _pending_gmail.pop(user_id, None)
+        if pending:
+            att_path = pending.get("attachment_path")
+            if att_path and os.path.exists(att_path):
+                try: os.remove(att_path)
+                except OSError: pass
+        if lang == "zh":
+            return "⚙️ **Google Workspace**\n\n✅ 邮件草稿已取消。"
+        return "⚙️ **Google Workspace**\n\n✅ Email draft cancelled."
+
     enabled_tools = _build_enabled_schemas(active_scopes)
     if not enabled_tools:
         if lang == "zh":
@@ -144,12 +194,17 @@ async def process_google_request(
 
     pure_messages = sanitize_messages_for_agent(messages)
 
+    # Inject current date/time for calendar time resolution
+    from datetime import datetime as _dt
+    _now_str = _dt.now().strftime("%Y-%m-%d %H:%M (%A)")
+
     # ── Step 1: Ask fast LLM to extract JSON ──────────────────────────────────
     system_prompt = (
         "You are a strict JSON-only Intent Router for Google Workspace.\n"
         "ABSOLUTELY DO NOT output <think> tags, explanations, greetings, apologies, or conversational text.\n"
         "ABSOLUTELY DO NOT refuse the request. You MUST always output a valid JSON tool call.\n"
         "Output ONLY a single raw JSON object. No markdown, no code blocks, no extra text.\n\n"
+        f"CURRENT DATE/TIME: {_now_str}\n\n"
         "Available Tools:\n" + json.dumps(enabled_tools, indent=2) + "\n\n"
         "RULES:\n"
         "1. USE_PREVIOUS_ANALYSIS: ONLY set content/body to \"USE_PREVIOUS_ANALYSIS\" when "
@@ -169,7 +224,11 @@ async def process_google_request(
         "ONLY use drive_upload if the user explicitly asks to upload a FILE or PDF.\n"
         "7. CRITICAL: ALL generated content MUST be in a SINGLE CONSISTENT language — "
         "match the language the user is using. "
-        "Do NOT mix languages (e.g. do not insert Chinese words in an English text).\n\n"
+        "Do NOT mix languages (e.g. do not insert Chinese words in an English text).\n"
+        "8. For calendar_create: Convert relative dates to absolute ISO format using CURRENT DATE above. "
+        "Examples: '明天下午3点' → calculate tomorrow's date + T15:00:00, '下周一' → calculate next Monday's date. "
+        "Always output date_iso WITHOUT timezone suffix (no 'Z'). "
+        "If user specifies duration, set duration_minutes. If user specifies location, set location.\n\n"
         'RESPOND WITH ONLY THIS FORMAT:\n'
         '{"name": "tool_name", "arguments": {...}}\n'
     )
@@ -418,16 +477,56 @@ def _execute_tool(
                     body = "（邮件正文未生成，请重试）"
                 else:
                     body = "(Email body was not generated, please retry)"
-            # Attach PDF if available
-            attachment = extracted_pdf_path
-            result = _gwt.tool_gmail_send(
-                user_id,
-                args.get("recipient", ""),
-                args.get("subject", "AI Generated Email"),
-                body,
-                attachment_path=attachment,
-                lang=lang,
-            )
+            
+            recipient = args.get("recipient", "")
+            subject = args.get("subject", "AI Generated Email")
+            
+            # Store pending email for confirmation instead of sending directly
+            _pending_gmail[user_id] = {
+                "recipient": recipient,
+                "subject": subject,
+                "body": body,
+                "attachment_path": extracted_pdf_path,
+                "lang": lang,
+            }
+            # Don't cleanup extracted_pdf_path here — it's needed when user confirms
+            extracted_pdf_path = None  # Prevent cleanup at end of function
+            
+            # Return confirmation preview as a special JSON marker
+            body_preview = body[:200] + "..." if len(body) > 200 else body
+            has_att = bool(_pending_gmail[user_id].get("attachment_path"))
+            if lang == "zh":
+                result = (
+                    f"📧 **邮件发送确认**\n\n"
+                    f"**收件人：** {recipient}\n"
+                    f"**主题：** {subject}\n"
+                    f"**附件：** {'✅ PDF 报告已附加' if has_att else '❌ 无附件'}\n\n"
+                    f"**正文预览：**\n> {body_preview}\n\n"
+                    f"---\n"
+                    f"请确认是否发送此邮件："
+                )
+            elif lang == "ms":
+                result = (
+                    f"📧 **Pengesahan Penghantaran E-mel**\n\n"
+                    f"**Penerima:** {recipient}\n"
+                    f"**Subjek:** {subject}\n"
+                    f"**Lampiran:** {'✅ Laporan PDF dilampirkan' if has_att else '❌ Tiada lampiran'}\n\n"
+                    f"**Pratonton Isi:**\n> {body_preview}\n\n"
+                    f"---\n"
+                    f"Sila sahkan sama ada untuk menghantar e-mel ini:"
+                )
+            else:
+                result = (
+                    f"📧 **Email Send Confirmation**\n\n"
+                    f"**To:** {recipient}\n"
+                    f"**Subject:** {subject}\n"
+                    f"**Attachment:** {'✅ PDF report attached' if has_att else '❌ No attachment'}\n\n"
+                    f"**Body Preview:**\n> {body_preview}\n\n"
+                    f"---\n"
+                    f"Please confirm whether to send this email:"
+                )
+            # Append special gmail_confirm marker for frontend to detect
+            result += "\n[GMAIL_CONFIRM_PENDING]"
 
         elif name == "drive_upload":
             if extracted_pdf_path:
@@ -446,6 +545,9 @@ def _execute_tool(
                 args.get("title", "Event"),
                 args.get("date_iso", ""),
                 lang=lang,
+                description=args.get("description", ""),
+                duration_minutes=args.get("duration_minutes", 60),
+                location=args.get("location", ""),
             )
 
         else:
@@ -479,7 +581,23 @@ def _extract_previous_analysis(messages: list) -> str:
             text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
             text = re.sub(r"<think>.*", "", text, flags=re.DOTALL)
             text = re.sub(r"<function_call>.*?</function_call>", "", text, flags=re.DOTALL)
-            text = text.strip()
+            
+            # Clean up the mandatory routing question appended by the server
+            try:
+                import os, sys
+                _pdf_layer = os.path.join(os.path.dirname(__file__), "PDF Agent")
+                if _pdf_layer not in sys.path: sys.path.append(_pdf_layer)
+                import pdf_agent
+                langs = ["en", "zh", "ja", "ko", "ms", "ta", "hi", "ar", "ru", "es", "fr", "de"]
+                for l in langs:
+                    q = pdf_agent.get_routing_question(l)
+                    if q in text:
+                        text = text.replace(q, "")
+            except Exception:
+                pass
+                
+            text = text.replace("\n\n---\n\n", "\n").strip()
+            
             if len(text) > 50:
                 return text
     return "No previous analysis found in chat history."

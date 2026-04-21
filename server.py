@@ -10,7 +10,6 @@ import datetime as dt
 import queue as queue_module
 from datetime import datetime
 from fastapi import FastAPI, Request, UploadFile, File
-import shutil
 from copy import deepcopy
 from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -271,6 +270,7 @@ async def startup_event():
             available.append((p, item, "gguf"))
         elif os.path.isdir(p) and os.path.exists(os.path.join(p, "config.json")):
             available.append((p, item, "hf"))
+            
     if available:
         available.sort(key=lambda x: x[1], reverse=True)  # Q5 > Q4 > ...
         path, name, model_type = available[0]
@@ -923,8 +923,6 @@ async def chat_endpoint(req: ChatRequest):
 
     return StreamingResponse(wrapped(), media_type="text/event-stream")
 
-
-from fastapi.responses import FileResponse
 
 @app.get("/api/download_pdf/{filename}")
 async def download_pdf(filename: str):

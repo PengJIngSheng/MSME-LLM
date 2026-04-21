@@ -20,6 +20,9 @@ pymongo
 pymupdf
 markdown
 playwright
+pandas
+tabulate
+pdfplumber
 
 # Google Connectors
 google-api-python-client

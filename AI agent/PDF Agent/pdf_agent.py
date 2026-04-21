@@ -15,6 +15,9 @@ refine        → user requests changes               → generate_pdf_now = Tru
 """
 import os
 import re
+import tempfile
+import gridfs
+from pymongo import MongoClient
 
 # ─── PDF Parser ───────────────────────────────────────────────────────────────
 # Fast path via PyMuPDF (fitz) to remove the heavy 15-30s CPU delay.
@@ -23,6 +26,11 @@ try:
 except ImportError:
     pymupdf = None
 _USE_MARKITDOWN = False
+
+# ─── GridFS Connection (for file retrieval) ───────────────────────────────────
+_mongo_client = MongoClient("mongodb://localhost:27017/")
+_db = _mongo_client["pepper_chat_db"]
+_fs = gridfs.GridFS(_db)
 
 agent_memory: dict = {}
 
@@ -203,34 +211,92 @@ def get_routing_question(lang: str = "en") -> str:
 def _log(msg: str):
     print(f"[PDF Agent] {msg}")
 
+# ─── GridFS File Resolution ───────────────────────────────────────────────────
+def _resolve_pdf_from_gridfs(saved_path: str) -> str:
+    """Download a PDF from GridFS to a temp file, return its real disk path."""
+    try:
+        file_doc = _fs.find_one({"filename": saved_path})
+        if not file_doc:
+            _log(f"[GridFS] File not found: {saved_path}")
+            return ""
+        tmp_path = os.path.join(tempfile.gettempdir(), saved_path)
+        with open(tmp_path, "wb") as f:
+            f.write(file_doc.read())
+        _log(f"[GridFS] Extracted {saved_path} → {tmp_path} ({os.path.getsize(tmp_path)} bytes)")
+        return tmp_path
+    except Exception as e:
+        _log(f"[GridFS resolve ERROR] {e}")
+        return ""
+
 # ─── PDF Extractor ────────────────────────────────────────────────────────────
 def _extract_pdf(path: str) -> str:
     """
-    Extract full text from PDF instantly using PyMuPDF.
-    Allows unlimited characters as per user request to ensure full analysis.
+    Extract full text + table structures from PDF using PyMuPDF.
+    Tables are converted to Markdown format for better model comprehension.
     """
     try:
-        doc  = pymupdf.open(path)
-        text = "".join(page.get_text() for page in doc).strip()
-        _log(f"[PyMuPDF] {path} → {len(text)} chars raw")
-
-        _log(f"[extract] final {len(text)} chars sent to model")
-        return text
+        doc = pymupdf.open(path)
+        parts = []
+        for page_num, page in enumerate(doc, 1):
+            text = page.get_text().strip()
+            if text:
+                parts.append(f"--- Page {page_num} ---\n{text}")
+            # Extract table structures if available
+            try:
+                tables = page.find_tables()
+                for ti, tbl in enumerate(tables.tables if hasattr(tables, 'tables') else tables):
+                    try:
+                        df = tbl.to_pandas()
+                        if df is not None and not df.empty:
+                            md_table = df.to_markdown(index=False)
+                            parts.append(f"[Table {ti+1} from Page {page_num}]:\n{md_table}")
+                    except Exception:
+                        # Fallback: extract as raw cell data
+                        extracted = tbl.extract()
+                        if extracted and len(extracted) >= 1:
+                            header = extracted[0]
+                            md = "| " + " | ".join(str(c or "") for c in header) + " |\n"
+                            md += "| " + " | ".join("---" for _ in header) + " |\n"
+                            for row in extracted[1:]:
+                                md += "| " + " | ".join(str(c or "") for c in row) + " |\n"
+                            parts.append(f"[Table {ti+1} from Page {page_num}]:\n{md}")
+            except Exception as te:
+                _log(f"[table extract] Page {page_num} table error (non-fatal): {te}")
+        
+        result = "\n\n".join(parts)
+        _log(f"[PyMuPDF] {path} → {len(result)} chars (with table structures)")
+        return result
     except Exception as e:
         _log(f"[extract_pdf ERROR] {e}")
         return ""
 
 def _extract_attachments(attachments: list) -> tuple:
+    """Extract text from PDF attachments, resolving files from GridFS."""
     combined, names = "", []
+    temp_files = []  # Track temp files for cleanup
     for att in (attachments or []):
-        path = att.get("saved_path", "")
-        if path and path.lower().endswith(".pdf"):
-            text = _extract_pdf(path)
-            _log(f"[extract] {path} → {len(text)} chars")
-            if text:
-                name = att.get("original_name", os.path.basename(path))
-                combined += f"\n\n[Content from '{name}']:\n{text}\n"
-                names.append(name)
+        saved_path = att.get("saved_path", "")
+        if not saved_path or not saved_path.lower().endswith(".pdf"):
+            continue
+        # Resolve from GridFS to a real temp file
+        real_path = _resolve_pdf_from_gridfs(saved_path)
+        if not real_path:
+            _log(f"[extract] Could not resolve {saved_path} from GridFS")
+            continue
+        temp_files.append(real_path)
+        text = _extract_pdf(real_path)
+        _log(f"[extract] {saved_path} → {len(text)} chars")
+        if text:
+            name = att.get("original_name", os.path.basename(saved_path))
+            combined += f"\n\n[Content from '{name}']:\n{text}\n"
+            names.append(name)
+    # Cleanup temp files
+    for tmp in temp_files:
+        try:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+        except OSError:
+            pass
     return combined, names
 
 # ─── Document Type Detection ──────────────────────────────────────────────────
@@ -737,31 +803,46 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
         if new_text:
             layout_report = ""
             table_structures = ""
+            _template_temp_files = []
             for att in (attachments or []):
-                path = att.get("saved_path", "")
-                if path and path.lower().endswith(".pdf"):
-                    try:
-                        import pdfplumber
-                        with pdfplumber.open(path) as pdf:
-                            pages = len(pdf.pages)
-                            table_count = 0
-                            for pi, page in enumerate(pdf.pages):
-                                found = page.find_tables()
-                                table_count += len(found)
-                                for ti, tbl in enumerate(found[:8]):
-                                    extracted = tbl.extract()
-                                    if extracted and len(extracted) >= 1:
-                                        header = extracted[0]
-                                        sample_rows = extracted[1:3]
-                                        table_structures += f"\n--- Table {ti+1} (Page {pi+1}) ---\n"
-                                        table_structures += "| " + " | ".join(str(c or "") for c in header) + " |\n"
-                                        table_structures += "| " + " | ".join("---" for _ in header) + " |\n"
-                                        for row in sample_rows:
-                                            table_structures += "| " + " | ".join(str(c or "") for c in row) + " |\n"
-                            has_tables = "有" if table_count > 0 else "无"
-                            layout_report += f"\n[Layout Scan - {att.get('original_name', 'Doc')}]: Pages={pages}, Tables={table_count} ({has_tables}表格)\n"
-                    except Exception as e:
-                        _log(f"[pdfplumber error] {e}")
+                saved_path = att.get("saved_path", "")
+                if not saved_path or not saved_path.lower().endswith(".pdf"):
+                    continue
+                # Resolve from GridFS to temp disk
+                real_path = _resolve_pdf_from_gridfs(saved_path)
+                if not real_path:
+                    _log(f"[template] Could not resolve {saved_path} from GridFS")
+                    continue
+                _template_temp_files.append(real_path)
+                try:
+                    import pdfplumber
+                    with pdfplumber.open(real_path) as pdf:
+                        pages = len(pdf.pages)
+                        table_count = 0
+                        for pi, page in enumerate(pdf.pages):
+                            found = page.find_tables()
+                            table_count += len(found)
+                            for ti, tbl in enumerate(found[:8]):
+                                extracted = tbl.extract()
+                                if extracted and len(extracted) >= 1:
+                                    header = extracted[0]
+                                    sample_rows = extracted[1:3]
+                                    table_structures += f"\n--- Table {ti+1} (Page {pi+1}) ---\n"
+                                    table_structures += "| " + " | ".join(str(c or "") for c in header) + " |\n"
+                                    table_structures += "| " + " | ".join("---" for _ in header) + " |\n"
+                                    for row in sample_rows:
+                                        table_structures += "| " + " | ".join(str(c or "") for c in row) + " |\n"
+                        has_tables = "有" if table_count > 0 else "无"
+                        layout_report += f"\n[Layout Scan - {att.get('original_name', 'Doc')}]: Pages={pages}, Tables={table_count} ({has_tables}表格)\n"
+                except Exception as e:
+                    _log(f"[pdfplumber error] {e}")
+            # Cleanup template temp files
+            for tmp in _template_temp_files:
+                try:
+                    if os.path.exists(tmp):
+                        os.remove(tmp)
+                except OSError:
+                    pass
             
             # ── CRITICAL: Content-Structure Isolation ──
             # Store ONLY structural metadata from template, NOT its text content.
