@@ -54,14 +54,14 @@ except ImportError:
 
 app = FastAPI()
 
-UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_uploads")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.include_router(auth_router)
 
 static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 os.makedirs(static_dir, exist_ok=True)
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
-app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+
+import gridfs
+import io
 
 # Load google_workspace_tools via importlib (replaces deprecated SourceFileLoader)
 _gwt_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "AI agent", "google_workspace_tools.py")
@@ -86,6 +86,7 @@ mongo_client = MongoClient("mongodb://localhost:27017/")
 db = mongo_client["pepper_chat_db"]
 chats_col = db["chats"]
 feedbacks_col = db["feedbacks"]
+fs = gridfs.GridFS(db)
 
 model = None
 tokenizer = None
@@ -382,23 +383,37 @@ async def upload_files_endpoint(files: List[UploadFile] = File(...)):
             file_id = str(uuid.uuid4())
             ext = os.path.splitext(file.filename)[1]
             safe_name = f"{file_id}{ext}"
-            file_path = os.path.join(UPLOAD_DIR, safe_name)
             
-            with open(file_path, "wb") as buffer:
-                shutil.copyfileobj(file.file, buffer)
-                
-            file_size = os.path.getsize(file_path)
+            file_content = await file.read()
+            file_size = len(file_content)
+            
+            # Save directly to MongoDB GridFS
+            fs.put(file_content, filename=safe_name, content_type=file.content_type)
             
             saved_files.append({
                 "file_id": file_id,
                 "original_name": file.filename,
-                "saved_path": file_path,
+                "saved_path": safe_name,
                 "url": f"/uploads/{safe_name}",
                 "size": file_size,
                 "content_type": file.content_type
             })
             
         return JSONResponse(content={"status": "success", "files": saved_files})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.get("/uploads/{filename}")
+async def get_uploaded_file(filename: str):
+    try:
+        file_doc = fs.find_one({"filename": filename})
+        if not file_doc:
+            return JSONResponse(status_code=404, content={"error": "File not found"})
+        return StreamingResponse(
+            io.BytesIO(file_doc.read()), 
+            media_type=file_doc.content_type, 
+            headers={"Content-Disposition": f"inline; filename={file_doc.filename}"}
+        )
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 @app.get("/api/history")
@@ -527,21 +542,15 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
                         _agent_mem_pdf = m["pdf_name"]
                         break
             
-            # Determine the correct directory for the PDF file
-            _pdf_dir = UPLOAD_DIR
-            if _agent_mem_pdf:
-                # Check generated_pdfs directory first, then fallback to UPLOAD_DIR
-                gen_path = os.path.join(UPLOAD_DIR, "generated_pdfs", _agent_mem_pdf)
-                if os.path.exists(gen_path):
-                    _pdf_dir = os.path.join(UPLOAD_DIR, "generated_pdfs")
-            
+            # The file logic is handled dynamically now directly from MongoDB in google_agent/google_workspace_tools
+            # We don't need to resolve real physical directories anymore.
             _out = await google_agent.process_google_request(
                 user_id=_agent_user_id,
                 current_msg=latest_user_msg,
                 messages=messages,
                 active_scopes="",
                 llm_callback=google_cb,
-                upload_dir=_pdf_dir,
+                upload_dir="mongodb_gridfs",  # Dummy value
                 pdf_filename=_agent_mem_pdf,
             )
             
@@ -919,25 +928,28 @@ from fastapi.responses import FileResponse
 
 @app.get("/api/download_pdf/{filename}")
 async def download_pdf(filename: str):
-    """Serve a generated PDF report for download."""
-    import re, os
+    """Serve a generated PDF report for download directly from GridFS."""
+    import re
     if not re.match(r'^[\w\-\.]+\.pdf$', filename):
         return JSONResponse(status_code=400, content={"error": "Invalid filename"})
-    pdf_path = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),
-        "user_uploads", "generated_pdfs", filename
-    )
-    if not os.path.isfile(pdf_path):
-        return JSONResponse(status_code=404, content={"error": "File not found"})
-    file_size = os.path.getsize(pdf_path)
-    if file_size == 0:
-        return JSONResponse(status_code=500, content={"error": "File is corrupted (0 bytes)."})
-    print(f"[Download] Serving {filename} ({file_size} bytes)")
-    return FileResponse(
-        path=pdf_path,
-        filename=filename,
-        media_type="application/pdf",
-    )
+    
+    try:
+        file_doc = fs.find_one({"filename": filename})
+        if not file_doc:
+            return JSONResponse(status_code=404, content={"error": "File not found in database"})
+            
+        file_size = file_doc.length
+        if file_size == 0:
+            return JSONResponse(status_code=500, content={"error": "File is corrupted (0 bytes)."})
+            
+        print(f"[Download] Serving {filename} from GridFS ({file_size} bytes)")
+        return StreamingResponse(
+            io.BytesIO(file_doc.read()), 
+            media_type="application/pdf", 
+            headers={"Content-Disposition": f"attachment; filename={file_doc.filename}"}
+        )
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 

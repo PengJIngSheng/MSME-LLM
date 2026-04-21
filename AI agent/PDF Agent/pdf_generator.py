@@ -16,8 +16,15 @@ from datetime import datetime
 
 # ─── Paths ────────────────────────────────────────────────────────────────────
 _ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
-PDF_DIR = os.path.join(_ROOT, "user_uploads", "generated_pdfs")
-os.makedirs(PDF_DIR, exist_ok=True)
+import tempfile
+import gridfs
+from pymongo import MongoClient
+
+mongo_client = MongoClient("mongodb://localhost:27017/")
+db = mongo_client["pepper_chat_db"]
+fs = gridfs.GridFS(db)
+
+PDF_DIR = tempfile.gettempdir()
 
 # ─── Accent colour per document type ─────────────────────────────────────────
 _TYPE_THEME = {
@@ -480,12 +487,16 @@ async def markdown_to_pdf(markdown_text: str, doc_type: str = "general") -> tupl
             
         if last_err is not None:
             raise last_err
+
+        with open(output_path, "rb") as f:
+            fs.put(f.read(), filename=filename, content_type="application/pdf")
+        os.remove(output_path)
     finally:
         # Cleanup temp HTML
         if os.path.exists(tmp_html_path):
             os.remove(tmp_html_path)
 
-    return output_path, filename
+    return "", filename
 
 
 

@@ -382,6 +382,18 @@ def _execute_tool(
     lang: str = "en",
 ) -> str:
     """Route to the correct google_workspace_tools function."""
+    import tempfile
+    import gridfs
+    fs = gridfs.GridFS(_gwt.db)
+    
+    extracted_pdf_path = None
+    if pdf_filename:
+        file_doc = fs.find_one({"filename": pdf_filename})
+        if file_doc:
+            extracted_pdf_path = os.path.join(tempfile.gettempdir(), pdf_filename)
+            with open(extracted_pdf_path, "wb") as f:
+                f.write(file_doc.read())
+
     # ── Pre-flight: check connector is authorized ──
     block_msg = _check_connector_enabled(user_id, name, lang)
     if block_msg:
@@ -407,11 +419,7 @@ def _execute_tool(
                 else:
                     body = "(Email body was not generated, please retry)"
             # Attach PDF if available
-            attachment = None
-            if pdf_filename:
-                candidate = os.path.join(upload_dir, pdf_filename)
-                if os.path.exists(candidate):
-                    attachment = candidate
+            attachment = extracted_pdf_path
             result = _gwt.tool_gmail_send(
                 user_id,
                 args.get("recipient", ""),
@@ -422,9 +430,8 @@ def _execute_tool(
             )
 
         elif name == "drive_upload":
-            if pdf_filename:
-                full_path = os.path.join(upload_dir, pdf_filename)
-                result = _gwt.tool_drive_upload(user_id, full_path, pdf_filename, lang=lang)
+            if extracted_pdf_path:
+                result = _gwt.tool_drive_upload(user_id, extracted_pdf_path, pdf_filename, lang=lang)
             else:
                 if lang == "zh":
                     result = "⚠️ 没有可上传的 PDF 文件。请先生成一份 PDF 报告。"
@@ -453,6 +460,8 @@ def _execute_tool(
         else:
             result = f"⚠️ Tool execution error: {str(e)}"
 
+    if extracted_pdf_path and os.path.exists(extracted_pdf_path):
+        os.remove(extracted_pdf_path)
     print(f"[Google Agent] Execution result: {result[:200]}")
     return f"⚙️ **Google Workspace**\n\n{result}"
 
