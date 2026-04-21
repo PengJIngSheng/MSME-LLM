@@ -14,7 +14,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/static/style.css?v=3.5.5">
+    <link rel="stylesheet" href="/static/style.css?v=4.5.0">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 
 <body>
@@ -168,6 +169,51 @@
                                     <i class="fa-solid fa-globe" style="color:#72bcd4;"></i> <span>Search Mode</span>
                                 </button>
                             </div>
+                            <!-- Connectors Dropdown (Agent Mode Only) -->
+                            <div class="connectors-container" id="connectorsContainer" style="display: none;">
+                                <button class="connector-trigger" id="connectorBtn" title="Google Workspace Connectors">
+                                    <i class="fa-solid fa-plug" style="color:#fbbc05;"></i> <span>Connectors</span>
+                                    <i class="fa-solid fa-chevron-up"></i>
+                                </button>
+                                <div class="connector-dropdown" id="connectorDropdown">
+                                    <div class="connector-item" data-service="drive">
+                                        <div class="connector-icon-name">
+                                            <i class="fa-brands fa-google-drive" style="color:#34a853;"></i> Google Drive
+                                        </div>
+                                        <label class="liquid-glass-switch" id="switch-drive" data-service="drive">
+                                            <input type="checkbox" id="checkbox-drive">
+                                            <span class="slider"></span>
+                                        </label>
+                                    </div>
+                                    <div class="connector-item" data-service="gmail">
+                                        <div class="connector-icon-name">
+                                            <i class="fa-solid fa-envelope" style="color:#ea4335;"></i> Gmail
+                                        </div>
+                                        <label class="liquid-glass-switch" id="switch-gmail" data-service="gmail">
+                                            <input type="checkbox" id="checkbox-gmail">
+                                            <span class="slider"></span>
+                                        </label>
+                                    </div>
+                                    <div class="connector-item" data-service="docs">
+                                        <div class="connector-icon-name">
+                                            <i class="fa-solid fa-file-word" style="color:#4285f4;"></i> Google Docs
+                                        </div>
+                                        <label class="liquid-glass-switch" id="switch-docs" data-service="docs">
+                                            <input type="checkbox" id="checkbox-docs">
+                                            <span class="slider"></span>
+                                        </label>
+                                    </div>
+                                    <div class="connector-item" data-service="calendar">
+                                        <div class="connector-icon-name">
+                                            <i class="fa-solid fa-calendar-days" style="color:#4285f4;"></i> Calendar
+                                        </div>
+                                        <label class="liquid-glass-switch" id="switch-calendar" data-service="calendar">
+                                            <input type="checkbox" id="checkbox-calendar">
+                                            <span class="slider"></span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
                             <div class="submit-group">
                                 <input type="file" id="fileInput" multiple accept=".pdf,image/*,.txt"
                                     style="display: none;" />
@@ -182,6 +228,31 @@
 
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Auth Requirement Modal -->
+    <div class="modal-overlay" id="authRequiredModal">
+        <div class="modal-content liquid-glass-panel" style="max-width: 400px; text-align: center; padding: 40px 30px;">
+            <button class="modal-close" id="closeAuthModalBtn"><i class="fa-solid fa-xmark"></i></button>
+            
+            <div style="font-size: 3rem; color: #fbbc05; margin-bottom: 20px;">
+                <i class="fa-solid fa-plug-circle-exclamation"></i>
+            </div>
+            
+            <h3 style="font-size: 1.5rem; margin-bottom: 12px; color: var(--on-surface);">Login Required</h3>
+            <p style="color: var(--primary-dim); font-size: 1rem; margin-bottom: 25px; line-height: 1.6;">
+                You need to log in to connect to Google Workspace services (Drive, Docs, Gmail, etc).
+            </p>
+            
+            <div style="display: flex; gap: 15px; justify-content: center;">
+                <button onclick="window.location.href='/static/login.html'" style="padding: 12px 24px; border-radius: var(--radius-sm); border: none; background: linear-gradient(135deg, var(--primary), var(--primary-dim)); color: var(--on-primary); font-weight: 600; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 4px 15px rgba(135, 79, 91, 0.2);">
+                    Login
+                </button>
+                <button onclick="window.location.href='/static/register.html'" style="padding: 12px 24px; border-radius: var(--radius-sm); border: 1px solid var(--primary); background: transparent; color: var(--primary); font-weight: 600; cursor: pointer; transition: all 0.2s;">
+                    Register
+                </button>
             </div>
         </div>
     </div>
@@ -217,7 +288,40 @@
         </div>
     </div>
 
+    <!-- PDF Preview Modal -->
+    <div class="pdf-preview-overlay" id="pdfPreviewOverlay">
+        <div class="pdf-preview-container">
+            <div class="pdf-preview-header">
+                <div class="pdf-preview-title-row">
+                    <i class="fa-solid fa-file-pdf" style="color: #e2574c;"></i>
+                    <span class="pdf-preview-filename" id="pdfPreviewFilename">Document.pdf</span>
+                </div>
+                <button class="pdf-preview-close" id="pdfPreviewCloseBtn" title="Close">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="pdf-preview-body" id="pdfPreviewBody">
+                <iframe id="pdfPreviewFrame" class="pdf-preview-iframe" frameborder="0"></iframe>
+            </div>
+            <div class="pdf-preview-toolbar">
+                <button class="pdf-toolbar-btn" id="pdfSearchBtn" title="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+                <div class="pdf-toolbar-page-info">
+                    <span id="pdfCurrentPage">1</span> / <span id="pdfTotalPages">1</span>
+                </div>
+                <button class="pdf-toolbar-btn" id="pdfZoomOutBtn" title="Zoom Out">
+                    <span style="font-weight:700;font-size:1.2rem;">−</span>
+                </button>
+                <button class="pdf-toolbar-btn" id="pdfZoomInBtn" title="Zoom In">
+                    <span style="font-weight:700;font-size:1.2rem;">+</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Math: KaTeX -->
+
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
@@ -227,7 +331,7 @@
     <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
     <!-- Markdown -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="/static/script.js?v=3.5.5"></script>
+    <script src="/static/script.js?v=4.4.0"></script>
 </body>
 
 </html>

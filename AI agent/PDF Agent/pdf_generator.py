@@ -9,15 +9,13 @@ Architecture:
 Result: browser-quality PDF with full CSS3, system CJK fonts,
         colored sections, financial tables, gradients, shadows.
 """
-import os, re, uuid, markdown as _md_lib
-from datetime import datetime
-import os, re, uuid, markdown as _md_lib, subprocess
+import os, re, uuid, subprocess, markdown as _md_lib
 from datetime import datetime
 
 # Process isolation solves Event Loop bugs under Uvicorn/Windows.
 
 # ─── Paths ────────────────────────────────────────────────────────────────────
-_ROOT   = os.path.dirname(os.path.abspath(__file__))
+_ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 PDF_DIR = os.path.join(_ROOT, "user_uploads", "generated_pdfs")
 os.makedirs(PDF_DIR, exist_ok=True)
 

@@ -38,3 +38,6 @@ Thumbs.db
 
 # Cache
 .cache/
+
+# Secrets
+*client_secret.json

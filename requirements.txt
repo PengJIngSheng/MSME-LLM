@@ -8,3 +8,9 @@ PyYAML
 python-multipart
 # If someone wants to use markitdown later, they can install it:
 # markitdown
+
+# Google Connectors
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib
+pymongo

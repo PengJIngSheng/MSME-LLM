@@ -44,6 +44,17 @@ _TEMPLATE_YES_WORDS = [
 ]
 def _is_template_yes(t): return any(w in t.lower() for w in _TEMPLATE_YES_WORDS)
 
+# Keywords that signal user explicitly wants to regenerate/update the PDF
+_REGENERATE_WORDS = [
+    '重新生成', '再生成', '更新报告', '更新PDF', '更新pdf', '重新做', '重做',
+    '再做一次', '再来一次', '重新制作', '修改报告', '修改PDF', '修改pdf',
+    '再生成一次', '重新输出', '重新导出', '再导出', '更新一下报告',
+    'regenerate', 'redo', 'update pdf', 'update report', 'redo pdf',
+    'recreate', 'generate again', 'make again', 'new pdf', 'new report',
+    'revise report', 'revise pdf', 'modify report', 'modify pdf',
+]
+def _is_regenerate_request(t): return any(w in t.lower() for w in _REGENERATE_WORDS)
+
 
 # ─── Language Helpers ─────────────────────────────────────────────────────────
 def _detect_reply_lang(text: str) -> str:
@@ -190,8 +201,7 @@ def get_routing_question(lang: str = "en") -> str:
 
 # ─── Logging ──────────────────────────────────────────────────────────────────
 def _log(msg: str):
-    with open("debug_pdf.log", "a", encoding="utf-8") as f:
-        f.write(msg + "\n")
+    print(f"[PDF Agent] {msg}")
 
 # ─── PDF Extractor ────────────────────────────────────────────────────────────
 def _extract_pdf(path: str) -> str:
@@ -643,7 +653,7 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
             "template_data":    "",
             "doc_type":         "general",
             "generate_pdf_now": False,
-            "use_fast_model":   True,   # fast during analysis, think during generation
+            "use_fast_model":   False,   # fast during analysis, think during generation
             "reply_lang":       "en",
         }
 
@@ -713,7 +723,7 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
                 "<agent_memory_source_data>"
             )
         else:
-            state["use_fast_model"] = True
+            state["use_fast_model"] = False
             instruction = (
                 "You are a professional AI Agent in Document Analysis mode. "
                 "The user has not uploaded a document yet. "
@@ -753,7 +763,10 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
                     except Exception as e:
                         _log(f"[pdfplumber error] {e}")
             
-            state["template_data"]  = new_text + layout_report
+            # ── CRITICAL: Content-Structure Isolation ──
+            # Store ONLY structural metadata from template, NOT its text content.
+            # This prevents template placeholder data from contaminating the output.
+            state["template_data"]  = layout_report + "\n\n[Template Table Structures]:\n" + table_structures if table_structures else layout_report
             state["stage"]           = "generate"
             state["generate_pdf_now"]= True
             state["use_fast_model"]  = False
@@ -763,8 +776,17 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
                 "你是一位顶尖的文档智能分析与专业排版专家。\n\n"
                 f"用户上传了参考样板：**{tname}**。\n"
                 "你现在必须完成两个步骤：先进行深度思考并识别模版类型，然后生成高端专业的报告。\n\n"
+                "# ━━━ ⚠️ 最高优先级：内容-结构隔离协议 ⚠️ ━━━\n"
+                "## 数据源锁定（Source Data Lock）\n"
+                "- 第一阶段上传的资料 PDF 是**唯一的内容来源**\n"
+                "- 所有数据、数字、公司名、金额、百分比必须且只能来自 <agent_memory_source_data>\n\n"
+                "## 模版仅作排版参考（Template = Layout Only）\n"
+                "- 从模版中提取的信息仅用于：页面结构、标题层级、表格框架、排版风格\n"
+                "- **严禁**将模版中的任何占位符数据（示例公司名、虚假金额、示范文字）带入最终报告\n"
+                "- 如果模版表格中有示例数值，你必须用源数据中的真实数值替换\n"
+                "# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
                 "# 步骤一：Chain of Thought 深度思考（开篇2-3句话向用户展示你的识别结论）\n\n"
-                "请深入分析样板的文字内容、结构布局、表格形态，判断它属于以下哪种类型，\n"
+                "请深入分析样板的结构布局、表格形态，判断它属于以下哪种类型，\n"
                 "并根据类型决定你的生成策略：\n\n"
                 "📊 **财务报表/分析报告**\n"
                 "   → 生成策略：必须包含完整的收支对比表、资产负债表、比率分析表、趋势对比表\n"
@@ -787,21 +809,19 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
                 "所有数据展示必须使用 Markdown 表格（| 和 --- 语法）。\n"
                 "绝对禁止用纯文本、bullet points 或编号列表替代表格。\n"
                 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-                "底层探测引擎从模版中提取到的真实表格结构（你必须复刻这些表格框架并填入源数据）：\n"
+                "底层探测引擎从模版中提取到的表格结构骨架（你必须复刻这些框架并填入**源数据中的真实数据**）：\n"
                 f"{table_structures}\n\n"
                 "## 生成硬性规则\n"
-                "1. **章节结构**：严格复刻样板的标题层级(#/##/###)和段落顺序\n"
-                "2. **表格复刻**：按上方提取的表格结构，生成对应的Markdown表格，列名与样板对齐\n"
-                "3. **数据填充**：从第一阶段的深度分析中提取真实数据填入表格，金额必须准确\n"
+                "1. **章节结构**：复刻样板的标题层级(#/##/###)和段落顺序\n"
+                "2. **表格复刻**：按上方提取的表格结构骨架，生成对应的Markdown表格\n"
+                "3. **数据填充**：从 <agent_memory_source_data> 中提取真实数据填入表格，严禁使用模版中的占位符数据\n"
                 "4. **视觉优化**：\n"
                 "   - 用 **加粗** 标注关键数据和重要结论\n"
                 "   - 用分级标题让报告层次分明\n"
                 "   - 金额数据保持数值格式（千位分隔符）\n"
                 "5. **纯净输出**：禁止一切问候语、多余解释、闲聊。直接从 # 标题开始输出报告正文\n\n"
                 f"模版布局扫描：{layout_report}\n\n"
-                "锁定参考模版：\n"
-                "<agent_memory_template_data>\n"
-                "源数据词典池：\n"
+                "源数据词典池（唯一可用的数据来源）：\n"
                 "<agent_memory_source_data>"
             )
 
@@ -843,10 +863,12 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
             )
 
         else:
+            state["use_fast_model"] = False
             instruction = (
-                "请不要生成任何正式报告内容，也不要追加多余说明。"
-                "只向用户重述这句话即可（引导其操作）：\n"
-                f"“{routing_q}”"
+                "【状态提醒】当前流程停留在“等待用户决定是否生成最终PDF报告”的阶段。\n"
+                "用户当前发送的消息不属于模板操作，请正常回答用户的问题。\n\n"
+                "在回答的最后，请顺带提醒用户：\n"
+                f"“提示：当您准备好后，随时可以上传模板或告诉我‘直接生成’。”"
             )
 
     # ══════════════════════════════════════════════════════════════════════════
@@ -859,37 +881,161 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
 
         instruction = (
             f"用户的确认或微调指示如下：\n**{user_message}**\n\n"
+            "# ⚠️ 内容-结构隔离协议\n"
+            "- 数据源：只能使用 <agent_memory_source_data> 中的真实数据\n"
+            "- 模版：仅参考其排版结构，严禁使用模版中的占位符数据\n\n"
             "# Fidelity Protocol\n"
             "1. 模板即准则：严禁擅自更改模板设计、表格间距或整体核心布局。\n"
             "2. 动态填充：将第一阶段分析出的结构化数据像填空一样精准映射到模板对应位置。\n"
             "3. 输出要求：直接输出最终用于生成 PDF 的完整高保真 Markdown，禁止虚假占位符。\n\n"
             "源数据词典池：<agent_memory_source_data>\n"
-            "锁定模板蓝本：<agent_memory_template_data>\n\n"
+            "模板结构蓝本：<agent_memory_template_data>\n\n"
             "现在开始直接输出最后一步用于打印的 Markdown 内容全本。"
         )
 
     # ══════════════════════════════════════════════════════════════════════════
-    # STAGE: generate (refinement loop)
+    # STAGE: generate (first-time generation — PDF will be created this turn)
+    # After PDF is generated, server.py will advance stage to "done".
     # ══════════════════════════════════════════════════════════════════════════
     elif state["stage"] == "generate":
-        if new_text:
-            state["source_data"] += new_text
-        state["generate_pdf_now"] = True
-        doc_type = state.get("doc_type", "general")
-        _log(f"[agent] Refinement → type={doc_type} generate_pdf_now=True")
-        if state.get("template_data"):
+        # If user uploaded a brand-new source PDF, reset to init for a fresh analysis cycle
+        if new_text and not state.get("_template_upload_this_turn"):
+            state["source_data"]    = new_text  # replace, not append
+            state["template_data"]  = ""
+            state["doc_type"]       = _detect_doc_type(new_text)
+            state["stage"]          = "init"
+            state["generate_pdf_now"] = False
+            _log(f"[agent] New source PDF during generate → reset to init")
+            # Re-enter init stage processing (recursive-safe: just set instruction)
+            doc_list = ", ".join(new_names) or "the uploaded document"
+            dtype    = state["doc_type"].replace("_", " ").title()
+            state["stage"]          = "wait_template"
+            state["use_fast_model"] = False
             instruction = (
-                f"你现在处于报告迭代模式（document type: {doc_type}）。"
-                "上一版 PDF 已生成。请根据用户反馈更新内容，并继续严格遵守高保真复刻协议。"
-                "保持模板视觉结构不变，只修改必要的文字、数据和对应表格内容。"
-                "新的 PDF 会在本次输出后自动生成。所有内容都必须有数据依据。"
+                "# Role\n"
+                "你是一位顶尖的数据分析与商业情报专家，拥有金融 CFA、审计 ACCA、管理咨询 McKinsey 级别的深度分析能力。\n"
+                "你的任务是对用户上传的原始资料进行极致详尽、多维度、可追溯的深层解构。\n\n"
+                "# 分析框架（你必须按照以下 6 个维度逐一展开，每个维度都要有实质性的详细内容）\n\n"
+                "## 1. 文档全景扫描 (Document Overview)\n"
+                "## 2. 关键数据深度提取 (Data Extraction)\n"
+                "## 3. 趋势与变化分析 (Trend & Change Analysis)\n"
+                "## 4. 结构与构成拆解 (Composition Breakdown)\n"
+                "## 5. 风险识别与深层洞察 (Risk & Hidden Insights)\n"
+                "## 6. 专业建议与行动方向 (Recommendations)\n\n"
+                "# 结尾引导（分析写完后，必须在最末尾单独一行输出以下提问，一字不漏）：\n"
+                f"\u201c{routing_q}\u201d\n\n"
+                "---\n"
+                "现在开始你的深度分析：\n"
+                "<agent_memory_source_data>"
             )
         else:
+            # Normal first-time generation (triggered from wait_template)
+            state["generate_pdf_now"] = True
+            doc_type = state.get("doc_type", "general")
+            _log(f"[agent] First-time generation → type={doc_type} generate_pdf_now=True")
+            if state.get("template_data"):
+                instruction = (
+                    f"你现在处于报告生成模式（document type: {doc_type}）。"
+                    "请根据用户的要求生成完整的专业报告，严格遵守高保真复刻协议。"
+                    "保持模板视觉结构不变，用源数据填充所有内容。"
+                    "所有内容都必须有数据依据。"
+                )
+            else:
+                instruction = (
+                    f"你现在处于报告生成模式（document type: {doc_type}）。"
+                    "请根据用户的要求生成完整的专业报告。"
+                    "保持专业结构和可打印排版。"
+                    "禁止 filler text，所有内容都必须有数据依据。"
+                )
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # STAGE: done (PDF already generated — conversation mode)
+    # Only regenerate PDF if user explicitly requests it, uploads new files,
+    # or provides a new template PDF.
+    # ══════════════════════════════════════════════════════════════════════════
+    elif state["stage"] == "done":
+        doc_type = state.get("doc_type", "general")
+
+        # Case 1: User uploaded a NEW source PDF → full reset, start fresh analysis
+        if new_text and not _is_regenerate_request(user_message):
+            # Check if this looks like a new source doc (not a template for regeneration)
+            state["source_data"]     = new_text
+            state["template_data"]   = ""
+            state["doc_type"]        = _detect_doc_type(new_text)
+            state["stage"]           = "wait_template"
+            state["generate_pdf_now"]= False
+            state["use_fast_model"]  = False
+            doc_list = ", ".join(new_names) or "the uploaded document"
+            dtype    = state["doc_type"].replace("_", " ").title()
+            _log(f"[agent] New source PDF in done stage → reset to wait_template for fresh analysis")
+            instruction = (
+                "# Role\n"
+                "你是一位顶尖的数据分析与商业情报专家，拥有金融 CFA、审计 ACCA、管理咨询 McKinsey 级别的深度分析能力。\n"
+                "你的任务是对用户上传的原始资料进行极致详尽、多维度、可追溯的深层解构。\n\n"
+                "# 分析框架（你必须按照以下 6 个维度逐一展开，每个维度都要有实质性的详细内容）\n\n"
+                "## 1. 文档全景扫描 (Document Overview)\n"
+                "## 2. 关键数据深度提取 (Data Extraction)\n"
+                "## 3. 趋势与变化分析 (Trend & Change Analysis)\n"
+                "## 4. 结构与构成拆解 (Composition Breakdown)\n"
+                "## 5. 风险识别与深层洞察 (Risk & Hidden Insights)\n"
+                "## 6. 专业建议与行动方向 (Recommendations)\n\n"
+                "# 结尾引导（分析写完后，必须在最末尾单独一行输出以下提问，一字不漏）：\n"
+                f"\u201c{routing_q}\u201d\n\n"
+                "---\n"
+                "现在开始你的深度分析：\n"
+                "<agent_memory_source_data>"
+            )
+
+        # Case 2: User uploaded a new TEMPLATE PDF with regeneration intent
+        elif new_text and _is_regenerate_request(user_message):
+            state["template_data"]   = new_text
+            state["stage"]           = "generate"
+            state["generate_pdf_now"]= True
+            state["use_fast_model"]  = False
+            _log(f"[agent] New template + regenerate request in done stage → generate")
             instruction = (
                 f"你现在处于报告迭代模式（document type: {doc_type}）。"
-                "上一版 PDF 已生成。请根据用户反馈修订、扩展或更新报告。"
-                "保持同样的专业结构和可打印排版，新的 PDF 会在本次输出后自动生成。"
-                "禁止 filler text，所有内容都必须有数据依据。"
+                "用户提供了新的模板并要求重新生成报告。"
+                "请根据新模板的设计风格，结合源数据重新生成完整报告。"
+                "严格遵守高保真复刻协议。所有内容都必须有数据依据。"
+            )
+
+        # Case 3: User explicitly asked to regenerate/update PDF (no new file)
+        elif _is_regenerate_request(user_message):
+            state["stage"]           = "generate"
+            state["generate_pdf_now"]= True
+            state["use_fast_model"]  = False
+            _log(f"[agent] Explicit regenerate request in done stage → generate")
+            if state.get("template_data"):
+                instruction = (
+                    f"你现在处于报告迭代模式（document type: {doc_type}）。"
+                    "用户要求重新生成/更新报告。请根据用户反馈更新内容，并继续严格遵守高保真复刻协议。"
+                    "保持模板视觉结构不变，只修改必要的文字、数据和对应表格内容。"
+                    "新的 PDF 会在本次输出后自动生成。所有内容都必须有数据依据。"
+                )
+            else:
+                instruction = (
+                    f"你现在处于报告迭代模式（document type: {doc_type}）。"
+                    "用户要求重新生成/更新报告。请根据用户反馈修订、扩展或更新报告。"
+                    "保持同样的专业结构和可打印排版，新的 PDF 会在本次输出后自动生成。"
+                    "禁止 filler text，所有内容都必须有数据依据。"
+                )
+
+        # Case 4: Normal follow-up question → just answer, NO PDF generation
+        else:
+            state["generate_pdf_now"] = False
+            state["use_fast_model"]   = False
+            _log(f"[agent] Follow-up question in done stage → text-only response, no PDF")
+            instruction = (
+                f"你现在处于文档问答模式（document type: {doc_type}）。\n"
+                "用户之前已经完成了 PDF 报告的生成。现在用户正在基于分析结果进行追问。\n\n"
+                "⚠️ 重要规则：\n"
+                "- 不要生成新的 PDF 报告\n"
+                "- 不要输出完整的报告格式内容\n"
+                "- 主要是正常文字回答用户的问题、提供解释、做总结或回应延伸问题\n"
+                "- 除非用户明确要求（例如“把结果保存到Google Docs”、“给我发邮件”等），否则不要主动调用工具\n"
+                "- 可以引用 <agent_memory_source_data> 中的数据来佐证你的回答\n\n"
+                "直接回答用户的问题即可。"
             )
 
     # ── Hidden context ────────────────────────────────────────────────────────
@@ -902,9 +1048,11 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
         ctx_parts.append(
             f"<agent_memory_template_data>\n{state['template_data']}\n</agent_memory_template_data>"
         )
+
     hidden_context = "\n\n" + "\n\n".join(ctx_parts) if ctx_parts else ""
     instruction = f"{lang_rule}\n\n{instruction}"
 
     _log(f"[agent] → stage={state['stage']} doc_type={state.get('doc_type')} "
          f"generate_pdf_now={state['generate_pdf_now']}")
     return instruction, hidden_context
+

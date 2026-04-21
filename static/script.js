@@ -158,6 +158,26 @@ async function loadChat(chatId) {
             document.querySelector('.app-container').classList.remove('centered-landing');
             isFirstMessage = false;
             
+            // Restore agent mode / normal mode based on saved flag
+            const wasAgentMode = !!data.chat.agent_mode;
+            isAgentMode = wasAgentMode;
+            
+            document.querySelectorAll('.nav-menu-btn').forEach(btn => btn.classList.remove('active'));
+            
+            if (wasAgentMode) {
+                document.getElementById('agentModeBtn').classList.add('active');
+                document.getElementById('uploadBtn').style.display = 'inline-flex';
+                document.querySelector('.toggles-container').style.display = 'none';
+                const cc = document.getElementById('connectorsContainer');
+                if (cc) cc.style.display = 'flex';
+            } else {
+                document.getElementById('newChatBtn').classList.add('active');
+                document.getElementById('uploadBtn').style.display = 'none';
+                document.querySelector('.toggles-container').style.display = '';
+                const cc = document.getElementById('connectorsContainer');
+                if (cc) cc.style.display = 'none';
+            }
+            
             chatMessages = data.chat.messages || [];
             let feedbacks = data.chat.feedback || {};
             chatMessages.forEach((msg, idx) => {
@@ -175,6 +195,10 @@ document.getElementById('newChatBtn').addEventListener('click', () => {
     if (isGenerating) return;
     isAgentMode = false;
     document.getElementById('uploadBtn').style.display = 'none';
+    // Restore toggles in normal chat mode
+    document.querySelector('.toggles-container').style.display = '';
+    const connectorsContainer = document.getElementById('connectorsContainer');
+    if (connectorsContainer) connectorsContainer.style.display = 'none';
     currentChatId = null;
     chatMessages = [];
     messagesContainer.innerHTML = '';
@@ -191,6 +215,10 @@ document.getElementById('agentModeBtn').addEventListener('click', () => {
     if (isGenerating) return;
     isAgentMode = true;
     document.getElementById('uploadBtn').style.display = 'inline-flex';
+    // Agent mode: hide think/web toggles, show connectors
+    document.querySelector('.toggles-container').style.display = 'none';
+    const connectorsContainer = document.getElementById('connectorsContainer');
+    if (connectorsContainer) connectorsContainer.style.display = 'flex';
     currentChatId = null;
     chatMessages = [];
     messagesContainer.innerHTML = '';
@@ -212,6 +240,187 @@ function updateTogglesUI() {
 updateTogglesUI();
 thinkToggle.addEventListener('click', () => { isThinkMode = !isThinkMode; updateTogglesUI(); });
 webToggle.addEventListener('click', () => { isWebMode = !isWebMode; updateTogglesUI(); });
+
+// ============ Connectors ============
+const connectorBtn = document.getElementById('connectorBtn');
+const connectorsContainer = document.getElementById('connectorsContainer');
+if (connectorBtn && connectorsContainer) {
+    connectorBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        connectorsContainer.classList.toggle('open');
+    });
+    
+    document.addEventListener('click', (e) => {
+        if (!connectorsContainer.contains(e.target)) {
+            connectorsContainer.classList.remove('open');
+        }
+    });
+}
+
+function updateConnectorStatus(service, data) {
+    const switchLabel = document.getElementById(`switch-${service}`);
+    const checkbox = document.getElementById(`checkbox-${service}`);
+    if (switchLabel && checkbox && data) {
+        checkbox.checked = data.active;
+    }
+}
+
+async function fetchConnectorsStatus() {
+    // Deliberately disabled per user instruction.
+    // Connectors will now always default to unchecked (OFF) upon login/page reload.
+    return;
+}
+
+// Google OAuth client builder cache
+const googleClients = {};
+let pendingOAuthService = null;
+
+function initGoogleClients() {
+    if (typeof google === 'undefined') {
+        setTimeout(initGoogleClients, 500);
+        return;
+    }
+    const loginHint = localStorage.getItem('pepperUsername');
+    
+    Object.keys(SCOPE_MAP).forEach(service => {
+        let config = {
+            client_id: '685645444928-ivt7lgsjiatv0ff0r68ckmbln1rdrrm4.apps.googleusercontent.com',
+            scope: SCOPE_MAP[service],
+            include_granted_scopes: false,  // CRITICAL: Force strictly separate scope prompts
+            ux_mode: 'popup',
+            callback: async (response) => {
+            if (response && response.code) {
+                try {
+                        const jwt = localStorage.getItem('pepperJwt');
+                        if (!jwt) {
+                            showToast("Please login first.", true);
+                            return;
+                        }
+                        const res = await fetch('/api/connectors/exchange_code', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${jwt}`
+                            },
+                            body: JSON.stringify({
+                                auth_code: response.code,
+                                redirect_uri: 'postmessage',
+                                service_id: pendingOAuthService
+                            })
+                        });
+                        
+                        if (res.status === 401) {
+                            localStorage.removeItem('pepperJwt');
+                            localStorage.removeItem('pepperUserId');
+                            showToast("Your session expired during auth. Please log in again.", true);
+                            setTimeout(() => window.location.href = '/static/login.html', 1500);
+                            return;
+                        }
+                        
+                        const data = await res.json();
+                        if (res.ok && data.status === "success") {
+                            // Manually turn switch ON since we no longer sync state globally
+                            const checkbox = document.getElementById(`checkbox-${pendingOAuthService}`);
+                            if(checkbox) checkbox.checked = true;
+                        } else {
+                            // Only pop up if there is an error
+                            showToast("Connector Auth Failed: " + (data.detail || data.message || "Unknown error"), true);
+                            
+                            // Revert toggle UI immediately visually
+                            const checkbox = document.getElementById(`checkbox-${pendingOAuthService}`);
+                            if(checkbox) checkbox.checked = false;
+                        }
+                    } catch (e) {
+                        showToast("Connector Network Error", true);
+                    }
+                }
+            }
+        };
+        
+        if (loginHint && loginHint.includes('@')) {
+            config.login_hint = loginHint;
+        }
+        
+        googleClients[service] = google.accounts.oauth2.initCodeClient(config);
+    });
+}
+
+const SCOPE_MAP = {
+    'drive': 'https://www.googleapis.com/auth/drive.file',
+    'gmail': 'https://www.googleapis.com/auth/gmail.send',
+    'docs': 'https://www.googleapis.com/auth/documents',
+    'calendar': 'https://www.googleapis.com/auth/calendar.events'
+};
+
+// When a switch is clicked, trigger Google OAuth with granular scope OR toggle state
+document.querySelectorAll('.liquid-glass-switch').forEach(switchLabel => {
+    switchLabel.addEventListener('click', async (e) => {
+        // Stop bubbling and native checkbox toggling! We control this!
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const token = localStorage.getItem('pepperJwt');
+        if (!token) {
+            if (connectorsContainer) connectorsContainer.classList.remove('open');
+            const authModal = document.getElementById('authRequiredModal');
+            if (authModal) authModal.classList.add('show');
+            return;
+        }
+        
+        const service = switchLabel.dataset.service;
+        const checkbox = document.getElementById(`checkbox-${service}`);
+        
+        const isCurrentlyActive = checkbox.checked;
+        const willBeActive = !isCurrentlyActive;
+        
+        if (willBeActive) {
+            // Turning ON always requires Google Auth window to retrieve/confirm scope
+            if (!googleClients[service]) {
+                showToast("Google OAuth loading... please wait.", true);
+                return;
+            }
+            if (connectorsContainer) connectorsContainer.classList.remove('open');
+            pendingOAuthService = service;
+            // Pre-initialized client fires synchronously, browsers won't block popup
+            googleClients[service].requestCode();
+        } else {
+            // Turning it OFF. Send toggle request to remove the scope logically
+            try {
+                // Optimistic UI update which instantly triggers CSS gray color
+                checkbox.checked = false;
+                
+                await fetch('/api/connectors/toggle', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ service: service, enabled: willBeActive })
+                });
+                // No status fetch!
+            } catch (err) {
+                console.error("Toggle failed", err);
+                // Revert UI on failure
+                checkbox.checked = !willBeActive;
+            }
+        }
+    });
+});
+
+// Init Connectors UI data and build 4 background OAuth clients
+setTimeout(async () => {
+    // Wipe all old Google credentials on page load so user must re-authorize
+    const token = localStorage.getItem('pepperJwt');
+    if (token) {
+        try {
+            await fetch('/api/connectors/clear_all', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+        } catch (e) { /* ignore */ }
+    }
+    initGoogleClients();
+}, 2000);
 
 // ============ Helpers ============
 function scrollToBottom() {
@@ -450,15 +659,20 @@ function appendMessage(text, role, msgObj = null, msgIndex = null, feedbackVal =
         const wrapper = document.createElement('div');
         wrapper.className = 'user-msg-wrapper';
 
+        // Render attachments as separate stacked cards ABOVE the text bubble
+        if (msgObj && msgObj.attachments && msgObj.attachments.length > 0) {
+            const attBlock = document.createElement('div');
+            attBlock.className = 'user-msg-attachment-block';
+            msgObj.attachments.forEach(att => {
+                const card = createAttachmentCard(att);
+                attBlock.appendChild(card);
+            });
+            wrapper.appendChild(attBlock);
+        }
+
         const bubble = document.createElement('div');
         bubble.className = 'message-bubble user';
-        
-        let attHtml = '';
-        if (msgObj && msgObj.attachments && msgObj.attachments.length > 0) {
-            attHtml = renderMessageAttachments(msgObj.attachments);
-        }
-        
-        bubble.innerHTML = attHtml + `<div class="markdown-content">` + renderMd(text) + `</div>`;
+        bubble.innerHTML = `<div class="markdown-content">` + renderMd(text) + `</div>`;
         wrapper.appendChild(bubble);
         
         if (msgIndex !== null) {
@@ -687,14 +901,17 @@ async function handleSend(isResume = false, resumeIndex = null) {
 
     isGenerating = true;
     currentAbortController = new AbortController();
-    submitBtn.className = 'submit-btn ' + ((isThinkMode || isWebMode && !frontendAnswerAccum) ? 'thinking-state' : 'answering-state');
+    // In agent mode, thinking is always on, web is always off
+    const effectiveThinkMode = isAgentMode ? true : isThinkMode;
+    const effectiveWebMode = isAgentMode ? false : isWebMode;
+    submitBtn.className = 'submit-btn ' + ((effectiveThinkMode || effectiveWebMode && !frontendAnswerAccum) ? 'thinking-state' : 'answering-state');
     submitBtn.innerHTML = '<i class="fa-solid fa-pause"></i>';
 
     const assistantContainer = document.createElement('div');
     assistantContainer.className = 'message-bubble assistant';
     assistantWrapper.appendChild(assistantContainer);
 
-    if (isThinkMode || isWebMode) {
+    if (effectiveThinkMode || effectiveWebMode) {
         thinkWrapper = document.createElement('div');
         thinkWrapper.className = 'think-wrapper';
         if (!isResume) thinkWrapper.classList.add('collapsed');
@@ -702,8 +919,8 @@ async function handleSend(isResume = false, resumeIndex = null) {
         thinkHeader = document.createElement('div');
         thinkHeader.className = 'think-header';
         
-        let initialLabel = (isResume && frontendAnswerAccum) ? 'Thought Process' : (isThinkMode ? 'Thinking...' : 'Searching the web...');
-        let initialIcon = (isResume && frontendAnswerAccum) ? '<i class="fa-solid fa-circle-check"></i>' : (isThinkMode ? '<i class="fa-solid fa-atom fa-spin"></i>' : '<i class="fa-solid fa-globe fa-spin"></i>');
+        let initialLabel = (isResume && frontendAnswerAccum) ? 'Thought Process' : (effectiveThinkMode ? 'Thinking...' : 'Searching the web...');
+        let initialIcon = (isResume && frontendAnswerAccum) ? '<i class="fa-solid fa-circle-check"></i>' : (effectiveThinkMode ? '<i class="fa-solid fa-atom fa-spin"></i>' : '<i class="fa-solid fa-globe fa-spin"></i>');
         
         thinkHeader.innerHTML = `
             <span class="think-icon">${initialIcon}</span>
@@ -761,8 +978,8 @@ async function handleSend(isResume = false, resumeIndex = null) {
                 message: isResume ? '' : chatMessages[chatMessages.length - 1]?.content || '',
                 messages: chatMessages,
                 attachments: attachmentsPayload,
-                think_mode: isThinkMode,
-                web_mode: isWebMode,
+                think_mode: isAgentMode ? true : isThinkMode,
+                web_mode: isAgentMode ? false : isWebMode,
                 is_resume: isResume,
                 agent_mode: isAgentMode,
             }),
@@ -796,10 +1013,10 @@ async function handleSend(isResume = false, resumeIndex = null) {
                         const elapsed = ((Date.now() - thinkStartTime) / 1000).toFixed(0);
                         thinkHeader.querySelector('.think-icon').innerHTML = '<i class="fa-solid fa-circle-check"></i>';
                         
-                        if (isThinkMode && !isWebMode && frontendThinkAccum.trim().length === 0) {
+                        if (effectiveThinkMode && !effectiveWebMode && frontendThinkAccum.trim().length === 0) {
                             thinkWrapper.style.display = 'none';
                         } else {
-                            if (isThinkMode) {
+                            if (effectiveThinkMode) {
                                 thinkHeader.querySelector('.think-label').innerText = `THOUGHT FOR ${elapsed} s`;
                             } else {
                                 thinkHeader.querySelector('.think-label').innerText = `SEARCHED FOR ${elapsed} s`;
@@ -939,9 +1156,13 @@ async function handleSend(isResume = false, resumeIndex = null) {
                         let textChunk = data.text;
                         rawAccumText += textChunk;
                         
-                        if (isThinkMode) {
+                        if (effectiveThinkMode) {
                             if (data.thinking) {
                                 frontendThinkAccum += textChunk;
+                                // Auto-expand think wrapper when content starts arriving
+                                if (thinkWrapper && thinkWrapper.classList.contains('collapsed') && frontendThinkAccum.trim().length > 0) {
+                                    thinkWrapper.classList.remove('collapsed');
+                                }
                             } else {
                                 frontendAnswerAccum += textChunk;
                             }
@@ -1107,25 +1328,98 @@ function renderAttachmentsPreview() {
 }
 
 function renderMessageAttachments(attachmentsArr) {
-    if (!attachmentsArr || attachmentsArr.length === 0) return '';
-    let html = `<div class="attachments-container-msg">`;
-    attachmentsArr.forEach(att => {
-        let iconClass = 'fa-file-lines';
-        if (att.content_type && att.content_type.startsWith('image/')) iconClass = 'fa-file-image';
-        else if (att.content_type === 'application/pdf' || att.original_name.toLowerCase().endsWith('.pdf')) iconClass = 'fa-file-pdf';
-        
-        const sizeStr = att.size ? (att.size / 1024 / 1024).toFixed(2) + ' MB' : '';
-
-        html += `
-            <div class="file-attachment-card">
-                <i class="fa-solid ${iconClass}"></i>
-                <span>${att.original_name} ${sizeStr ? `<span style="color:var(--primary-dim);font-size:0.8em">(${sizeStr})</span>` : ''}</span>
-            </div>
-        `;
-    });
-    html += `</div>`;
-    return html;
+    // Legacy function kept for compatibility — now returns empty
+    return '';
 }
+
+function createAttachmentCard(att) {
+    const card = document.createElement('div');
+    card.className = 'user-msg-attachment-card';
+    
+    let iconClass = 'fa-file-lines';
+    let iconColor = 'var(--primary-dim)';
+    const isPdf = att.content_type === 'application/pdf' || (att.original_name && att.original_name.toLowerCase().endsWith('.pdf'));
+    if (att.content_type && att.content_type.startsWith('image/')) {
+        iconClass = 'fa-file-image';
+        iconColor = '#4c8de2';
+    } else if (isPdf) {
+        iconClass = 'fa-file-pdf';
+        iconColor = '#e2574c';
+    }
+    
+    const sizeStr = att.size ? (att.size / 1024 / 1024).toFixed(2) + ' MB' : '';
+    
+    card.innerHTML = `
+        <div class="att-icon" style="color:${iconColor}">
+            <i class="fa-solid ${iconClass}"></i>
+        </div>
+        <span class="att-name">${att.original_name || 'file'}</span>
+        ${sizeStr ? `<span class="att-size">(${sizeStr})</span>` : ''}
+    `;
+    
+    // Construct the PDF URL: prefer att.url, fallback to building from saved_path or file_id
+    let pdfUrl = att.url || null;
+    if (!pdfUrl && att.saved_path) {
+        // Extract filename from absolute saved_path like ".../user_uploads/uuid.pdf"
+        const parts = att.saved_path.replace(/\\/g, '/').split('/');
+        const fname = parts[parts.length - 1];
+        pdfUrl = '/uploads/' + fname;
+    }
+    if (!pdfUrl && att.file_id) {
+        const ext = att.original_name ? att.original_name.substring(att.original_name.lastIndexOf('.')) : '.pdf';
+        pdfUrl = '/uploads/' + att.file_id + ext;
+    }
+    
+    if (isPdf && pdfUrl) {
+        card.style.cursor = 'pointer';
+        card.addEventListener('click', () => openPdfPreview(pdfUrl, att.original_name));
+    }
+    
+    return card;
+}
+
+// ============ PDF Preview Modal ============
+function openPdfPreview(url, filename) {
+    const overlay = document.getElementById('pdfPreviewOverlay');
+    const frame = document.getElementById('pdfPreviewFrame');
+    const nameEl = document.getElementById('pdfPreviewFilename');
+    
+    if (!overlay || !frame) return;
+    
+    nameEl.textContent = filename || 'Document.pdf';
+    frame.src = url;
+    overlay.classList.add('show');
+    document.body.style.overflow = 'hidden';
+}
+
+function closePdfPreview() {
+    const overlay = document.getElementById('pdfPreviewOverlay');
+    const frame = document.getElementById('pdfPreviewFrame');
+    
+    if (overlay) overlay.classList.remove('show');
+    if (frame) frame.src = '';
+    document.body.style.overflow = '';
+}
+
+// PDF Preview event listeners
+(function initPdfPreview() {
+    const overlay = document.getElementById('pdfPreviewOverlay');
+    const closeBtn = document.getElementById('pdfPreviewCloseBtn');
+    
+    if (closeBtn) {
+        closeBtn.addEventListener('click', closePdfPreview);
+    }
+    if (overlay) {
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) closePdfPreview();
+        });
+    }
+    
+    // Escape key to close
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closePdfPreview();
+    });
+})();
 
 // ============ Event Listeners ============
 submitBtn.addEventListener('click', () => handleSend(false, null));
@@ -1470,10 +1764,10 @@ async function loadChatPreview(chatId, title, liElement) {
     function applyTheme(theme) {
         if (theme === 'dark') {
             document.documentElement.setAttribute('data-theme', 'dark');
-            document.body.style.backgroundColor = '#000000';
+            
         } else {
             document.documentElement.removeAttribute('data-theme');
-            document.body.style.backgroundColor = '';
+            
         }
     }
 
@@ -1636,8 +1930,24 @@ async function loadChatPreview(chatId, title, liElement) {
     }
 
     function hydrateUser() {
+        const jwt = localStorage.getItem('pepperJwt');
         const username = localStorage.getItem('pepperUsername');
         const avatarUrl = localStorage.getItem('pepperAvatar');
+        
+        // If no valid JWT, clear stale user info and show default state
+        if (!jwt) {
+            if (userDisplayName) userDisplayName.innerText = 'Login';
+            if (userEmailDisplay) userEmailDisplay.innerText = 'Register';
+            if (avatarDisplay) {
+                avatarDisplay.innerHTML = '';
+                avatarDisplay.style.background = '#444';
+            }
+            // Clean up stale localStorage entries
+            localStorage.removeItem('pepperUsername');
+            localStorage.removeItem('pepperAvatar');
+            localStorage.removeItem('pepperUserId');
+            return;
+        }
         
         if (username && username.includes('@')) {
             if (userDisplayName) userDisplayName.innerText = username.split('@')[0];
@@ -1686,6 +1996,14 @@ async function loadChatPreview(chatId, title, liElement) {
         });
     }
 
+    const closeAuthBtn = document.getElementById('closeAuthModalBtn');
+    const authModal = document.getElementById('authRequiredModal');
+    if (closeAuthBtn && authModal) {
+        closeAuthBtn.addEventListener('click', () => {
+            authModal.classList.remove('show');
+        });
+    }
+
     if(logoutBtn) {
         logoutBtn.addEventListener('click', () => {
             localStorage.removeItem('pepperJwt');
@@ -1716,10 +2034,10 @@ async function loadChatPreview(chatId, title, liElement) {
                 btn.classList.add('active');
                 if (btn.dataset.theme === 'dark') {
                     document.documentElement.setAttribute('data-theme', 'dark');
-                    document.body.style.backgroundColor = '#000000';
+                    
                 } else {
                     document.documentElement.removeAttribute('data-theme');
-                    document.body.style.backgroundColor = '';
+                    
                 }
                 localStorage.setItem('pepperTheme', btn.dataset.theme);
                 

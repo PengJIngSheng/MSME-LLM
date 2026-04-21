@@ -1,14 +1,17 @@
 import os
 import sys
+import warnings
+warnings.filterwarnings("ignore")
 import json
 import asyncio
 import re
 import uuid
+import datetime as dt
 import queue as queue_module
 from datetime import datetime
 from fastapi import FastAPI, Request, UploadFile, File
 import shutil
-import uuid
+from copy import deepcopy
 from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -25,8 +28,11 @@ _spec = _ilu.spec_from_file_location("pdf_agent", _pdf_agent_path)
 pdf_agent = _ilu.module_from_spec(_spec)
 _spec.loader.exec_module(pdf_agent)
 
-# Load pdf_generator from root
-import pdf_generator
+# Load pdf_generator from AI agent/PDF Agent
+_pdf_gen_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "AI agent", "PDF Agent", "pdf_generator.py")
+_gen_spec = _ilu.spec_from_file_location("pdf_generator", _pdf_gen_path)
+pdf_generator = _ilu.module_from_spec(_gen_spec)
+_gen_spec.loader.exec_module(pdf_generator)
 
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "interface functions"))
 from auth import auth_router
@@ -55,6 +61,26 @@ app.include_router(auth_router)
 static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 os.makedirs(static_dir, exist_ok=True)
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+
+# Load google_workspace_tools via importlib (replaces deprecated SourceFileLoader)
+_gwt_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "AI agent", "google_workspace_tools.py")
+_gwt_spec = _ilu.spec_from_file_location("google_workspace_tools", _gwt_path)
+google_connectors = _ilu.module_from_spec(_gwt_spec)
+_gwt_spec.loader.exec_module(google_connectors)
+app.include_router(google_connectors.connectors_router)
+
+# Load google_agent via importlib (directory name "AI agent" has spaces → not a valid package)
+_ga_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "AI agent", "google_agent.py")
+_ga_spec = _ilu.spec_from_file_location("google_agent", _ga_path)
+google_agent = _ilu.module_from_spec(_ga_spec)
+_ga_spec.loader.exec_module(google_agent)
+
+# Load memory_agent via importlib
+_mem_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "AI agent", "memory_agent.py")
+_mem_spec = _ilu.spec_from_file_location("memory_agent", _mem_path)
+memory_agent = _ilu.module_from_spec(_mem_spec)
+_mem_spec.loader.exec_module(memory_agent)
 
 mongo_client = MongoClient("mongodb://localhost:27017/")
 db = mongo_client["pepper_chat_db"]
@@ -367,6 +393,7 @@ async def upload_files_endpoint(files: List[UploadFile] = File(...)):
                 "file_id": file_id,
                 "original_name": file.filename,
                 "saved_path": file_path,
+                "url": f"/uploads/{safe_name}",
                 "size": file_size,
                 "content_type": file.content_type
             })
@@ -442,6 +469,16 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
     inference_messages = _summarise_history(messages)
     inference_messages = _apply_sliding_window(inference_messages)
 
+    _chat_doc = chats_col.find_one({"_id": chat_id})
+    _stream_user_id = _chat_doc.get("user_id") if _chat_doc else None
+
+    # Memory Retrieval (Run in thread to avoid blocking loop)
+    memory_injection = ""
+    if _stream_user_id:
+        memory_injection = await asyncio.to_thread(
+            memory_agent.retrieve_memory_context, _stream_user_id, latest_user_msg
+        )
+
     final_messages = inference_messages
     raw_accum_text = ""
     initial_phase  = None
@@ -463,12 +500,64 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
             # Signal UI immediately — PDF parsing is CPU-heavy (15-30s for large files)
             yield _sse({"status": "parsing_pdf"})
 
-        print(f"DEBUG: agent_mode={agent_mode}, attachments={attachments}")
-        # Run in thread so SSE stream stays alive during heavy MarkItDown extraction
+        # Run in thread so SSE stream stays alive during heavy PDF extraction
         agent_inst, agent_ctx = await asyncio.to_thread(
             pdf_agent.process_agent_request, chat_id, latest_user_msg, attachments
         )
-        print(f"DEBUG: returned agent_inst: {agent_inst}")
+
+        # ── Intercept Google Connector Requests via Google Agent ──
+        _agent_user_id = _stream_user_id
+        
+        if agent_mode and _agent_user_id and google_agent.is_google_request(latest_user_msg):
+            yield _sse({"status": "executing Google Agent"})
+            
+            async def google_cb(msgs):
+                return await asyncio.to_thread(
+                    ms.generate_response, cfg.fast_model, tokenizer, msgs, 
+                    think_mode=False, show_thinking=False, stream=False
+                )
+            
+            _agent_mem_pdf = pdf_agent.agent_memory.get(chat_id, {}).get("last_generated_pdf", None)
+            if not _agent_mem_pdf:
+                _agent_mem_pdf = pdf_agent.agent_memory.get(chat_id, {}).get("last_pdf", None)
+            # Also check recent chat messages for a PDF attachment
+            if not _agent_mem_pdf:
+                for m in reversed(messages[-10:]):
+                    if m.get("pdf_name"):
+                        _agent_mem_pdf = m["pdf_name"]
+                        break
+            
+            # Determine the correct directory for the PDF file
+            _pdf_dir = UPLOAD_DIR
+            if _agent_mem_pdf:
+                # Check generated_pdfs directory first, then fallback to UPLOAD_DIR
+                gen_path = os.path.join(UPLOAD_DIR, "generated_pdfs", _agent_mem_pdf)
+                if os.path.exists(gen_path):
+                    _pdf_dir = os.path.join(UPLOAD_DIR, "generated_pdfs")
+            
+            _out = await google_agent.process_google_request(
+                user_id=_agent_user_id,
+                current_msg=latest_user_msg,
+                messages=messages,
+                active_scopes="",
+                llm_callback=google_cb,
+                upload_dir=_pdf_dir,
+                pdf_filename=_agent_mem_pdf,
+            )
+            
+            yield _sse({"text": _out + "\n\n"})
+            
+            # Save Google Agent result to DB and finish early
+            _db_msgs = deepcopy(messages)
+            _db_msgs.append({"role": "assistant", "content": _out})
+            chats_col.update_one({"_id": chat_id}, {"$set": {
+                "messages": _db_msgs,
+                "updated_at": dt.datetime.utcnow().isoformat(),
+            }})
+            yield "data: [DONE]\n\n"
+            return
+        # ── End Google Intercept ──
+
         if agent_inst or agent_ctx:
             agent_system_context = f"{agent_inst}\n\n{agent_ctx}"
             
@@ -496,11 +585,12 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
             yield _sse({'sources': sources})
         yield _sse({'status': 'answering'})
         
-        # Inject agent context into web search mode prompt
+        # Inject agent and memory context into web search mode prompt
         if agent_system_context and len(final_messages) > 0 and final_messages[0]["role"] == "system":
             final_messages[0]["content"] = f"{agent_system_context}\n\n{final_messages[0]['content']}"
+        if memory_injection and len(final_messages) > 0 and final_messages[0]["role"] == "system":
+            final_messages[0]["content"] = f"{memory_injection}\n\n{final_messages[0]['content']}"
     else:
-        import datetime as dt
         now = dt.datetime.now().strftime("%Y-%m-%d %H:%M")
         
         system_instruction = (
@@ -516,13 +606,8 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
         
         if agent_system_context:
             system_instruction = f"{agent_system_context}\n\n{system_instruction}"
-
-        # Debug log to verify LLM prompt
-        try:
-            with open("debug_pdf.log", "a", encoding="utf-8") as _f:
-                _f.write(f"SERVER.PY ELSE BLOCK: ASSEMBLED PROMPT LENGTH: {len(system_instruction)}\n")
-                _f.write(f"SERVER.PY ELSE BLOCK: ASSEMBLED PROMPT PREVIEW:\n{system_instruction[:500]}...\n")
-        except: pass
+        if memory_injection:
+            system_instruction = f"{memory_injection}\n\n{system_instruction}"
 
         final_messages = [{"role": "system", "content": system_instruction}] + list(inference_messages)
 
@@ -567,13 +652,8 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
             "use_mmap":       True,       # memory-map weights → faster cold load
             "use_mlock":      False,      # don't lock — let OS manage
         }
-        # Agent analysis: fast_model, no extra token cap (user wants full response)
-        # Agent generate: larger context for full PDF + template data
-        # STRICTLY limited to 8192! `min()` correctly enforces the cap, unlike the previous `max()`
-        if agent_mode:
-            _ollama_opts["num_ctx"] = min(cfg.context_length, 8192)
-        else:
-            _ollama_opts["num_ctx"] = min(cfg.context_length, 8192)
+        # Context cap: 8192 tokens max for RTX 4080 12GB stability
+        _ollama_opts["num_ctx"] = min(cfg.context_length, 8192)
 
         ollama_stream = _ol.chat(
             model=_ollama_model,
@@ -745,6 +825,11 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
         try:
             _, _pdf_filename = await pdf_generator.markdown_to_pdf(pdf_source, _doc_type)
             print(f"[PDF GEN] Done: {_pdf_filename}")
+            # Advance agent stage to 'done' — prevents future messages from auto-generating PDF
+            if chat_id in pdf_agent.agent_memory:
+                pdf_agent.agent_memory[chat_id]["stage"] = "done"
+                # Store generated PDF so Google Agent can email it later
+                pdf_agent.agent_memory[chat_id]["last_generated_pdf"] = _pdf_filename
             yield _sse({
                 "pdf_ready": True,
                 "pdf_url":   f"/api/download_pdf/{_pdf_filename}",
@@ -753,6 +838,8 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
         except Exception as _pdf_err:
             print(f"[PDF Gen Error] {_pdf_err}")
             yield _sse({"text": f"\n\n\u26a0\ufe0f PDF generation failed: {_pdf_err}"})
+
+        # Old inline tool parsing for Google Connectors has been removed and completely delegated to google_agent.py early intercept.
 
     # Save to DB (Full text including think content)
     new_msg = {"role": "assistant", "content": raw_accum_text.strip()}
@@ -772,6 +859,18 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
             {"_id": chat_id},
             {"$push": {"messages": new_msg}}
         )
+        
+    # Schedule Long-Term Memory Extraction
+    if _stream_user_id:
+        async def _bg_mem_cb(msgs):
+            return await asyncio.to_thread(
+                ms.generate_response, cfg.fast_model, tokenizer, msgs,
+                think_mode=False, show_thinking=False, stream=False
+            )
+        asyncio.create_task(
+            memory_agent.extract_and_store_memory(_stream_user_id, list(messages) + [new_msg], _bg_mem_cb)
+        )
+        
     yield "data: [DONE]\n\n"
 
 
@@ -783,7 +882,8 @@ async def chat_endpoint(req: ChatRequest):
         title = req.message[:30] + ("..." if len(req.message) > 30 else "")
         chats_col.insert_one({
             "_id": chat_id, "user_id": req.user_id,
-            "title": title, "updated_at": datetime.utcnow(), "messages": []
+            "title": title, "updated_at": datetime.utcnow(), "messages": [],
+            "agent_mode": req.agent_mode
         })
     else:
         chats_col.update_one({"_id": chat_id}, {"$set": {"updated_at": datetime.utcnow()}})
@@ -799,9 +899,12 @@ async def chat_endpoint(req: ChatRequest):
 
     async def wrapped():
         yield _sse({'chat_id': chat_id})
+        # Agent mode: force think=True, web=False (hardcoded)
+        _think = True if req.agent_mode else req.think_mode
+        _web   = False if req.agent_mode else req.web_mode
         async for chunk in stream_generator(
             chat_id, messages,
-            req.think_mode, req.web_mode,
+            _think, _web,
             req.is_resume,
             max_tokens_override=req.max_tokens,
             agent_mode=req.agent_mode,
@@ -871,4 +974,4 @@ async def chat_feedback(req: FeedbackRequest):
 
 if __name__ == "__main__":
     cfg.print_summary()
-    uvicorn.run("server:app", host=cfg.host, port=cfg.port, reload=False)
+    uvicorn.run("server:app", host=cfg.host, port=cfg.port, reload=False, log_level="warning", access_log=False)
