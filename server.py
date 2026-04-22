@@ -523,7 +523,7 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
         # ── Intercept Google Connector Requests via Google Agent ──
         _agent_user_id = _stream_user_id
         
-        if agent_mode and _agent_user_id and google_agent.is_google_request(latest_user_msg):
+        if agent_mode and _agent_user_id and google_agent.is_google_request(latest_user_msg, _agent_user_id):
             yield _sse({"status": "executing Google Agent"})
             
             async def google_cb(msgs):

@@ -3653,4 +3653,61 @@ html[data-theme="light"] .user-context-menu {
 @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
-}
+}
+/* Gmail Email Confirmation Preview Component */
+.gmail-preview-container {
+    position: relative;
+    background: var(--surface-container-low);
+    border-radius: var(--radius-sm);
+    margin-top: 12px;
+    border: 1px solid var(--outline-variant);
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.gmail-preview-content {
+    padding: 16px;
+    white-space: pre-wrap;
+    font-size: 0.95em;
+    color: var(--on-surface);
+    transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow-y: auto;
+    max-height: 400px;
+}
+
+/* Scrollbar styling for preview content */
+.gmail-preview-content::-webkit-scrollbar {
+    width: 6px;
+}
+.gmail-preview-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+.gmail-preview-content::-webkit-scrollbar-thumb {
+    background-color: var(--outline-variant-focus);
+    border-radius: 10px;
+}
+
+.gmail-preview-content.collapsed {
+    max-height: 140px;
+    overflow: hidden;
+    /* Soft gradient fade out effect at the bottom */
+    -webkit-mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
+    mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
+}
+
+.gmail-preview-toggle {
+    text-align: center;
+    padding: 8px 16px;
+    font-size: 0.85em;
+    font-weight: 500;
+    color: #6366f1;
+    cursor: pointer;
+    user-select: none;
+    border-top: 1px solid var(--outline-variant);
+    background: var(--surface-container);
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.gmail-preview-toggle:hover {
+    background: var(--outline-variant);
+}

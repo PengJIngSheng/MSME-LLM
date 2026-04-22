@@ -23,6 +23,25 @@ if (currentUsername) {
     if (ud) ud.innerText = currentUsername;
 }
 
+// Global Event Delegation for dynamic UI elements (like Gmail Preview Toggle)
+document.body.addEventListener('click', function(e) {
+    const btn = e.target.closest('.gmail-preview-toggle-btn');
+    if (btn) {
+        var c = btn.parentElement.previousElementSibling;
+        if(c.style.maxHeight){ 
+            c.style.maxHeight=''; 
+            c.style.webkitMaskImage='none'; 
+            c.style.maskImage='none'; 
+            btn.innerHTML='<i class="fa-solid fa-chevron-up"></i> Collapse Preview'; 
+        } else { 
+            c.style.maxHeight='180px'; 
+            c.style.webkitMaskImage='linear-gradient(to bottom, black 50%, transparent 100%)'; 
+            c.style.maskImage='linear-gradient(to bottom, black 50%, transparent 100%)'; 
+            btn.innerHTML='<i class="fa-solid fa-chevron-down"></i> Expand Preview'; 
+        }
+    }
+});
+
 // ============ Sidebar Toggle ============
 const sidebarCloseBtn = document.getElementById('sidebarCloseBtn');
 const sidebarOpenBtn = document.getElementById('sidebarOpenBtn');
@@ -658,6 +677,9 @@ function appendMessage(text, role, msgObj = null, msgIndex = null, feedbackVal =
     if (role === 'user') {
         const wrapper = document.createElement('div');
         wrapper.className = 'user-msg-wrapper';
+        if (text === '[CONFIRM_GMAIL_SEND]' || text === '[CANCEL_GMAIL_SEND]') {
+            wrapper.style.display = 'none';
+        }
 
         // Render attachments as separate stacked cards ABOVE the text bubble
         if (msgObj && msgObj.attachments && msgObj.attachments.length > 0) {
@@ -1007,6 +1029,14 @@ async function handleSend(isResume = false, resumeIndex = null) {
                     submitBtn.innerHTML = '<i class="fa-solid fa-arrow-up"></i>';
                     if (thinkTimerInterval) clearInterval(thinkTimerInterval);
 
+                    // Reset any pending confirm buttons that might be stuck spinning
+                    document.querySelectorAll('.gmail-confirm-btn').forEach(btn => {
+                        if (btn.innerHTML.includes('fa-spinner') || btn.innerHTML.includes('Sending...')) {
+                            btn.innerHTML = '<i class="fa-solid fa-check"></i> Sent';
+                            btn.style.background = '#16a34a';
+                        }
+                    });
+
                     // Finalize think header
                     if (thinkWrapper) {
                         if (!thinkStartTime) thinkStartTime = Date.now();
@@ -1240,12 +1270,13 @@ async function handleSend(isResume = false, resumeIndex = null) {
                         // Create Gmail confirmation card
                         const gmailCard = document.createElement('div');
                         gmailCard.className = 'gmail-confirm-card';
+                        gmailCard.style = "margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--outline-variant);";
                         gmailCard.innerHTML = `
-                            <div class="gmail-card-actions">
-                                <button class="gmail-confirm-btn" id="gmailConfirm_${Date.now()}">
+                            <div class="gmail-card-actions" style="display: flex; gap: 10px; align-items: center; margin-bottom: 8px;">
+                                <button class="gmail-confirm-btn" id="gmailConfirm_${Date.now()}" style="padding: 8px 16px; border-radius: 8px; font-weight: 500; font-size: 0.9em; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s ease; border: none; background: #6366f1; color: white; min-width: 130px; justify-content: center;">
                                     <i class="fa-solid fa-paper-plane"></i> Confirm Send
                                 </button>
-                                <button class="gmail-cancel-btn" id="gmailCancel_${Date.now()}">
+                                <button class="gmail-cancel-btn" id="gmailCancel_${Date.now()}" style="padding: 8px 16px; border-radius: 8px; font-weight: 500; font-size: 0.9em; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s ease; border: 1px solid var(--outline-variant); background: transparent; color: var(--text-color); min-width: 100px; justify-content: center;">
                                     <i class="fa-solid fa-xmark"></i> Cancel
                                 </button>
                             </div>
@@ -1278,6 +1309,8 @@ async function handleSend(isResume = false, resumeIndex = null) {
                         });
 
                         assistantWrapper.appendChild(gmailCard);
+                        scrollToBottom();
+                        
                         scrollToBottom();
                     }
 
@@ -1324,6 +1357,14 @@ async function handleSend(isResume = false, resumeIndex = null) {
             submitBtn.className = 'submit-btn';
             submitBtn.innerHTML = '<i class="fa-solid fa-arrow-up"></i>';
         }
+        
+        // Reset any pending confirm buttons that might be stuck spinning
+        document.querySelectorAll('.gmail-confirm-btn').forEach(btn => {
+            if (btn.innerHTML.includes('fa-spinner') || btn.innerHTML.includes('Sending...')) {
+                btn.innerHTML = '<i class="fa-solid fa-check"></i> Sent';
+                btn.style.background = '#16a34a';
+            }
+        });
     }
 }
 

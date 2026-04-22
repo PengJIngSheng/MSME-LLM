@@ -88,16 +88,16 @@ api_keys:
 # -----------------------------------------------------------------------------
 search:
   # Maximum number of search queries to generate per user question
-  max_queries: 5
+  max_queries: 2
 
   # Maximum results to fetch per query (from DuckDuckGo or Bing)
-  max_results_per_query: 15
+  max_results_per_query: 5
 
   # Maximum number of final results passed to the model (after filtering & ranking)
-  max_results_total: 20
+  max_results_total: 6
 
   # How many characters of each result's body text to include
-  snippet_length: 250
+  snippet_length: 500
 
   # Domains to always exclude from search results (AI assistants, social media, etc.)
   blacklist_domains:

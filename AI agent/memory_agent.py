@@ -82,12 +82,21 @@ def retrieve_memory_context(user_id: str, query: str, k: int = 3) -> str:
     if not user_id or not query.strip():
         return ""
     try:
-        docs = vectorstore.similarity_search(query, k=k, filter={"user_id": {"$eq": user_id}})
-        if not docs:
+        # Use similarity_search_with_score to safely drop low-relevance memory noise.
+        # Nomic cosine distance -> lower is better. < 0.55 is a strong semantic match.
+        docs_and_scores = vectorstore.similarity_search_with_score(
+            query, k=k, filter={"user_id": {"$eq": user_id}}
+        )
+        
+        valid_facts = []
+        for doc, score in docs_and_scores:
+            if score < 0.55:
+                valid_facts.append(doc.page_content)
+                
+        if not valid_facts:
             return ""
             
-        facts = [d.page_content for d in docs]
-        return "[System Long-Term Memory (Relevant User Facts)]:\n" + "\n".join(f"- {f}" for f in facts)
+        return "[System Long-Term Memory (Relevant User Facts)]:\n" + "\n".join(f"- {f}" for f in valid_facts)
     except Exception as e:
         print(f"[Memory Agent] Retrieval Error for {user_id}: {e}")
         return ""

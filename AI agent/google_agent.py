@@ -36,26 +36,27 @@ _TARGETS = [
     "docs", "drive",
     "meeting", "appointment", "event", "schedule",
     "会议", "预约", "排期", "安排", "约会",
+    "recipient", "subject", "body", "attachment",
+    "收件人", "主题", "正文", "内容", "附件",
 ]
 
 # Action verbs (the "do")
 _VERBS = [
     "发送", "发", "存进", "写入", "上传", "保存", "创建", "新建",
     "写进", "写到", "同步", "导出", "传到", "放到", "存到",
-    "安排", "预约", "排",
+    "安排", "预约", "排", "加", "增加", "修改", "换", "更新", "换成",
     "send", "upload", "save", "create", "write", "export",
     "sync", "put", "move", "transfer", "compose", "draft",
-    "schedule", "book", "set up", "arrange",
+    "schedule", "book", "set up", "arrange", "add", "update", "change", "modify", "replace"
 ]
 
-# Gmail confirmation pending storage: chat_id -> {recipient, subject, body, attachment_path, lang}
-_pending_gmail: dict = {}
+# Gmail confirmation pending storage is now handled persistently via MongoDB in _gwt.users_col
 
 # Special confirm/cancel message markers
 _CONFIRM_GMAIL = "[CONFIRM_GMAIL_SEND]"
 _CANCEL_GMAIL = "[CANCEL_GMAIL_SEND]"
 
-def is_google_request(msg: str) -> bool:
+def is_google_request(msg: str, user_id: str = None) -> bool:
     """
     Fast keyword-based intent detection.
     Returns True only when BOTH a target noun AND an action verb are present,
@@ -80,7 +81,18 @@ def is_google_request(msg: str) -> bool:
     # Otherwise require target + verb
     has_target = any(t in low for t in _TARGETS)
     has_verb = any(v in low for v in _VERBS)
-    return has_target and has_verb
+    
+    if has_target and has_verb:
+        return True
+        
+    # Aggressive interception if user has a pending Gmail draft
+    if user_id:
+        user_doc = _gwt.users_col.find_one({"_id": user_id})
+        if user_doc and user_doc.get("pending_gmail"):
+            # Lock the user into the Google Workspace flow. Any input is treated as an instruction to modify the draft.
+            return True
+
+    return False
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -145,7 +157,9 @@ async def process_google_request(
     
     # ── Handle Gmail confirmation / cancellation ──
     if current_msg.strip() == _CONFIRM_GMAIL:
-        pending = _pending_gmail.pop(user_id, None)
+        user_doc = _gwt.users_col.find_one({"_id": user_id})
+        pending = user_doc.get("pending_gmail") if user_doc else None
+        _gwt.users_col.update_one({"_id": user_id}, {"$unset": {"pending_gmail": ""}})
         if not pending:
             if lang == "zh":
                 return "⚙️ **Google Workspace**\n\n⚠️ 没有待发送的邮件。"
@@ -167,7 +181,9 @@ async def process_google_request(
         return f"⚙️ **Google Workspace**\n\n{result}"
     
     if current_msg.strip() == _CANCEL_GMAIL:
-        pending = _pending_gmail.pop(user_id, None)
+        user_doc = _gwt.users_col.find_one({"_id": user_id})
+        pending = user_doc.get("pending_gmail") if user_doc else None
+        _gwt.users_col.update_one({"_id": user_id}, {"$unset": {"pending_gmail": ""}})
         if pending:
             att_path = pending.get("attachment_path")
             if att_path and os.path.exists(att_path):
@@ -199,12 +215,21 @@ async def process_google_request(
     _now_str = _dt.now().strftime("%Y-%m-%d %H:%M (%A)")
 
     # ── Step 1: Ask fast LLM to extract JSON ──────────────────────────────────
+    user_doc = _gwt.users_col.find_one({"_id": user_id})
+    pending_draft = user_doc.get("pending_gmail") if user_doc else None
+    pending_context = ""
+    if pending_draft:
+        safe_draft = {k: v for k, v in pending_draft.items() if k in ['recipient', 'subject', 'body']}
+        if safe_draft.get("body") and len(safe_draft["body"]) > 50:
+            safe_draft["body"] = "USE_PREVIOUS_ANALYSIS"
+        pending_context = f"\n\n[SYSTEM NOTE: The user has a PENDING EMAIL DRAFT: {json.dumps(safe_draft, ensure_ascii=False)}.\nIf the user wants to update it (e.g. 'add recipient Jade'), return a `gmail_send` tool call MERGING their new request into this draft. Keep unmodified fields as they were.]\n\n"
+
     system_prompt = (
         "You are a strict JSON-only Intent Router for Google Workspace.\n"
         "ABSOLUTELY DO NOT output <think> tags, explanations, greetings, apologies, or conversational text.\n"
         "ABSOLUTELY DO NOT refuse the request. You MUST always output a valid JSON tool call.\n"
         "Output ONLY a single raw JSON object. No markdown, no code blocks, no extra text.\n\n"
-        f"CURRENT DATE/TIME: {_now_str}\n\n"
+        f"CURRENT DATE/TIME: {_now_str}{pending_context}\n"
         "Available Tools:\n" + json.dumps(enabled_tools, indent=2) + "\n\n"
         "RULES:\n"
         "1. USE_PREVIOUS_ANALYSIS: ONLY set content/body to \"USE_PREVIOUS_ANALYSIS\" when "
@@ -481,50 +506,77 @@ def _execute_tool(
             recipient = args.get("recipient", "")
             subject = args.get("subject", "AI Generated Email")
             
-            # Store pending email for confirmation instead of sending directly
-            _pending_gmail[user_id] = {
+            # Store pending email for confirmation persistently
+            pending_obj = {
                 "recipient": recipient,
                 "subject": subject,
                 "body": body,
                 "attachment_path": extracted_pdf_path,
                 "lang": lang,
             }
+            _gwt.users_col.update_one({"_id": user_id}, {"$set": {"pending_gmail": pending_obj}})
+            
             # Don't cleanup extracted_pdf_path here — it's needed when user confirms
             extracted_pdf_path = None  # Prevent cleanup at end of function
             
-            # Return confirmation preview as a special JSON marker
-            body_preview = body[:200] + "..." if len(body) > 200 else body
-            has_att = bool(_pending_gmail[user_id].get("attachment_path"))
+            # Advanced Inline HTML Email Preview Widget (Bypasses CSS Cache)
+            escaped_body = body.replace('<', '&lt;').replace('>', '&gt;')
+            
+            is_long = len(body) > 300 or body.count('\n') > 8
+            collapse_style = "max-height: 180px; overflow: hidden; mask-image: linear-gradient(to bottom, black 50%, transparent 100%); -webkit-mask-image: linear-gradient(to bottom, black 50%, transparent 100%); transition: all 0.4s ease;" if is_long else ""
+            
+            toggle_html = ""
+            if is_long:
+                toggle_html = (
+                    "<div style='text-align: center; border-top: 1px solid var(--outline-variant, #e2e8f0); padding-top: 16px; margin-top: 16px;'>"
+                    "<button class='gmail-preview-toggle-btn' style='background: var(--surface-container-highest, #e2e8f0); border: 1px solid var(--outline-variant, #cbd5e1); color: var(--on-surface, #334155); font-weight: 600; font-size: 0.85em; cursor: pointer; padding: 6px 16px; border-radius: 20px; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05); font-family: system-ui, sans-serif;' onmouseover='this.style.background=\"var(--surface-container, #cbd5e1)\"' onmouseout='this.style.background=\"var(--surface-container-highest, #e2e8f0)\"'><i class=\"fa-solid fa-chevron-down\"></i> Expand Preview</button>"
+                    "</div>"
+                )
+            
+            has_att = bool(pending_obj.get("attachment_path"))
+            att_icon = "✅ " + ("已附加" if lang=="zh" else ("Dilampirkan" if lang=="ms" else "Attached")) if has_att else "❌ " + ("无" if lang=="zh" else ("Tiada" if lang=="ms" else "None"))
+            
+            lang_labels = {
+                "zh": {"title": "邮件确认草稿", "to": "收件人", "subj": "主 题", "att": "附 件"},
+                "ms": {"title": "Draf E-mel", "to": "Kepada", "subj": "Subjek", "att": "Lampiran"},
+                "en": {"title": "Email Draft", "to": "To", "subj": "Subject", "att": "Attach"}
+            }
+            lbl = lang_labels.get(lang, lang_labels["en"])
+            
+            html_preview = f"""
+<div style="background: var(--surface, #ffffff); border: 1px solid var(--outline-variant, #e2e8f0); border-radius: 12px; margin-top: 16px; margin-bottom: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
+  <div style="background: var(--surface-container-low, #f8f9fa); padding: 12px 16px; border-bottom: 1px solid var(--outline-variant, #e2e8f0); display: flex; align-items: center; gap: 8px;">
+    <i class="fa-solid fa-envelope" style="color: #6366f1; font-size: 1.1em;"></i>
+    <span style="font-weight: 600; color: var(--on-surface, #334155); font-size: 0.9em; letter-spacing: 0.3px;">{lbl['title']}</span>
+  </div>
+  <div style="padding: 16px 20px; border-bottom: 1px dashed var(--outline-variant, #cbd5e1); background: var(--surface, #ffffff);">
+    <div style="display: flex; margin-bottom: 8px; font-size: 0.9em; align-items: center;">
+      <span style="color: var(--primary-dim, #64748b); width: 65px; font-weight: 500;">{lbl['to']}</span>
+      <span style="background: rgba(99,102,241,0.1); color: #6366f1; padding: 2px 8px; border-radius: 4px; font-weight: 500;">{recipient}</span>
+    </div>
+    <div style="display: flex; margin-bottom: 8px; font-size: 0.9em; align-items: center;">
+      <span style="color: var(--primary-dim, #64748b); width: 65px; font-weight: 500;">{lbl['subj']}</span>
+      <span style="color: var(--on-surface, #0f172a); font-weight: 600;">{subject}</span>
+    </div>
+    <div style="display: flex; font-size: 0.9em; align-items: center;">
+      <span style="color: var(--primary-dim, #64748b); width: 65px; font-weight: 500;">{lbl['att']}</span>
+      <span style="color: var(--on-surface, #0f172a); font-weight: 500;">{att_icon}</span>
+    </div>
+  </div>
+  <div style="padding: 20px; background: var(--surface-container-lowest, #fafafa);">
+    <div style="white-space: pre-wrap; font-size: 0.95em; color: var(--on-surface, #334155); line-height: 1.6; font-family: 'Georgia', 'Times New Roman', serif; {collapse_style}">
+{escaped_body}
+    </div>
+    {toggle_html}
+  </div>
+</div>
+"""
             if lang == "zh":
-                result = (
-                    f"📧 **邮件发送确认**\n\n"
-                    f"**收件人：** {recipient}\n"
-                    f"**主题：** {subject}\n"
-                    f"**附件：** {'✅ PDF 报告已附加' if has_att else '❌ 无附件'}\n\n"
-                    f"**正文预览：**\n> {body_preview}\n\n"
-                    f"---\n"
-                    f"请确认是否发送此邮件："
-                )
+                result = f"为您生成了以下邮件草稿，请确认是否发送：\n{html_preview}"
             elif lang == "ms":
-                result = (
-                    f"📧 **Pengesahan Penghantaran E-mel**\n\n"
-                    f"**Penerima:** {recipient}\n"
-                    f"**Subjek:** {subject}\n"
-                    f"**Lampiran:** {'✅ Laporan PDF dilampirkan' if has_att else '❌ Tiada lampiran'}\n\n"
-                    f"**Pratonton Isi:**\n> {body_preview}\n\n"
-                    f"---\n"
-                    f"Sila sahkan sama ada untuk menghantar e-mel ini:"
-                )
+                result = f"Sila sahkan sama ada untuk menghantar e-mel di bawah:\n{html_preview}"
             else:
-                result = (
-                    f"📧 **Email Send Confirmation**\n\n"
-                    f"**To:** {recipient}\n"
-                    f"**Subject:** {subject}\n"
-                    f"**Attachment:** {'✅ PDF report attached' if has_att else '❌ No attachment'}\n\n"
-                    f"**Body Preview:**\n> {body_preview}\n\n"
-                    f"---\n"
-                    f"Please confirm whether to send this email:"
-                )
+                result = f"Please confirm whether to send the email below:\n{html_preview}"
             # Append special gmail_confirm marker for frontend to detect
             result += "\n[GMAIL_CONFIRM_PENDING]"
 

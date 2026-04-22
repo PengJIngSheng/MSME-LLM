@@ -290,24 +290,26 @@ class WebSearchAgent:
                 "You are an expert search query generator.\n"
                 "CRITICAL: If the user asks MULTIPLE unrelated questions, you MUST generate queries for EVERY SINGLE QUESTION.\n\n"
                 "RULES:\n"
-                "1. Generate 2 queries **FOR EACH DISTINCT TOPIC** asked by the user.\n"
-                "2. FACTUAL FOCUS: Target official/authoritative sources (e.g., official sites, reuters) with recency signals ('2026', 'today', 'latest').\n"
-                "3. ENGLISH: Translate product names, currencies, and entities to English.\n"
-                "4. Output ONLY a raw JSON array of strings. No markdown, no explanations.\n\n"
-                "Example for 'USD to MYR today and who is the president of US':\n"
-                '["USD MYR exchange rate today latest", "USD to MYR real-time xe.com", "current president of United States 2026", "US president full name latest"]'
+                "1. Generate exactly 1 query **FOR EACH DISTINCT TOPIC** asked by the user.\n"
+                "2. LOCALIZATION: If the user's question relates to finance, business, startups, markets, or economics, you MUST append 'Malaysia' to the search query.\n"
+                "3. FACTUAL FOCUS: Target official/authoritative sources (e.g., official sites, reuters) with recency signals ('2026', 'today', 'latest').\n"
+                "4. ENGLISH: Translate product names, currencies, and entities to English.\n"
+                "5. Output ONLY a raw JSON array of strings. No markdown, no explanations.\n\n"
+                "Example for 'USD to MYR today and who is the CEO of Apple':\n"
+                '["USD MYR exchange rate today latest Malaysia", "current CEO of Apple 2026 latest"]'
             )
         else:  # analytical
             instructions = (
                 "You are an expert search query generator.\n"
                 "CRITICAL: If the user asks MULTIPLE unrelated questions, you MUST generate queries for EVERY SINGLE QUESTION.\n\n"
                 "RULES:\n"
-                "1. Generate 3 queries **FOR EACH DISTINCT TOPIC** asked by the user.\n"
-                "2. DIVERSITY: For each topic, target different angles (e.g., 'latest news', 'background causes', 'expert analysis').\n"
-                "3. ENGLISH: Translate product names, currencies, and entities to English.\n"
-                "4. Output ONLY a raw JSON array of strings. No markdown, no explanations.\n\n"
-                "Example for 'US-Iran conflict and also Apple stock':\n"
-                '["US Iran war latest news 2026", "US Iran conflict impact causes", "Iran US retaliation expert analysis", "Apple stock AAPL price today", "Apple recent market analysis 2026"]'
+                "1. Generate 2 queries **FOR EACH DISTINCT TOPIC** asked by the user.\n"
+                "2. LOCALIZATION: If the user's question relates to finance, business, startups, markets, or economics, you MUST append 'Malaysia' to the search queries.\n"
+                "3. DIVERSITY: For each topic, target different angles (e.g., 'latest news', 'background causes').\n"
+                "4. ENGLISH: Translate product names, currencies, and entities to English.\n"
+                "5. Output ONLY a raw JSON array of strings. No markdown, no explanations.\n\n"
+                "Example for 'Coffee startup trends and AI impact':\n"
+                '["coffee startup market trends 2026 Malaysia", "coffee shop business growth factors Malaysia", "AI technology impact on industries latest", "artificial intelligence economic consequences"]'
             )
 
         router_prompt = [
