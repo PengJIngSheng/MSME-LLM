@@ -27,8 +27,8 @@ if (currentUsername) {
 document.body.addEventListener('click', function(e) {
     const btn = e.target.closest('.gmail-preview-toggle-btn');
     if (btn) {
-        var c = btn.parentElement.previousElementSibling;
-        if(c.style.maxHeight){ 
+        var c = btn.closest('.gmail-preview-container').querySelector('.gmail-preview-body');
+        if(c && c.style.maxHeight){ 
             c.style.maxHeight=''; 
             c.style.webkitMaskImage='none'; 
             c.style.maskImage='none'; 
@@ -1290,7 +1290,7 @@ async function handleSend(isResume = false, resumeIndex = null) {
                             confirmBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending...';
                             confirmBtn.style.background = '#6366f1';
                             // Send confirm message to backend
-                            const fakeInput = document.getElementById('chatInput');
+                            const fakeInput = document.getElementById('userInput');
                             if (fakeInput) {
                                 fakeInput.value = '[CONFIRM_GMAIL_SEND]';
                                 document.getElementById('submitBtn').click();
@@ -1301,7 +1301,7 @@ async function handleSend(isResume = false, resumeIndex = null) {
                             cancelBtn.disabled = true;
                             cancelBtn.innerHTML = '<i class="fa-solid fa-check"></i> Cancelled';
                             cancelBtn.style.background = '#dc2626';
-                            const fakeInput = document.getElementById('chatInput');
+                            const fakeInput = document.getElementById('userInput');
                             if (fakeInput) {
                                 fakeInput.value = '[CANCEL_GMAIL_SEND]';
                                 document.getElementById('submitBtn').click();

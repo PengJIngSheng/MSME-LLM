@@ -31,12 +31,12 @@ _gwt_spec.loader.exec_module(_gwt)
 # Target nouns (the "what")
 _TARGETS = [
     "google docs", "google drive", "google doc", "gdocs", "gdrive",
-    "gmail", "calendar", "google calendar",
+    "gmail", "calendar", "google calendar", "email", "mail", "draft", "letter", "message",
     "邮箱", "邮件", "云盘", "云端硬盘", "文档", "日历", "日程",
     "docs", "drive",
     "meeting", "appointment", "event", "schedule",
     "会议", "预约", "排期", "安排", "约会",
-    "recipient", "subject", "body", "attachment",
+    "recipient", "subject", "body", "attachment", "content", "text",
     "收件人", "主题", "正文", "内容", "附件",
 ]
 
@@ -220,9 +220,7 @@ async def process_google_request(
     pending_context = ""
     if pending_draft:
         safe_draft = {k: v for k, v in pending_draft.items() if k in ['recipient', 'subject', 'body']}
-        if safe_draft.get("body") and len(safe_draft["body"]) > 50:
-            safe_draft["body"] = "USE_PREVIOUS_ANALYSIS"
-        pending_context = f"\n\n[SYSTEM NOTE: The user has a PENDING EMAIL DRAFT: {json.dumps(safe_draft, ensure_ascii=False)}.\nIf the user wants to update it (e.g. 'add recipient Jade'), return a `gmail_send` tool call MERGING their new request into this draft. Keep unmodified fields as they were.]\n\n"
+        pending_context = f"\n\n[SYSTEM NOTE: The user has a PENDING EMAIL DRAFT:\n{json.dumps(safe_draft, ensure_ascii=False)}\n\nUpdate the draft according to the user's latest message. Return a FULL `gmail_send` tool call containing the updated 'recipient', 'subject', and 'body'. If a field does not need to change, KEEP its previous value from the draft.]\n\n"
 
     system_prompt = (
         "You are a strict JSON-only Intent Router for Google Workspace.\n"
@@ -543,34 +541,10 @@ def _execute_tool(
             }
             lbl = lang_labels.get(lang, lang_labels["en"])
             
-            html_preview = f"""
-<div style="background: var(--surface, #ffffff); border: 1px solid var(--outline-variant, #e2e8f0); border-radius: 12px; margin-top: 16px; margin-bottom: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
-  <div style="background: var(--surface-container-low, #f8f9fa); padding: 12px 16px; border-bottom: 1px solid var(--outline-variant, #e2e8f0); display: flex; align-items: center; gap: 8px;">
-    <i class="fa-solid fa-envelope" style="color: #6366f1; font-size: 1.1em;"></i>
-    <span style="font-weight: 600; color: var(--on-surface, #334155); font-size: 0.9em; letter-spacing: 0.3px;">{lbl['title']}</span>
-  </div>
-  <div style="padding: 16px 20px; border-bottom: 1px dashed var(--outline-variant, #cbd5e1); background: var(--surface, #ffffff);">
-    <div style="display: flex; margin-bottom: 8px; font-size: 0.9em; align-items: center;">
-      <span style="color: var(--primary-dim, #64748b); width: 65px; font-weight: 500;">{lbl['to']}</span>
-      <span style="background: rgba(99,102,241,0.1); color: #6366f1; padding: 2px 8px; border-radius: 4px; font-weight: 500;">{recipient}</span>
-    </div>
-    <div style="display: flex; margin-bottom: 8px; font-size: 0.9em; align-items: center;">
-      <span style="color: var(--primary-dim, #64748b); width: 65px; font-weight: 500;">{lbl['subj']}</span>
-      <span style="color: var(--on-surface, #0f172a); font-weight: 600;">{subject}</span>
-    </div>
-    <div style="display: flex; font-size: 0.9em; align-items: center;">
-      <span style="color: var(--primary-dim, #64748b); width: 65px; font-weight: 500;">{lbl['att']}</span>
-      <span style="color: var(--on-surface, #0f172a); font-weight: 500;">{att_icon}</span>
-    </div>
-  </div>
-  <div style="padding: 20px; background: var(--surface-container-lowest, #fafafa);">
-    <div style="white-space: pre-wrap; font-size: 0.95em; color: var(--on-surface, #334155); line-height: 1.6; font-family: 'Georgia', 'Times New Roman', serif; {collapse_style}">
-{escaped_body}
-    </div>
-    {toggle_html}
-  </div>
-</div>
-"""
+            # Replace newlines with <br> to prevent marked.js from breaking HTML blocks
+            escaped_body_html = escaped_body.replace('\n', '<br>')
+            
+            html_preview = f"""<div class="gmail-preview-container" style="background: var(--surface, #ffffff); border: 1px solid var(--outline-variant, #e2e8f0); border-radius: 12px; margin-top: 16px; margin-bottom: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.03);"><div style="background: var(--surface-container-low, #f8f9fa); padding: 12px 16px; border-bottom: 1px solid var(--outline-variant, #e2e8f0); display: flex; align-items: center; gap: 8px;"><i class="fa-solid fa-envelope" style="color: #6366f1; font-size: 1.1em;"></i><span style="font-weight: 600; color: var(--on-surface, #334155); font-size: 0.9em; letter-spacing: 0.3px;">{lbl['title']}</span></div><div style="padding: 16px 20px; border-bottom: 1px dashed var(--outline-variant, #cbd5e1); background: var(--surface, #ffffff);"><div style="display: flex; margin-bottom: 8px; font-size: 0.9em; align-items: center;"><span style="color: var(--primary-dim, #64748b); width: 65px; font-weight: 500;">{lbl['to']}</span><span style="background: rgba(99,102,241,0.1); color: #6366f1; padding: 2px 8px; border-radius: 4px; font-weight: 500;">{recipient}</span></div><div style="display: flex; margin-bottom: 8px; font-size: 0.9em; align-items: center;"><span style="color: var(--primary-dim, #64748b); width: 65px; font-weight: 500;">{lbl['subj']}</span><span style="color: var(--on-surface, #0f172a); font-weight: 600;">{subject}</span></div><div style="display: flex; font-size: 0.9em; align-items: center;"><span style="color: var(--primary-dim, #64748b); width: 65px; font-weight: 500;">{lbl['att']}</span><span style="color: var(--on-surface, #0f172a); font-weight: 500;">{att_icon}</span></div></div><div style="padding: 20px; background: var(--surface-container-lowest, #fafafa);"><div class="gmail-preview-body" style="font-size: 0.95em; color: var(--on-surface, #334155); line-height: 1.6; font-family: 'Georgia', 'Times New Roman', serif; {collapse_style}">{escaped_body_html}</div>{toggle_html}</div></div>"""
             if lang == "zh":
                 result = f"为您生成了以下邮件草稿，请确认是否发送：\n{html_preview}"
             elif lang == "ms":
