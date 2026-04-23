@@ -40,7 +40,7 @@ def _theme(doc_type: str) -> dict:
     return _TYPE_THEME.get(doc_type, _TYPE_THEME["general"])
 
 # ─── Full HTML Template ───────────────────────────────────────────────────────
-_HTML_TEMPLATE = """<!DOCTYPE html>
+_HTML_TEMPLATE_COLOR = """<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -364,11 +364,353 @@ hr {{
 document.querySelectorAll('tbody td').forEach(td => {{
   const txt = td.textContent.trim();
   // If starts with + or is positive % change
-  if (/^\\+|↑|▲/.test(txt)) {{
+  if (/^\+|↑|▲/.test(txt)) {{
     td.classList.add('num-pos');
   }}
   // If starts with - or negative
-  else if (/^-[\\d]|↓|▼|\\(\\d/.test(txt)) {{
+  else if (/^-[\d]|↓|▼|\(\d/.test(txt)) {{
+    td.classList.add('num-neg');
+  }}
+  // If first column (label), left-align
+  if (td.cellIndex === 0) {{
+    td.style.textAlign = 'left';
+    td.style.fontWeight = '500';
+  }}
+}});
+</script>
+</body>
+</html>
+"""
+
+_HTML_TEMPLATE_BW = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{title}</title>
+<style>
+/* ── Reset & Fonts ─────────────────────────────────── */
+* {{ margin: 0; padding: 0; box-sizing: border-box; }}
+html {{ -webkit-print-color-adjust: exact; print-color-adjust: exact; }}
+body {{
+  font-family: "Palatino Linotype", "Book Antiqua", Palatino, "Times New Roman", Times, "Songti SC", "SimSun", serif;
+  font-size: 10.5pt;
+  color: #000;
+  line-height: 1.6;
+  background: #fff;
+}}
+
+/* ── Fixed Header (every page) ─────────────────────── */
+.page-header {{
+  position: fixed; top: 0; left: 0; right: 0;
+  height: 1.4cm;
+  background: #fff;
+  display: flex; align-items: center;
+  justify-content: space-between;
+  padding: 0 1.8cm;
+  z-index: 1000;
+}}
+.page-header .ph-title {{
+  font-size: 8pt; font-weight: 600;
+  color: #000; letter-spacing: 0.03em;
+  white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; max-width: 75%;
+}}
+.page-header .ph-badge {{
+  font-size: 7.5pt; color: #000;
+  background: transparent; padding: 2px 0;
+  border-bottom: 1px solid #000;
+  white-space: nowrap;
+  font-weight: 600;
+}}
+.gold-rule {{
+  position: fixed; top: 1.4cm; left: 0; right: 0;
+  height: 1px; background: #000;
+  z-index: 1000;
+}}
+
+/* ── Fixed Footer (every page) ─────────────────────── */
+.page-footer {{
+  position: fixed; bottom: 0; left: 0; right: 0;
+  height: 1.1cm;
+  background: #fff;
+  border-top: 1px solid #000;
+  display: flex; align-items: center;
+  justify-content: space-between;
+  padding: 0 1.8cm;
+  z-index: 1000;
+}}
+.page-footer span {{
+  font-size: 7.5pt; color: #64748b;
+}}
+
+/* ── Cover Page ─────────────────────────────────────── */
+.cover {{
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+  page-break-after: always;
+}}
+.cover-hero {{
+  background: #fff;
+  flex: 1;
+  padding: 3.5cm 2cm 2.5cm 2cm;
+  display: flex; flex-direction: column;
+  justify-content: flex-end;
+  position: relative;
+  overflow: hidden;
+}}
+.cover-hero::before {{
+  content: '';
+  position: absolute; top: -80px; right: -100px;
+  width: 420px; height: 420px;
+  display: none; /* Removed colored radial gradient */
+}}
+.cover-eyebrow {{
+  font-size: 8pt; letter-spacing: 3px; font-weight: 700;
+  color: #000; opacity: 0.9;
+  border-bottom: 1px solid #000;
+  display: inline-block;
+  padding-bottom: 4px;
+  text-transform: uppercase; margin-bottom: 24px;
+}}
+.cover-title {{
+  font-size: 24pt; font-weight: 700; color: #000;
+  line-height: 1.2; margin-bottom: 16px;
+  max-width: 88%;
+}}
+.cover-sub {{
+  font-size: 11pt; color: #555;
+  line-height: 1.5; max-width: 75%;
+}}
+.cover-accent-bar {{
+  height: 2px;
+  background: #000;
+  margin: 20px 0 0 0;
+}}
+.cover-meta {{
+  background: #f8fafc;
+  padding: 16px 2cm;
+  display: flex; gap: 40px; align-items: center;
+}}
+.cover-meta-item {{ display: flex; flex-direction: column; gap: 2px; }}
+.cover-meta-label {{ font-size: 7pt; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }}
+.cover-meta-value {{ font-size: 9pt; color: #334155; font-weight: 600; }}
+.cover-disclaimer {{
+  background: #000;
+  padding: 10px 2cm;
+  font-size: 8pt; color: #fff; opacity: 1;
+}}
+
+/* ── Main Content ───────────────────────────────────── */
+.content {{
+  margin-top: 1.8cm;   /* clear fixed header */
+  margin-bottom: 1.4cm; /* clear fixed footer */
+  padding: 0.3cm 1.8cm;
+}}
+
+/* ── Headings ───────────────────────────────────────── */
+h1 {{
+  font-size: 16pt; color: #000; font-weight: 700;
+  margin: 20pt 0 10pt 0;
+  text-align: center;
+  text-transform: uppercase;
+}}
+h2 {{
+  font-size: 13pt; font-weight: 700; color: #000;
+  margin: 18pt 0 8pt 0;
+  border-bottom: 1px solid #000;
+  padding-bottom: 3px;
+  page-break-after: avoid;
+}}
+h3 {{
+  font-size: 11pt; font-weight: 700; color: #000;
+  margin: 14pt 0 6pt 0;
+  page-break-after: avoid;
+}}
+h4 {{
+  font-size: 10.5pt; font-weight: 700; color: #000;
+  margin: 10pt 0 4pt 0;
+  font-style: italic;
+}}
+
+/* ── Paragraphs & Text ──────────────────────────────── */
+p {{
+  margin: 0 0 8pt 0;
+  text-align: justify;
+  hyphens: auto;
+  line-height: 1.5;
+}}
+strong {{ color: #000; font-weight: 700; }}
+em {{ color: #000; font-style: italic; }}
+a {{ color: #000; text-decoration: none; border-bottom: 1px solid #000; }}
+
+/* ── Tables ─────────────────────────────────────────── */
+/* LaTeX / High-End Financial Style Tables */
+table {{
+  width: 100%;
+  border-collapse: collapse;
+  margin: 14pt 0 18pt 0;
+  font-size: 9.5pt;
+  page-break-inside: avoid;
+  border-top: 2px solid #000;
+  border-bottom: 2px solid #000;
+}}
+thead tr {{
+  background: transparent !important;
+  color: #000 !important;
+}}
+thead th {{
+  padding: 8px 6px;
+  font-weight: 700;
+  text-align: left;
+  border-bottom: 1px solid #000;
+  font-size: 9pt;
+  vertical-align: bottom;
+}}
+tbody tr {{ background: transparent !important; }}
+tbody td {{
+  padding: 6px 6px;
+  border-bottom: none;
+  vertical-align: top;
+}}
+/* Right-align cells that look numeric */
+tbody td:not(:first-child) {{
+  text-align: right;
+}}
+/* But if cell contains mostly text, override */
+tbody td[data-text="true"] {{
+  text-align: left;
+}}
+/* No positive/negative colours in strict monochrome */
+.num-pos {{ color: #000; }}
+.num-neg {{ color: #000; }}
+
+/* ── Lists ──────────────────────────────────────────── */
+ul {{
+  margin: 4pt 0 8pt 18pt;
+  list-style: none;
+}}
+ul li {{ margin: 3pt 0; position: relative; padding-left: 14px; }}
+ul li::before {{
+  content: '▸';
+  color: #000;
+  position: absolute; left: 0;
+  font-weight: 700;
+}}
+ol {{
+  margin: 4pt 0 8pt 20pt;
+}}
+ol li {{ margin: 3pt 0; padding-left: 4px; }}
+ol li::marker {{ color: #000; font-weight: 700; }}
+
+/* ── Blockquote ─────────────────────────────────────── */
+blockquote {{
+  margin: 8pt 0;
+  padding: 10px 16px;
+  background: transparent;
+  border-left: 3px solid #000;
+  color: #000;
+  font-style: italic;
+  border-radius: 0 4px 4px 0;
+}}
+
+/* ── Code ───────────────────────────────────────────── */
+pre {{
+  background: #fff;
+  color: #000;
+  padding: 14px 16px;
+  border-radius: 6px;
+  font-size: 8.5pt;
+  overflow-x: auto;
+  margin: 8pt 0;
+  border: 1px solid #000;
+}}
+code {{
+  font-family: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
+  font-size: 8.5pt;
+  background: #fff;
+  color: #000;
+  padding: 1px 5px;
+  border-radius: 3px;
+}}
+pre code {{
+  background: transparent;
+  color: #000;
+  padding: 0;
+}}
+
+/* ── Horizontal Rule ────────────────────────────────── */
+hr {{
+  border: none;
+  border-top: 1.5px solid {accent}44;
+  margin: 14pt 0;
+}}
+
+/* ── Page Break ─────────────────────────────────────── */
+.page-break {{ page-break-after: always; }}
+@page {{
+  size: A4;
+  margin: 2.2cm 2cm 1.8cm 2cm;
+}}
+@media print {{
+  .no-print {{ display: none !important; }}
+}}
+</style>
+</head>
+<body>
+
+<!-- Fixed Header -->
+<div class="page-header">
+  <span class="ph-title">{title}</span>
+  <span class="ph-badge">{badge}</span>
+</div>
+<div class="gold-rule"></div>
+
+<!-- Fixed Footer -->
+<div class="page-footer">
+  <span>Confidential Report</span>
+  <span>{now}</span>
+</div>
+
+<!-- ── Cover Page ── -->
+<div class="cover">
+  <div class="cover-hero">
+    <div class="cover-eyebrow">DOCUMENT ANALYSIS</div>
+    <div class="cover-title">{title}</div>
+    <div class="cover-sub">{report_type}</div>
+    <div class="cover-accent-bar"></div>
+  </div>
+  <div class="cover-meta">
+    <div class="cover-meta-item">
+      <span class="cover-meta-label">Generated</span>
+      <span class="cover-meta-value">{now}</span>
+    </div>
+    <div class="cover-meta-item">
+      <span class="cover-meta-label">Document Type</span>
+      <span class="cover-meta-value">{doc_type_display}</span>
+    </div>
+    <div class="cover-meta-item">
+      <span class="cover-meta-label">Classification</span>
+      <span class="cover-meta-value">Confidential</span>
+    </div>
+  </div>
+</div>
+
+<!-- ── Page Break After Cover ── -->
+<div class="content">
+{body}
+</div>
+
+<script>
+// Auto colour numeric cells green/red
+document.querySelectorAll('tbody td').forEach(td => {{
+  const txt = td.textContent.trim();
+  // If starts with + or is positive % change
+  if (/^\+|↑|▲/.test(txt)) {{
+    td.classList.add('num-pos');
+  }}
+  // If starts with - or negative
+  else if (/^-[\d]|↓|▼|\(\d/.test(txt)) {{
     td.classList.add('num-neg');
   }}
   // If first column (label), left-align
@@ -393,17 +735,39 @@ def _md_to_html_body(md_text: str) -> str:
     )
     return html
 
-async def markdown_to_pdf(markdown_text: str, doc_type: str = "general") -> tuple:
+async def markdown_to_pdf(markdown_text: str, doc_type: str = "general", is_template: bool = False) -> tuple:
     """
     Convert a Markdown string to a premium PDF.
     Returns (absolute_path, filename).
     """
-    filename    = f"PepperReport_{uuid.uuid4().hex[:10]}.pdf"
-    output_path = os.path.join(PDF_DIR, filename)
     now_str     = datetime.now().strftime("%Y-%m-%d  %H:%M")
+    now_compact = datetime.now().strftime("%Y%m%d")
 
-    # Extract doc title from first H1
-    m = re.search(r"^# (.+)", markdown_text, re.MULTILINE)
+    # Extract doc title from first heading for smart naming (H1, H2, etc.)
+    # Ignore <think> blocks by searching globally
+    m = re.search(r"^#+\s+(.+)", markdown_text, re.MULTILINE)
+    raw_title = m.group(1).strip() if m else ""
+    
+    # Build a clean filename from the title
+    if raw_title:
+        # Remove markdown formatting artifacts
+        clean = re.sub(r'[*_`#\[\]]', '', raw_title)
+        clean = re.sub(r'[—–]', '-', clean)
+        # Keep only safe filename characters
+        clean = re.sub(r'[^\w\s\-]', '', clean).strip()
+        # Replace spaces with underscores, collapse multiples
+        clean = re.sub(r'\s+', '_', clean)
+        # Truncate to reasonable length
+        if len(clean) > 60:
+            clean = clean[:60].rsplit('_', 1)[0]
+        filename = f"{clean}_{now_compact}.pdf" if clean else f"PepperReport_{uuid.uuid4().hex[:8]}.pdf"
+    else:
+        filename = f"PepperReport_{now_compact}_{uuid.uuid4().hex[:6]}.pdf"
+    
+    output_path = os.path.join(PDF_DIR, filename)
+
+    # Extract doc title from first heading for the visual PDF title
+    m = re.search(r"^#+\s+(.+)", markdown_text, re.MULTILINE)
     title = m.group(1).strip() if m else "Analysis Report"
     if len(title) > 80:
         title = title[:77] + "..."
@@ -411,7 +775,10 @@ async def markdown_to_pdf(markdown_text: str, doc_type: str = "general") -> tupl
     theme     = _theme(doc_type)
     body_html = _md_to_html_body(markdown_text)
 
-    html = _HTML_TEMPLATE.format(
+    # Use colorful design if a template was uploaded, otherwise use academic black & white
+    chosen_template = _HTML_TEMPLATE if is_template else _HTML_TEMPLATE_BW
+
+    html = chosen_template.format(
         title            = title,
         badge            = theme["badge"],
         accent           = theme["accent"],

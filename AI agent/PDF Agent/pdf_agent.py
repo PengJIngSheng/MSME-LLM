@@ -52,6 +52,17 @@ _DIRECT_WORDS = [
 ]
 def _is_direct(t): return any(w in t.lower() for w in _DIRECT_WORDS)
 
+_GENERATE_PDF_WORDS = [
+    '生成pdf', '生成最终pdf', '生成pdf报告', '制作pdf', '导出pdf',
+    '生成报告', '最终报告', '生成最终报告', '开始生成', '现在生成',
+    'generate pdf', 'create pdf', 'make pdf', 'export pdf',
+    'generate the pdf', 'create the report', 'generate final report',
+]
+def _is_pdf_generation_request(t):
+    low = (t or "").lower()
+    compact = re.sub(r"\s+", "", low)
+    return any(w in low for w in _GENERATE_PDF_WORDS) or any(w in compact for w in _GENERATE_PDF_WORDS)
+
 _TEMPLATE_YES_WORDS = [
     '是的', '按这个来', '按这个做', '照这个来', '按样板来', '按模板来',
     '按模版来', '用这个模板', '用这个模版', '就按这个', '确认', '开始吧',
@@ -60,11 +71,33 @@ _TEMPLATE_YES_WORDS = [
 ]
 def _is_template_yes(t): return any(w in t.lower() for w in _TEMPLATE_YES_WORDS)
 
+_TEMPLATE_ANSWER_WORDS = [
+    '有模板', '有模版', '有样板', '有pdf模板', '有pdf模版',
+    '使用模板', '使用模版', '用模板', '用模版', '按模板', '按模版',
+    '不要模板', '不用模板', '不需要模板', '没有模板', '没有模版', '没有样板',
+    '无模板', '无模版', '自动排版', '专业排版',
+    'i have a template', 'use template', 'with template',
+    'no template', 'without template', 'no sample', 'default layout',
+    'professional layout',
+]
+def _has_generation_answer(t):
+    low = (t or "").lower()
+    compact = re.sub(r"\s+", "", low)
+    compact_answers = [re.sub(r"\s+", "", w.lower()) for w in _TEMPLATE_ANSWER_WORDS]
+    return (
+        _is_pdf_generation_request(t)
+        or _is_direct(t)
+        or _is_template_yes(t)
+        or any(w in low for w in _TEMPLATE_ANSWER_WORDS)
+        or any(w in compact for w in compact_answers)
+    )
+
 # Keywords that signal user explicitly wants to regenerate/update the PDF
 _REGENERATE_WORDS = [
     '重新生成', '再生成', '更新报告', '更新PDF', '更新pdf', '重新做', '重做',
     '再做一次', '再来一次', '重新制作', '修改报告', '修改PDF', '修改pdf',
     '再生成一次', '重新输出', '重新导出', '再导出', '更新一下报告',
+    '不满意', '改一下', '帮我修改', '修改', '改', '重写',
     'regenerate', 'redo', 'update pdf', 'update report', 'redo pdf',
     'recreate', 'generate again', 'make again', 'new pdf', 'new report',
     'revise report', 'revise pdf', 'modify report', 'modify pdf',
@@ -375,58 +408,69 @@ Use EXACTLY this structure (fill every section with real data from the source):
 3–5 bullet points: most critical financial metrics and overall assessment.
 
 ## 1. Financial Performance at a Glance
-| Metric               | Prior Period | Current Period | Change (%) |
-|----------------------|-------------|----------------|------------|
-| Total Revenue        |             |                |            |
-| Gross Profit         |             |                |            |
-| Operating Profit     |             |                |            |
-| Net Profit           |             |                |            |
-| Total Assets         |             |                |            |
-| Total Liabilities    |             |                |            |
-| Shareholders' Equity |             |                |            |
+| Metric                 | Latest Period | Prior Period | YoY % Change | Analytical Diagnosis |
+|------------------------|---------------|--------------|--------------|----------------------|
+| Total Revenue          |               |              |              |                      |
+| Gross Profit           |               |              |              |                      |
+| EBITDA                 |               |              |              |                      |
+| Operating Profit       |               |              |              |                      |
+| Net Profit             |               |              |              |                      |
+| Total Assets           |               |              |              |                      |
+| Total Liabilities      |               |              |              |                      |
+| Shareholders' Equity   |               |              |              |                      |
 
-## 2. Income Statement Analysis
-### 2.1 Revenue Breakdown
-(Table + narrative: revenue by segment/product/geography)
-### 2.2 Cost Structure
-(COGS, operating expenses — use tables)
-### 2.3 Profitability
-(Gross margin, EBIT, EBITDA, net margin with % comparisons)
+## 2. Revenue & Profitability Deep-Dive
+### 2.1 Revenue Composition & Growth Drivers
+(Detailed narrative analysis: dissecting revenue streams, volume vs. price impacts, and segment performance. Provide a table if segment data is available.)
+### 2.2 Margin Contraction / Expansion
+| Margin Type            | Current %     | Prior %      | Variance (bps)| Strategic Implication |
+|------------------------|---------------|--------------|---------------|-----------------------|
+| Gross Margin           |               |              |               |                       |
+| Operating Margin       |               |              |               |                       |
+| Net Profit Margin      |               |              |               |                       |
 
-## 3. Balance Sheet Analysis
-### 3.1 Assets
-(Current vs non-current breakdown with table)
-### 3.2 Liabilities & Equity
-(Short/long-term liabilities, capital structure)
+## 3. Liquidity, Solvency & Capital Structure
+### 3.1 Working Capital Health
+(Narrative on operating cash cycle, receivables, and inventory management)
+### 3.2 Leverage & Solvency Analysis
+| Ratio                  | Value         | Target/Norm  | Variance     | Risk Assessment (High/Med/Low) & Why |
+|------------------------|---------------|--------------|--------------|--------------------------------------|
+| Current Ratio          |               | > 1.0        |              |                                      |
+| Quick Ratio            |               | > 0.8        |              |                                      |
+| Debt-to-Equity         |               |              |              |                                      |
+| Interest Coverage      |               | > 3.0x       |              |                                      |
 
-## 4. Cash Flow Analysis
-| Category            | Amount | YoY Change |
-|---------------------|--------|------------|
-| Operating Activities |       |            |
-| Investing Activities |       |            |
-| Financing Activities |       |            |
-| Net Cash Position    |       |            |
+## 4. Operational Efficiency & Cash Flow
+### 4.1 Asset Utilisation
+| Metric                 | Value         | Prior Period | Interpretation / Management Efficiency |
+|------------------------|---------------|--------------|----------------------------------------|
+| Asset Turnover         |               |              |                                        |
+| Inventory Turnover     |               |              |                                        |
+| Receivables Days       |               |              |                                        |
 
-## 5. Key Financial Ratios
-| Ratio                | Value | Benchmark / Prior Year | Assessment |
-|----------------------|-------|------------------------|------------|
-| Current Ratio        |       |                        |            |
-| Debt-to-Equity       |       |                        |            |
-| Return on Equity     |       |                        |            |
-| Net Profit Margin    |       |                        |            |
-| Asset Turnover       |       |                        |            |
+### 4.2 Cash Flow Quality
+| Category               | Amount        | YoY Change   | Quality Assessment (Is profit converting to cash?) |
+|------------------------|---------------|--------------|----------------------------------------------------|
+| Operating Activities   |               |              |                                                    |
+| Investing Activities   |               |              |                                                    |
+| Financing Activities   |               |              |                                                    |
+| Free Cash Flow (FCF)   |               |              |                                                    |
 
-## 6. Risk Factors & Observations
-(Key risks identified from the document)
+## 5. Strategic Risk Diagnostics & Core Observations
+| Risk Domain            | Identified Threat / Weakness | Impact Horizon | Recommended Mitigation |
+|------------------------|------------------------------|----------------|------------------------|
+| Liquidity/Funding      |                              |                |                        |
+| Profitability          |                              |                |                        |
+| Operational/Market     |                              |                |                        |
 
-## 7. Conclusions & Recommendations
-(Actionable, data-backed, prioritised recommendations)
+## 6. Executive Conclusions & Action Plan
+(Actionable, data-backed, prioritised recommendations. Be extremely specific and financially rigorous.)
 
-RULES: Bold **all** monetary values and percentages. Use RM/USD/etc. prefix. \
-No filler text. Every cell must contain real data from <agent_memory_source_data>. \
-Mark unknown values as "N/A". \
+RULES: Bold **all** monetary values and percentages. Use appropriate currency prefixes. \
+No filler text. Every cell must contain real data or professional analysis derived from <agent_memory_source_data>. \
+Mark unknown data values as "N/A", but ALWAYS write the 'Diagnosis/Interpretation' using expert financial reasoning. \
 ⛔ ABSOLUTE BAN: Never output [Value], [Amount], [X], or any [bracketed placeholder]. \
-If data is missing, write N/A — never a placeholder.""",
+If data is completely missing, write N/A. If an ENTIRE table has absolutely no data, OMIT THE TABLE entirely — NO EMPTY TABLES!""",
 
 
     "annual_report": """\
@@ -486,7 +530,7 @@ Use EXACTLY this structure:
 RULES: Bold **all** monetary values. Every table must be fully populated \
 with real data from <agent_memory_source_data>. No invented figures. \
 ⛔ ABSOLUTE BAN: Never output [Value], [Amount], [X], or any [bracketed placeholder]. \
-If data is missing, write N/A — never a placeholder.""",
+If data is missing, write N/A. If an ENTIRE table has no data, OMIT THE TABLE entirely — NO EMPTY TABLES!""",
 
 
     "academic": """\
@@ -597,7 +641,7 @@ Use EXACTLY this structure:
 RULES: Quote exact clause numbers where available. \
 Flag ambiguous language with ⚠️. No legal advice disclaimers needed. \
 ⛔ ABSOLUTE BAN: Never output [Value], [Amount], [X], or any [bracketed placeholder]. \
-If data is missing, write N/A — never a placeholder.""",
+If data is missing, write N/A. If an ENTIRE table has no data, OMIT THE TABLE entirely — NO EMPTY TABLES!""",
 
 
     "medical": """\
@@ -634,7 +678,7 @@ Use EXACTLY this structure:
 
 RULES: Preserve all numerical values exactly. Flag critical values with ⚠️. \
 ⛔ ABSOLUTE BAN: Never output [Value], [Amount], [X], or any [bracketed placeholder]. \
-If data is missing, write N/A — never a placeholder.""",
+If data is missing, write N/A. If an ENTIRE table has no data, OMIT THE TABLE entirely — NO EMPTY TABLES!""",
 
 
     "business": """\
@@ -684,7 +728,7 @@ Use EXACTLY this structure:
 RULES: Bold all key numbers and strategic priorities. \
 Every table must be populated. No generic filler statements. \
 ⛔ ABSOLUTE BAN: Never output [Value], [Amount], [X], or any [bracketed placeholder]. \
-If data is missing, write N/A — never a placeholder.""",
+If data is missing, write N/A. If an ENTIRE table has no data, OMIT THE TABLE entirely — NO EMPTY TABLES!""",
 
 
     "general": """\
@@ -726,7 +770,7 @@ RULES: Bold **all** key figures and critical terms. \
 Every section heading must match the actual content of the document. \
 No filler text. Be exhaustive. \
 ⛔ ABSOLUTE BAN: Never output [Value], [Amount], [X], or any [bracketed placeholder]. \
-If data is missing, write N/A — never a placeholder.""",
+If data is missing, write N/A. If an ENTIRE table has no data, OMIT THE TABLE entirely — NO EMPTY TABLES!""",
 }
 
 
@@ -742,11 +786,17 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
             "use_fast_model":   False,   # fast during analysis, think during generation
             "reply_lang":       "en",
             "processed_files":  set(),   # Track files to avoid reprocessing on regenerate
+            "generation_question_pending": False,
+            "generation_question_asked":   False,
+            "generation_choice_answered":  False,
         }
 
     state = agent_memory[chat_id]
     if "processed_files" not in state:
         state["processed_files"] = set()
+    state.setdefault("generation_question_pending", False)
+    state.setdefault("generation_question_asked", False)
+    state.setdefault("generation_choice_answered", False)
         
     state["generate_pdf_now"] = False
     if (user_message or "").strip():
@@ -783,6 +833,13 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
                 "# Role\n"
                 "你是一位顶尖的数据分析与商业情报专家，拥有金融 CFA、审计 ACCA、管理咨询 McKinsey 级别的深度分析能力。\n"
                 "你的任务是对用户上传的原始资料进行极致详尽、多维度、可追溯的深层解构。\n\n"
+                "# 🧠 深度思考协议 (Deep Thinking Protocol)\n"
+                "在开始撰写分析之前，你必须先在内心完成以下思考步骤：\n"
+                "1. **通读全文**：先完整阅读 <agent_memory_source_data> 中的所有内容，不要急于输出\n"
+                "2. **数据索引**：在脑海中建立一份完整的数据清单（所有出现过的数字、金额、百分比、比率）\n"
+                "3. **交叉验证**：检查数据之间的逻辑关系（如：总计 = 各分项之和，利润率 = 利润/收入）\n"
+                "4. **异常标注**：识别任何不一致、缺失或异常的数据点\n"
+                "5. **深层推理**：基于数据推导出文档表面没有直接写出的隐含结论\n\n"
                 "# 分析框架（你必须按照以下 6 个维度逐一展开，每个维度都要有实质性的详细内容）\n\n"
                 "## 1. 文档全景扫描 (Document Overview)\n"
                 "- 精确识别文档类型（财务报表/年报/审计报告/战略规划/教学资料/合同/其他）\n"
@@ -793,7 +850,8 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
                 "- 所有金额、百分比、比率、指标等数值型数据，必须以表格形式组织\n"
                 "- 如有多年度/多周期数据，必须制作年度对比表（含同比变化率）\n"
                 "- 如有分项数据（如收入构成、支出明细），必须制作分类汇总表\n"
-                "- 标注数据来源，确保可追溯\n\n"
+                "- 标注数据来源页码，确保可追溯\n"
+                "- 💡 高阶要求：如果文档提供了原始数据但没有计算比率，你必须**主动计算**（如利润率、增长率、占比等）\n\n"
                 "## 3. 趋势与变化分析 (Trend & Change Analysis)\n"
                 "- 逐项分析关键指标的同比/环比变化（必须给出具体数值和百分比）\n"
                 "- 识别增长最快和下降最快的TOP 3项目，并分析背后原因\n"
@@ -805,19 +863,23 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
                 "## 5. 风险识别与深层洞察 (Risk & Hidden Insights)\n"
                 "- 基于数据推导出至少3个潜在风险点\n"
                 "- 发掘数据中隐含的正面信号和负面信号\n"
-                "- 指出数据中的异常值或不一致之处\n\n"
+                "- 指出数据中的异常值或不一致之处\n"
+                "- 💡 进行「第二层思考」：这些数据背后暗示了什么趋势？管理层没有明说但数据已经显露的问题是什么？\n\n"
                 "## 6. 专业建议与行动方向 (Recommendations)\n"
                 "- 针对每个风险点给出可执行的应对策略\n"
-                "- 提供至少3条战略性建议\n\n"
+                "- 提供至少3条战略性建议\n"
+                "- 按优先级排序，标注紧急程度（🔴高/🟡中/🟢低）\n\n"
                 "# 格式硬性要求\n"
                 "- 涉及数字对比时，必须使用 Markdown 表格（| 列名 | 数据 | 语法）\n"
                 "- 每个维度至少写 3-5 行实质性内容，严禁一笔带过\n"
-                "- 分析必须基于文档中的真实数据，禁止编造数据\n\n"
+                "- 分析必须基于文档中的真实数据，禁止编造数据\n"
+                "- 金额数据必须使用千位分隔符并加粗显示\n\n"
                 "# ⛔ 占位符零容忍规则（ABSOLUTE BAN）\n"
                 "你的输出中 **绝对禁止** 出现以下任何占位符：\n"
                 "- `[Value]`, `[value]`, `[X]`, `[x]`, `[Amount]`, `[Name]`, `[数据]`, `[金额]`\n"
                 "- 任何被方括号包裹的占位文字如 `[...]`\n"
-                "- 如果源数据中确实找不到某项数据，请写 **N/A** 或 **数据未披露**，绝不能写 `[Value]`\n\n"
+                "- 如果源数据中确实找不到某项数据，请写 **N/A** 或 **数据未披露**，绝不能写 `[Value]`\n"
+                "- 🚨 **无数据即删除**：如果整个表格或整个章节在源数据中完全没有相关内容，**请直接删除该表格或章节**，绝不允许生成只有表头却没有内容的空表格！\n\n"
                 "# 结尾引导（分析写完后，必须在最末尾单独一行输出以下提问，一字不漏）：\n"
                 f"\u201c{routing_q}\u201d\n\n"
                 "---\n"
@@ -981,6 +1043,7 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
                 "1. 表格重建：原分析报告中涉及到数值比对的数据必须通过高度严谨的 Markdown 表格完整具现。\n"
                 "2. 零损坏要求：保证最终所有的文本都能安全无损地进入底层生成引擎。\n"
                 "3. ⛔ 占位符零容忍：绝对禁止输出 [Value], [Amount], [X], [Name] 等任何方括号占位符。找不到数据就写 N/A。\n"
+                "4. 🚨 拒绝空表：如果某个表格或章节在源数据中完全没有对应内容，**请直接不生成该表格/章节**，绝对不要输出空壳表格。\n"
                 "回答规范性：严禁口语闲聊，直接从 `# [标题]` 开始吐出最终排版内容即可。\n\n"
                 "源文档数据参考：<agent_memory_source_data>"
             )
@@ -1011,7 +1074,8 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
             "1. 模板即准则：严禁擅自更改模板设计、表格间距或整体核心布局。\n"
             "2. 动态填充：将第一阶段分析出的结构化数据像填空一样精准映射到模板对应位置。\n"
             "3. 输出要求：直接输出最终用于生成 PDF 的完整高保真 Markdown，禁止虚假占位符。\n"
-            "4. ⛔ 占位符零容忍：绝对禁止输出 [Value], [Amount], [X], [Name] 等方括号占位符。找不到数据就写 N/A。\n\n"
+            "4. ⛔ 占位符零容忍：绝对禁止输出 [Value] 等方括号占位符。找不到数据就写 N/A。\n"
+            "5. 🚨 拒绝空表：如果某个表格或章节在源数据中完全没有对应内容，**请直接跳过并删除该表格/章节**，绝对不要输出空壳表格。\n\n"
             "源数据词典池：<agent_memory_source_data>\n"
             "模板结构蓝本：<agent_memory_template_data>\n\n"
             "现在开始直接输出最后一步用于打印的 Markdown 内容全本。"
@@ -1146,8 +1210,8 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
             instruction = (
                 f"你现在处于报告迭代模式（document type: {doc_type}）。"
                 "用户提供了新的模板并要求重新生成报告。"
-                "请根据新模板的设计风格，结合源数据重新生成完整报告。"
-                "严格遵守高保真复刻协议。所有内容都必须有数据依据。"
+                "请根据新模板的设计风格，结合源数据重新生成**完整报告全文**。"
+                "严格遵守高保真复刻协议。必须输出从 `# 标题` 开始的完整内容，不要只输出修改的部分。所有内容都必须有数据依据。"
             )
 
         # Case 3: User explicitly asked to regenerate/update PDF (no new file)
@@ -1160,14 +1224,14 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
                 instruction = (
                     f"你现在处于报告迭代模式（document type: {doc_type}）。"
                     "用户要求重新生成/更新报告。请根据用户反馈更新内容，并继续严格遵守高保真复刻协议。"
-                    "保持模板视觉结构不变，只修改必要的文字、数据和对应表格内容。"
+                    "保持模板视觉结构不变，但你必须**重新输出从 `# 标题` 开始的完整报告全文**！绝对不要只输出修改的部分。"
                     "新的 PDF 会在本次输出后自动生成。所有内容都必须有数据依据。"
                 )
             else:
                 instruction = (
                     f"你现在处于报告迭代模式（document type: {doc_type}）。"
                     "用户要求重新生成/更新报告。请根据用户反馈修订、扩展或更新报告。"
-                    "保持同样的专业结构和可打印排版，新的 PDF 会在本次输出后自动生成。"
+                    "保持同样的专业结构和可打印排版，你必须**重新输出从 `# 标题` 开始的完整报告全文**！绝对不要只输出片段。"
                     "禁止 filler text，所有内容都必须有数据依据。"
                 )
 
@@ -1200,7 +1264,20 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
         )
 
     hidden_context = "\n\n" + "\n\n".join(ctx_parts) if ctx_parts else ""
-    instruction = f"{lang_rule}\n\n{instruction}"
+    
+    # Inject smart generation rules if a PDF is about to be generated
+    if state.get("generate_pdf_now"):
+        smart_rules = (
+            "\n\n# 🧠 智能分析与强制命名协议 (Smart Generation & Naming Protocol)\n"
+            "在输出报告正文之前，你必须遵守以下核心要求：\n"
+            "1. **智能命名**：你必须根据报告内容构思一个专业、精准的英文或中文报告名称。在输出的第一行，你必须**强制输出**一个一级标题（例如：`# 2023年度XX公司财务深度分析报告`）。这将被用作最终生成文件的物理文件名，**无论使用何种模板，这一行绝对不能省略！**\n"
+            "2. **100%表格填满强制令**：绝不允许在任何表格中出现空白单元格（Empty Cells/Columns）！如果某一列或某一行没有直接的数据，你必须发挥专家能力**进行推算、计算，或者填入极度详细的深度文字分析**。绝对不要留出像 `|   |` 这样的空位！\n"
+            "3. **深度推演填补**：对于模板中出现的分析类字段（如 Interpretation/Intepretasi/分析/得分/Skor/评价 等），绝对不允许写N/A！你必须像顶级分析师一样，基于填入的数据**自主撰写极其详细、专业的深度财务分析和业务洞察**。\n"
+            "4. **数据填充**：将源数据精准填入表格。如果某个表格在源数据中完全找不到相关内容，**请直接删除整个表格**，严禁生成空壳表格。\n"
+        )
+        instruction = f"{lang_rule}\n\n{instruction}{smart_rules}"
+    else:
+        instruction = f"{lang_rule}\n\n{instruction}"
 
     _log(f"[agent] → stage={state['stage']} doc_type={state.get('doc_type')} "
          f"generate_pdf_now={state['generate_pdf_now']}")

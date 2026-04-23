@@ -589,7 +589,7 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
 
         if agent_inst or agent_ctx:
             agent_system_context = f"{agent_inst}\n\n{agent_ctx}"
-            
+
     sources = []
 
     # Web mode
@@ -844,6 +844,7 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
             answer_text = (answer_text if answer_text else "") + mandatory_q
 
     # === PDF Auto-Generation (Agent Mode) ===
+    _mem = pdf_agent.agent_memory.get(chat_id, {}) if agent_mode else {}
     print(f"[PDF CHECK] agent_mode={agent_mode} generate_pdf_now={_mem.get('generate_pdf_now')} stage={_mem.get('stage')}")
     _pdf_filename = None
     if agent_mode and _mem.get("generate_pdf_now"):
@@ -858,7 +859,8 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
         
         print(f"[PDF GEN] Generating PDF, source_len={len(pdf_source)}, type={_doc_type}")
         try:
-            _, _pdf_filename = await pdf_generator.markdown_to_pdf(pdf_source, _doc_type)
+            _has_template = bool(_mem.get("template_data"))
+            _, _pdf_filename = await pdf_generator.markdown_to_pdf(pdf_source, _doc_type, is_template=_has_template)
             print(f"[PDF GEN] Done: {_pdf_filename}")
             # Advance agent stage to 'done' — but ONLY if still in 'generate'.
             # A newer request may have already reset the state (e.g., user uploaded new PDF).

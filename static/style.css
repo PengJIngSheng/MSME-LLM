@@ -1353,6 +1353,9 @@ h1,h2,h3,h4,h5,h6 {
     align-items: center;
     justify-content: space-between;
     padding: 0.5rem 2rem 1.2rem;
+    gap: 8px;
+    flex-wrap: wrap;
+    min-height: 0;
 }
 
 /* Tertiary style buttons for icons */
@@ -3710,4 +3713,26 @@ html[data-theme="light"] .user-context-menu {
 
 .gmail-preview-toggle:hover {
     background: var(--outline-variant);
+}
+
+/* =========================================
+   Responsive: prevent toggle icon overlay
+   ========================================= */
+.toggles-container {
+    flex-wrap: wrap;
+    min-width: 0;
+}
+
+@media (max-width: 600px) {
+    .toggle-switch span,
+    .connector-trigger span {
+        display: none;
+    }
+    .toggle-switch,
+    .connector-trigger {
+        padding: 0.5rem 0.7rem;
+    }
+    .input-bottom-row {
+        padding: 0.5rem 1rem 1rem;
+    }
 }

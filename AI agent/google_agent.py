@@ -241,6 +241,10 @@ async def process_google_request(
         "6. If the user wants to SEND EMAIL or SEND PDF to someone, use gmail_send. "
         "If user wants to SAVE text to Google Drive or Docs, use docs_create. "
         "ONLY use drive_upload if the user explicitly asks to upload a FILE or PDF.\n"
+        "   📎 IMPORTANT for gmail_send with PDF attachment: If the user is asking to send a generated PDF report, "
+        "you MUST auto-generate a short, professional email body (1-2 sentences) summarizing the attached report. "
+        "Example: 'Please find attached the financial analysis report for [Entity Name]. Feel free to reach out if you have any questions.' "
+        "Never leave the body empty when there is an attachment.\n"
         "7. 🚨 CRITICAL ESCAPE HATCH: If the user's message is completely unrelated to Google Workspace tools (e.g., 'explain this to me', 'what is 1+1', 'how does this work?'), you MUST output `{\"name\": \"normal_chat\", \"arguments\": {}}`. DO NOT force it into an email draft!\n"
         "8. For calendar_create: Convert relative dates to absolute ISO format.\n\n"
         'RESPOND WITH ONLY THIS FORMAT:\n'
