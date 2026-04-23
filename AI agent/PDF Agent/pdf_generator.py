@@ -143,14 +143,14 @@ body {{
   background: linear-gradient(90deg, {accent} 0%, {accent}88 60%, transparent 100%);
   margin: 20px 0 0 0;
 }}
-.cover-meta {{
+.cover-note {{
   background: #f8fafc;
-  padding: 16px 2cm;
-  display: flex; gap: 40px; align-items: center;
+  padding: 14px 2cm;
+  font-size: 9pt;
+  color: #475569;
+  font-weight: 500;
+  letter-spacing: 0.02em;
 }}
-.cover-meta-item {{ display: flex; flex-direction: column; gap: 2px; }}
-.cover-meta-label {{ font-size: 7pt; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }}
-.cover-meta-value {{ font-size: 9pt; color: #334155; font-weight: 600; }}
 .cover-disclaimer {{
   background: {accent};
   padding: 10px 2cm;
@@ -338,19 +338,8 @@ hr {{
     <div class="cover-sub">{report_type}</div>
     <div class="cover-accent-bar"></div>
   </div>
-  <div class="cover-meta">
-    <div class="cover-meta-item">
-      <span class="cover-meta-label">Generated</span>
-      <span class="cover-meta-value">{now}</span>
-    </div>
-    <div class="cover-meta-item">
-      <span class="cover-meta-label">Document Type</span>
-      <span class="cover-meta-value">{doc_type_display}</span>
-    </div>
-    <div class="cover-meta-item">
-      <span class="cover-meta-label">Classification</span>
-      <span class="cover-meta-value">Confidential</span>
-    </div>
+  <div class="cover-note">
+    Pepper AI Agent • {now}
   </div>
 </div>
 
@@ -487,14 +476,14 @@ body {{
   background: #000;
   margin: 20px 0 0 0;
 }}
-.cover-meta {{
+.cover-note {{
   background: #f8fafc;
-  padding: 16px 2cm;
-  display: flex; gap: 40px; align-items: center;
+  padding: 14px 2cm;
+  font-size: 9pt;
+  color: #475569;
+  font-weight: 500;
+  letter-spacing: 0.02em;
 }}
-.cover-meta-item {{ display: flex; flex-direction: column; gap: 2px; }}
-.cover-meta-label {{ font-size: 7pt; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }}
-.cover-meta-value {{ font-size: 9pt; color: #334155; font-weight: 600; }}
 .cover-disclaimer {{
   background: #000;
   padding: 10px 2cm;
@@ -680,19 +669,8 @@ hr {{
     <div class="cover-sub">{report_type}</div>
     <div class="cover-accent-bar"></div>
   </div>
-  <div class="cover-meta">
-    <div class="cover-meta-item">
-      <span class="cover-meta-label">Generated</span>
-      <span class="cover-meta-value">{now}</span>
-    </div>
-    <div class="cover-meta-item">
-      <span class="cover-meta-label">Document Type</span>
-      <span class="cover-meta-value">{doc_type_display}</span>
-    </div>
-    <div class="cover-meta-item">
-      <span class="cover-meta-label">Classification</span>
-      <span class="cover-meta-value">Confidential</span>
-    </div>
+  <div class="cover-note">
+    Pepper AI Agent • {now}
   </div>
 </div>
 
@@ -785,7 +763,6 @@ async def markdown_to_pdf(markdown_text: str, doc_type: str = "general", is_temp
         accent_lt        = theme["accent_lt"],
         now              = now_str,
         report_type      = theme["badge"].split(" ", 1)[1],
-        doc_type_display = doc_type.replace("_", " ").title(),
         body             = body_html,
     )
 

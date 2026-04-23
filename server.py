@@ -479,6 +479,10 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
             latest_user_msg = msg.get("content", "")
             break
     user_lang = detect_language(latest_user_msg)
+    has_pdf = any(
+        att.get("saved_path", "").lower().endswith(".pdf")
+        for att in (attachments or [])
+    )
 
     # --- History compression: summarise old turns, then apply sliding window ---
     inference_messages = _summarise_history(messages)
@@ -486,12 +490,18 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
 
     _chat_doc = chats_col.find_one({"_id": chat_id})
     _stream_user_id = _chat_doc.get("user_id") if _chat_doc else None
+    _pre_agent_state = pdf_agent.agent_memory.get(chat_id, {}) if agent_mode else {}
+    _active_document_id = _pre_agent_state.get("active_document_id") if _pre_agent_state else None
 
     # Memory Retrieval (Run in thread to avoid blocking loop)
     memory_injection = ""
-    if _stream_user_id:
+    if _stream_user_id and not (agent_mode and has_pdf):
         memory_injection = await asyncio.to_thread(
-            memory_agent.retrieve_memory_context, _stream_user_id, latest_user_msg
+            memory_agent.retrieve_memory_context,
+            _stream_user_id,
+            latest_user_msg,
+            3,
+            _active_document_id if agent_mode else None,
         )
 
     final_messages = inference_messages
@@ -507,32 +517,28 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
     
     agent_system_context = ""
     if agent_mode:
-        has_pdf = any(
-            att.get("saved_path", "").lower().endswith(".pdf")
-            for att in (attachments or [])
-        )
         if has_pdf:
             # Signal UI immediately — PDF parsing is CPU-heavy (15-30s for large files)
             yield _sse({"status": "parsing_pdf"})
 
-        # ── Pre-flight: If user uploads a NEW source PDF while agent was mid-generation,
-        #    wipe the old state so the new PDF gets a clean slate. ──
-        _prev_state = pdf_agent.agent_memory.get(chat_id, {})
-        if has_pdf and _prev_state.get("stage") in ("generate", "done"):
-            # Check if any of the uploaded PDFs are genuinely new (not already processed)
-            _prev_processed = _prev_state.get("processed_files", set())
-            _has_new_pdf = any(
-                att.get("saved_path") not in _prev_processed
-                for att in (attachments or [])
-                if att.get("saved_path", "").lower().endswith(".pdf")
-            )
-            if _has_new_pdf:
-                pdf_agent.reset_for_new_source(chat_id)
+        # ── Pre-flight: If a fresh source PDF arrives, wipe old per-document state first. ──
+        if has_pdf and pdf_agent.should_reset_for_new_pdf(chat_id, latest_user_msg, attachments):
+            pdf_agent.reset_for_new_source(chat_id)
 
         # Run in thread so SSE stream stays alive during heavy PDF extraction
         agent_inst, agent_ctx = await asyncio.to_thread(
             pdf_agent.process_agent_request, chat_id, latest_user_msg, attachments
         )
+        _agent_state = pdf_agent.agent_memory.get(chat_id, {})
+        if _agent_state.get("new_source_loaded"):
+            _agent_state["document_context_start_index"] = max(len(messages) - 1, 0)
+            _agent_state["new_source_loaded"] = False
+        _doc_start = _agent_state.get("document_context_start_index")
+        if isinstance(_doc_start, int) and _doc_start >= 0:
+            scoped_messages = messages[_doc_start:]
+            inference_messages = _summarise_history(scoped_messages)
+            inference_messages = _apply_sliding_window(inference_messages)
+            final_messages = inference_messages
 
         # ── Intercept Google Connector Requests via Google Agent ──
         _agent_user_id = _stream_user_id
@@ -913,8 +919,16 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
                 ms.generate_response, cfg.fast_model, tokenizer, msgs,
                 think_mode=False, show_thinking=False, stream=False
             )
+        _doc_id_for_memory = None
+        if agent_mode:
+            _doc_id_for_memory = pdf_agent.agent_memory.get(chat_id, {}).get("active_document_id")
         asyncio.create_task(
-            memory_agent.extract_and_store_memory(_stream_user_id, list(messages) + [new_msg], _bg_mem_cb)
+            memory_agent.extract_and_store_memory(
+                _stream_user_id,
+                list(messages) + [new_msg],
+                _bg_mem_cb,
+                document_id=_doc_id_for_memory,
+            )
         )
         
     yield "data: [DONE]\n\n"

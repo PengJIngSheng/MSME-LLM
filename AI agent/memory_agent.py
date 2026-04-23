@@ -18,7 +18,7 @@ vectorstore = PGVector(
     use_jsonb=True,
 )
 
-async def extract_and_store_memory(user_id: str, messages: list, llm_callback):
+async def extract_and_store_memory(user_id: str, messages: list, llm_callback, document_id: str = None):
     """
     Use an LLM to extract long-term memory facts from the conversation,
     and save them into PGVector.
@@ -67,7 +67,13 @@ async def extract_and_store_memory(user_id: str, messages: list, llm_callback):
             facts = json.loads(raw_resp[start:end+1])
             if isinstance(facts, list) and len(facts) > 0:
                 docs = [
-                    Document(page_content=f, metadata={"user_id": user_id}) 
+                    Document(
+                        page_content=f,
+                        metadata={
+                            "user_id": user_id,
+                            **({"document_id": document_id} if document_id else {}),
+                        },
+                    )
                     for f in facts if isinstance(f, str)
                 ]
                 vectorstore.add_documents(docs)
@@ -75,7 +81,7 @@ async def extract_and_store_memory(user_id: str, messages: list, llm_callback):
     except Exception as e:
         print(f"[Memory Agent] Extractor Error for {user_id}: {e}")
 
-def retrieve_memory_context(user_id: str, query: str, k: int = 3) -> str:
+def retrieve_memory_context(user_id: str, query: str, k: int = 3, document_id: str = None) -> str:
     """
     Fetch top-k relevant memories for the user based on the current query.
     """
@@ -84,8 +90,11 @@ def retrieve_memory_context(user_id: str, query: str, k: int = 3) -> str:
     try:
         # Use similarity_search_with_score to safely drop low-relevance memory noise.
         # Nomic cosine distance -> lower is better. < 0.55 is a strong semantic match.
+        memory_filter = {"user_id": {"$eq": user_id}}
+        if document_id:
+            memory_filter["document_id"] = {"$eq": document_id}
         docs_and_scores = vectorstore.similarity_search_with_score(
-            query, k=k, filter={"user_id": {"$eq": user_id}}
+            query, k=k, filter=memory_filter
         )
         
         valid_facts = []
