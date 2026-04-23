@@ -34,6 +34,14 @@ _fs = gridfs.GridFS(_db)
 
 agent_memory: dict = {}
 
+def reset_for_new_source(chat_id: str):
+    """Fully reset agent memory for a chat when user uploads a brand-new source PDF.
+    Call this BEFORE process_agent_request when we detect a new-source-PDF scenario
+    (e.g. user paused generation and uploaded a different document)."""
+    if chat_id in agent_memory:
+        _log(f"[reset] Wiping agent memory for chat={chat_id}")
+        del agent_memory[chat_id]
+
 # ─── Keywords ─────────────────────────────────────────────────────────────────
 _DIRECT_WORDS = [
     '直接', '直接生成', '没有', '无', 'no', 'none', 'default', 'skip',
@@ -416,7 +424,9 @@ Use EXACTLY this structure (fill every section with real data from the source):
 
 RULES: Bold **all** monetary values and percentages. Use RM/USD/etc. prefix. \
 No filler text. Every cell must contain real data from <agent_memory_source_data>. \
-Mark unknown values as "N/A".""",
+Mark unknown values as "N/A". \
+⛔ ABSOLUTE BAN: Never output [Value], [Amount], [X], or any [bracketed placeholder]. \
+If data is missing, write N/A — never a placeholder.""",
 
 
     "annual_report": """\
@@ -474,7 +484,9 @@ Use EXACTLY this structure:
 (3–5 concise conclusions)
 
 RULES: Bold **all** monetary values. Every table must be fully populated \
-with real data from <agent_memory_source_data>. No invented figures.""",
+with real data from <agent_memory_source_data>. No invented figures. \
+⛔ ABSOLUTE BAN: Never output [Value], [Amount], [X], or any [bracketed placeholder]. \
+If data is missing, write N/A — never a placeholder.""",
 
 
     "academic": """\
@@ -583,7 +595,9 @@ Use EXACTLY this structure:
 (Overall assessment: favourable / neutral / unfavourable, with reasoning)
 
 RULES: Quote exact clause numbers where available. \
-Flag ambiguous language with ⚠️. No legal advice disclaimers needed.""",
+Flag ambiguous language with ⚠️. No legal advice disclaimers needed. \
+⛔ ABSOLUTE BAN: Never output [Value], [Amount], [X], or any [bracketed placeholder]. \
+If data is missing, write N/A — never a placeholder.""",
 
 
     "medical": """\
@@ -618,7 +632,9 @@ Use EXACTLY this structure:
 ## 6. Prognosis & Follow-up
 ## 7. Key Clinical Notes
 
-RULES: Preserve all numerical values exactly. Flag critical values with ⚠️.""",
+RULES: Preserve all numerical values exactly. Flag critical values with ⚠️. \
+⛔ ABSOLUTE BAN: Never output [Value], [Amount], [X], or any [bracketed placeholder]. \
+If data is missing, write N/A — never a placeholder.""",
 
 
     "business": """\
@@ -666,7 +682,9 @@ Use EXACTLY this structure:
 ## 7. Conclusion
 
 RULES: Bold all key numbers and strategic priorities. \
-Every table must be populated. No generic filler statements.""",
+Every table must be populated. No generic filler statements. \
+⛔ ABSOLUTE BAN: Never output [Value], [Amount], [X], or any [bracketed placeholder]. \
+If data is missing, write N/A — never a placeholder.""",
 
 
     "general": """\
@@ -706,7 +724,9 @@ Use EXACTLY this structure:
 
 RULES: Bold **all** key figures and critical terms. \
 Every section heading must match the actual content of the document. \
-No filler text. Be exhaustive.""",
+No filler text. Be exhaustive. \
+⛔ ABSOLUTE BAN: Never output [Value], [Amount], [X], or any [bracketed placeholder]. \
+If data is missing, write N/A — never a placeholder.""",
 }
 
 
@@ -721,9 +741,13 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
             "generate_pdf_now": False,
             "use_fast_model":   False,   # fast during analysis, think during generation
             "reply_lang":       "en",
+            "processed_files":  set(),   # Track files to avoid reprocessing on regenerate
         }
 
     state = agent_memory[chat_id]
+    if "processed_files" not in state:
+        state["processed_files"] = set()
+        
     state["generate_pdf_now"] = False
     if (user_message or "").strip():
         state["reply_lang"] = _detect_reply_lang(user_message)
@@ -732,7 +756,14 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
     lang_rule = _language_rule(reply_lang)
     _log(f"\n[turn] chat={chat_id} stage={state['stage']} msg={user_message[:80]!r}")
 
-    new_text, new_names = _extract_attachments(attachments)
+    # Only process attachments if they haven't been processed yet
+    new_attachments = [att for att in (attachments or []) if att.get("saved_path") not in state["processed_files"]]
+    new_text, new_names = _extract_attachments(new_attachments)
+    
+    # Mark as processed
+    for att in new_attachments:
+        if att.get("saved_path"):
+            state["processed_files"].add(att.get("saved_path"))
 
     instruction = ""
 
@@ -782,6 +813,11 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
                 "- 涉及数字对比时，必须使用 Markdown 表格（| 列名 | 数据 | 语法）\n"
                 "- 每个维度至少写 3-5 行实质性内容，严禁一笔带过\n"
                 "- 分析必须基于文档中的真实数据，禁止编造数据\n\n"
+                "# ⛔ 占位符零容忍规则（ABSOLUTE BAN）\n"
+                "你的输出中 **绝对禁止** 出现以下任何占位符：\n"
+                "- `[Value]`, `[value]`, `[X]`, `[x]`, `[Amount]`, `[Name]`, `[数据]`, `[金额]`\n"
+                "- 任何被方括号包裹的占位文字如 `[...]`\n"
+                "- 如果源数据中确实找不到某项数据，请写 **N/A** 或 **数据未披露**，绝不能写 `[Value]`\n\n"
                 "# 结尾引导（分析写完后，必须在最末尾单独一行输出以下提问，一字不漏）：\n"
                 f"\u201c{routing_q}\u201d\n\n"
                 "---\n"
@@ -944,6 +980,7 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
                 "请严格按照以上提供的行业标准模版结构，自主设计专业清晰排版。\n"
                 "1. 表格重建：原分析报告中涉及到数值比对的数据必须通过高度严谨的 Markdown 表格完整具现。\n"
                 "2. 零损坏要求：保证最终所有的文本都能安全无损地进入底层生成引擎。\n"
+                "3. ⛔ 占位符零容忍：绝对禁止输出 [Value], [Amount], [X], [Name] 等任何方括号占位符。找不到数据就写 N/A。\n"
                 "回答规范性：严禁口语闲聊，直接从 `# [标题]` 开始吐出最终排版内容即可。\n\n"
                 "源文档数据参考：<agent_memory_source_data>"
             )
@@ -973,7 +1010,8 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
             "# Fidelity Protocol\n"
             "1. 模板即准则：严禁擅自更改模板设计、表格间距或整体核心布局。\n"
             "2. 动态填充：将第一阶段分析出的结构化数据像填空一样精准映射到模板对应位置。\n"
-            "3. 输出要求：直接输出最终用于生成 PDF 的完整高保真 Markdown，禁止虚假占位符。\n\n"
+            "3. 输出要求：直接输出最终用于生成 PDF 的完整高保真 Markdown，禁止虚假占位符。\n"
+            "4. ⛔ 占位符零容忍：绝对禁止输出 [Value], [Amount], [X], [Name] 等方括号占位符。找不到数据就写 N/A。\n\n"
             "源数据词典池：<agent_memory_source_data>\n"
             "模板结构蓝本：<agent_memory_template_data>\n\n"
             "现在开始直接输出最后一步用于打印的 Markdown 内容全本。"
@@ -984,36 +1022,47 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
     # After PDF is generated, server.py will advance stage to "done".
     # ══════════════════════════════════════════════════════════════════════════
     elif state["stage"] == "generate":
-        # If user uploaded a brand-new source PDF, reset to init for a fresh analysis cycle
-        if new_text and not state.get("_template_upload_this_turn"):
-            state["source_data"]    = new_text  # replace, not append
-            state["template_data"]  = ""
-            state["doc_type"]       = _detect_doc_type(new_text)
-            state["stage"]          = "init"
-            state["generate_pdf_now"] = False
-            _log(f"[agent] New source PDF during generate → reset to init")
-            # Re-enter init stage processing (recursive-safe: just set instruction)
-            doc_list = ", ".join(new_names) or "the uploaded document"
-            dtype    = state["doc_type"].replace("_", " ").title()
-            state["stage"]          = "wait_template"
-            state["use_fast_model"] = False
-            instruction = (
-                "# Role\n"
-                "你是一位顶尖的数据分析与商业情报专家，拥有金融 CFA、审计 ACCA、管理咨询 McKinsey 级别的深度分析能力。\n"
-                "你的任务是对用户上传的原始资料进行极致详尽、多维度、可追溯的深层解构。\n\n"
-                "# 分析框架（你必须按照以下 6 个维度逐一展开，每个维度都要有实质性的详细内容）\n\n"
-                "## 1. 文档全景扫描 (Document Overview)\n"
-                "## 2. 关键数据深度提取 (Data Extraction)\n"
-                "## 3. 趋势与变化分析 (Trend & Change Analysis)\n"
-                "## 4. 结构与构成拆解 (Composition Breakdown)\n"
-                "## 5. 风险识别与深层洞察 (Risk & Hidden Insights)\n"
-                "## 6. 专业建议与行动方向 (Recommendations)\n\n"
-                "# 结尾引导（分析写完后，必须在最末尾单独一行输出以下提问，一字不漏）：\n"
-                f"\u201c{routing_q}\u201d\n\n"
-                "---\n"
-                "现在开始你的深度分析：\n"
-                "<agent_memory_source_data>"
-            )
+        # If user uploaded a file, determine if it's a new template or new source data
+        if new_text:
+            if _is_template_yes(user_message):
+                # It's a new template upload! Parse its layout, do NOT reset source data.
+                layout_report, table_structures = _parse_template_layout(new_attachments)
+                state["template_data"] = layout_report + "\n\n[Template Table Structures]:\n" + table_structures
+                state["generate_pdf_now"] = True
+                state["use_fast_model"] = False
+                instruction = (
+                    "用户提供了一份**新的样板/模版**。\n"
+                    "请使用最新提取的模版骨架，严格遵循高保真填充规则，重新排版并生成报告正文：\n"
+                    f"{state['template_data']}\n\n"
+                    "源数据词典池：<agent_memory_source_data>"
+                )
+            else:
+                # It's a brand-new source PDF! Full reset for a fresh analysis cycle
+                state["source_data"]      = new_text  # replace, not append
+                state["template_data"]    = ""
+                state["doc_type"]         = _detect_doc_type(new_text)
+                state["stage"]            = "wait_template"
+                state["generate_pdf_now"] = False
+                state["use_fast_model"]   = False
+                state["processed_files"]  = set()  # Clear so future uploads are not blocked
+                _log(f"[agent] New source PDF during generate → full reset to wait_template")
+                instruction = (
+                    "# Role\n"
+                    "你是一位顶尖的数据分析与商业情报专家，拥有金融 CFA、审计 ACCA、管理咨询 McKinsey 级别的深度分析能力。\n"
+                    "你的任务是对用户上传的原始资料进行极致详尽、多维度、可追溯的深层解构。\n\n"
+                    "# 分析框架（你必须按照以下 6 个维度逐一展开，每个维度都要有实质性的详细内容）\n\n"
+                    "## 1. 文档全景扫描 (Document Overview)\n"
+                    "## 2. 关键数据深度提取 (Data Extraction)\n"
+                    "## 3. 趋势与变化分析 (Trend & Change Analysis)\n"
+                    "## 4. 结构与构成拆解 (Composition Breakdown)\n"
+                    "## 5. 风险识别与深层洞察 (Risk & Hidden Insights)\n"
+                    "## 6. 专业建议与行动方向 (Recommendations)\n\n"
+                    "# 结尾引导（分析写完后，必须在最末尾单独一行输出以下提问，一字不漏）：\n"
+                    f"\u201c{routing_q}\u201d\n\n"
+                    "---\n"
+                    "现在开始你的深度分析：\n"
+                    "<agent_memory_source_data>"
+                )
         else:
             # Normal first-time generation (triggered from wait_template)
             state["generate_pdf_now"] = True
@@ -1042,18 +1091,33 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
     elif state["stage"] == "done":
         doc_type = state.get("doc_type", "general")
 
-        # Case 1: User uploaded a NEW source PDF → full reset, start fresh analysis
-        if new_text and not _is_regenerate_request(user_message):
-            # Check if this looks like a new source doc (not a template for regeneration)
-            state["source_data"]     = new_text
-            state["template_data"]   = ""
-            state["doc_type"]        = _detect_doc_type(new_text)
-            state["stage"]           = "wait_template"
-            state["generate_pdf_now"]= False
-            state["use_fast_model"]  = False
-            doc_list = ", ".join(new_names) or "the uploaded document"
-            dtype    = state["doc_type"].replace("_", " ").title()
-            _log(f"[agent] New source PDF in done stage → reset to wait_template for fresh analysis")
+        # Case 1: User uploaded a NEW PDF
+        if new_text:
+            if _is_template_yes(user_message):
+                # It's a new template upload! Parse its layout, do NOT reset source data.
+                layout_report, table_structures = _parse_template_layout(new_attachments)
+                state["template_data"] = layout_report + "\n\n[Template Table Structures]:\n" + table_structures
+                state["stage"]           = "generate"
+                state["generate_pdf_now"]= True
+                state["use_fast_model"]  = False
+                instruction = (
+                    "用户提供了一份**新的样板/模版**。\n"
+                    "请使用最新提取的模版骨架，严格遵循高保真填充规则，重新排版并生成报告正文：\n"
+                    f"{state['template_data']}\n\n"
+                    "源数据词典池：<agent_memory_source_data>"
+                )
+            elif not _is_regenerate_request(user_message):
+                # It's a brand-new source PDF! Reset to init for a fresh analysis cycle
+                state["source_data"]     = new_text
+                state["template_data"]   = ""
+                state["doc_type"]        = _detect_doc_type(new_text)
+                state["stage"]           = "wait_template"
+                state["generate_pdf_now"]= False
+                state["use_fast_model"]  = False
+                state["processed_files"] = set()  # Clear so future uploads are not blocked
+                doc_list = ", ".join(new_names) or "the uploaded document"
+                dtype    = state["doc_type"].replace("_", " ").title()
+                _log(f"[agent] New source PDF in done stage → reset to wait_template for fresh analysis")
             instruction = (
                 "# Role\n"
                 "你是一位顶尖的数据分析与商业情报专家，拥有金融 CFA、审计 ACCA、管理咨询 McKinsey 级别的深度分析能力。\n"

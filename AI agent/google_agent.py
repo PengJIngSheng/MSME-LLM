@@ -220,7 +220,7 @@ async def process_google_request(
     pending_context = ""
     if pending_draft:
         safe_draft = {k: v for k, v in pending_draft.items() if k in ['recipient', 'subject', 'body']}
-        pending_context = f"\n\n[SYSTEM NOTE: The user has a PENDING EMAIL DRAFT:\n{json.dumps(safe_draft, ensure_ascii=False)}\n\nUpdate the draft according to the user's latest message. Return a FULL `gmail_send` tool call containing the updated 'recipient', 'subject', and 'body'. If a field does not need to change, KEEP its previous value from the draft.]\n\n"
+        pending_context = f"\n\n[SYSTEM NOTE: The user has a PENDING EMAIL DRAFT:\n{json.dumps(safe_draft, ensure_ascii=False)}\n\nIf the user's latest message is asking to MODIFY or SEND this draft, return a FULL `gmail_send` tool call. (Tip: If the user asks to clear or remove a field like the body, set it to an empty string `\"\"`).\n🚨 CRITICAL: If the user's message is asking to do something completely DIFFERENT (e.g., 'analysis this report', 'save to drive', 'explain this to me'), you MUST IGNORE THE DRAFT! Output `{{\"name\": \"normal_chat\", \"arguments\": {{}}}}` or the appropriate tool (like `drive_upload`). DO NOT output `gmail_send` if the user is starting a new task!]\n\n"
 
     system_prompt = (
         "You are a strict JSON-only Intent Router for Google Workspace.\n"
@@ -231,27 +231,18 @@ async def process_google_request(
         "Available Tools:\n" + json.dumps(enabled_tools, indent=2) + "\n\n"
         "RULES:\n"
         "1. USE_PREVIOUS_ANALYSIS: ONLY set content/body to \"USE_PREVIOUS_ANALYSIS\" when "
-        "the user EXPLICITLY asks to save, export, or send their EXISTING analysis/report "
-        "(e.g. '把分析写进docs', 'save my report to drive', 'send my analysis to email'). "
-        "Do NOT use USE_PREVIOUS_ANALYSIS if the user asks you to COMPOSE or WRITE something new.\n"
-        "2. For gmail_send: If the user asks to COMPOSE/DRAFT/WRITE a NEW email "
-        "(e.g. 'write a marketing email', 'send a greeting email', '随便写一封邮件'), "
-        "YOU MUST generate the FULL email body text directly in the 'body' field. "
-        "Include proper greeting, main content, and signature.\n"
-        "3. For docs_create: If the user asks to WRITE NEW content (story, essay, article), "
+        "the user EXPLICITLY asks to save, export, or send their EXISTING analysis/report.\n"
+        "2. For gmail_send: If the user asks to COMPOSE/DRAFT/WRITE a NEW email, "
+        "YOU MUST generate the FULL email body text directly in the 'body' field.\n"
+        "3. For docs_create: If the user asks to WRITE NEW content, "
         "generate the full content directly in the 'content' field.\n"
         "4. Output MUST be a valid JSON object with 'name' and 'arguments' keys.\n"
         "5. If user specifies a title/name/subject, use it. Otherwise pick a sensible default.\n"
         "6. If the user wants to SEND EMAIL or SEND PDF to someone, use gmail_send. "
-        "If user wants to WRITE/CREATE a document, or SAVE text/analysis to Google Drive or Google Docs, use docs_create. "
+        "If user wants to SAVE text to Google Drive or Docs, use docs_create. "
         "ONLY use drive_upload if the user explicitly asks to upload a FILE or PDF.\n"
-        "7. CRITICAL: ALL generated content MUST be in a SINGLE CONSISTENT language — "
-        "match the language the user is using. "
-        "Do NOT mix languages (e.g. do not insert Chinese words in an English text).\n"
-        "8. For calendar_create: Convert relative dates to absolute ISO format using CURRENT DATE above. "
-        "Examples: '明天下午3点' → calculate tomorrow's date + T15:00:00, '下周一' → calculate next Monday's date. "
-        "Always output date_iso WITHOUT timezone suffix (no 'Z'). "
-        "If user specifies duration, set duration_minutes. If user specifies location, set location.\n\n"
+        "7. 🚨 CRITICAL ESCAPE HATCH: If the user's message is completely unrelated to Google Workspace tools (e.g., 'explain this to me', 'what is 1+1', 'how does this work?'), you MUST output `{\"name\": \"normal_chat\", \"arguments\": {}}`. DO NOT force it into an email draft!\n"
+        "8. For calendar_create: Convert relative dates to absolute ISO format.\n\n"
         'RESPOND WITH ONLY THIS FORMAT:\n'
         '{"name": "tool_name", "arguments": {...}}\n'
     )
@@ -482,7 +473,13 @@ def _execute_tool(
         return block_msg
 
     try:
-        if name == "docs_create":
+        if name == "normal_chat":
+            # The agent decided this is not a Google Workspace command.
+            # Unset the pending lock so it stops intercepting future messages.
+            _gwt.users_col.update_one({"_id": user_id}, {"$unset": {"pending_gmail": ""}})
+            return "__NORMAL_CHAT_FALLBACK__"
+
+        elif name == "docs_create":
             content = args.get("content", "")
             if content == "USE_PREVIOUS_ANALYSIS" or not content or len(content) < 50:
                 content = _extract_previous_analysis(messages)
@@ -490,16 +487,11 @@ def _execute_tool(
             result = _gwt.tool_docs_create(user_id, title, content, lang=lang)
 
         elif name == "gmail_send":
+            # Allow empty bodies if the user explicitly cleared it. 
             body = args.get("body", "")
             # ONLY fall back to previous analysis if explicitly marked
             if body == "USE_PREVIOUS_ANALYSIS":
                 body = _extract_previous_analysis(messages)
-            # If body is still empty/short, the LLM failed to generate content
-            if not body or len(body.strip()) < 5:
-                if lang == "zh":
-                    body = "（邮件正文未生成，请重试）"
-                else:
-                    body = "(Email body was not generated, please retry)"
             
             recipient = args.get("recipient", "")
             subject = args.get("subject", "AI Generated Email")

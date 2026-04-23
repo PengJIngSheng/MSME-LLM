@@ -580,6 +580,15 @@ function createActionButtons(wrapper, msgIndex, feedbackVal, isAssistant, msgTex
                 sibling = nxt;
             }
             userInput.value = prevUserMsg.content;
+            
+            // Preserve attachments for regeneration without needing to re-upload
+            if (prevUserMsg.attachments && prevUserMsg.attachments.length > 0) {
+                // Attach them to the hidden pendingAttachments variable so handleSend picks them up
+                // Wait, handleSend expects them in pendingFiles, but pendingFiles are File objects.
+                // Instead, we can inject a temporary flag so handleSend knows to reuse them.
+                window._regenerateAttachments = prevUserMsg.attachments;
+            }
+            
             handleSend();
         };
         actions.appendChild(regenBtn);
@@ -766,8 +775,55 @@ function appendMessage(text, role, msgObj = null, msgIndex = null, feedbackVal =
         if (displayAnswer) {
             const aDiv = document.createElement('div');
             aDiv.className = 'message-bubble assistant markdown-content';
+            let hasGmailPending = false;
+            if (displayAnswer.includes('[GMAIL_CONFIRM_PENDING]')) {
+                displayAnswer = displayAnswer.replace('[GMAIL_CONFIRM_PENDING]', '');
+                hasGmailPending = true;
+            }
             aDiv.innerHTML = renderMd(displayAnswer);
             wrapper.appendChild(aDiv);
+            
+            if (hasGmailPending) {
+                const gmailCard = document.createElement('div');
+                gmailCard.className = 'gmail-confirm-card';
+                gmailCard.style = "margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--outline-variant);";
+                gmailCard.innerHTML = `
+                    <div class="gmail-card-actions" style="display: flex; gap: 10px; align-items: center; margin-bottom: 8px;">
+                        <button class="gmail-confirm-btn" id="gmailConfirm_${Date.now()}" style="padding: 8px 16px; border-radius: 8px; font-weight: 500; font-size: 0.9em; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s ease; border: none; background: #6366f1; color: white; min-width: 130px; justify-content: center;">
+                            <i class="fa-solid fa-paper-plane"></i> Confirm Send
+                        </button>
+                        <button class="gmail-cancel-btn" id="gmailCancel_${Date.now()}" style="padding: 8px 16px; border-radius: 8px; font-weight: 500; font-size: 0.9em; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s ease; border: 1px solid var(--outline-variant); background: transparent; color: var(--text-color); min-width: 100px; justify-content: center;">
+                            <i class="fa-solid fa-xmark"></i> Cancel
+                        </button>
+                    </div>
+                `;
+                const confirmBtn = gmailCard.querySelector('.gmail-confirm-btn');
+                const cancelBtn = gmailCard.querySelector('.gmail-cancel-btn');
+
+                confirmBtn.addEventListener('click', () => {
+                    confirmBtn.disabled = true;
+                    cancelBtn.disabled = true;
+                    confirmBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending...';
+                    confirmBtn.style.background = '#6366f1';
+                    const fakeInput = document.getElementById('userInput');
+                    if (fakeInput) {
+                        fakeInput.value = '[CONFIRM_GMAIL_SEND]';
+                        document.getElementById('submitBtn').click();
+                    }
+                });
+                cancelBtn.addEventListener('click', () => {
+                    confirmBtn.disabled = true;
+                    cancelBtn.disabled = true;
+                    cancelBtn.innerHTML = '<i class="fa-solid fa-check"></i> Cancelled';
+                    cancelBtn.style.background = '#dc2626';
+                    const fakeInput = document.getElementById('userInput');
+                    if (fakeInput) {
+                        fakeInput.value = '[CANCEL_GMAIL_SEND]';
+                        document.getElementById('submitBtn').click();
+                    }
+                });
+                wrapper.appendChild(gmailCard);
+            }
         }
         
         if (msgIndex !== null) {
@@ -876,6 +932,10 @@ async function handleSend(isResume = false, resumeIndex = null) {
             }
             pendingFiles = [];
             renderAttachmentsPreview();
+        } else if (window._regenerateAttachments) {
+            // Restore attachments from the regenerated message
+            finalAttachments = window._regenerateAttachments;
+            window._regenerateAttachments = null;
         }
 
         let newMsg = { role: 'user', content: text };

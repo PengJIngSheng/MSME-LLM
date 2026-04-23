@@ -515,6 +515,20 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
             # Signal UI immediately — PDF parsing is CPU-heavy (15-30s for large files)
             yield _sse({"status": "parsing_pdf"})
 
+        # ── Pre-flight: If user uploads a NEW source PDF while agent was mid-generation,
+        #    wipe the old state so the new PDF gets a clean slate. ──
+        _prev_state = pdf_agent.agent_memory.get(chat_id, {})
+        if has_pdf and _prev_state.get("stage") in ("generate", "done"):
+            # Check if any of the uploaded PDFs are genuinely new (not already processed)
+            _prev_processed = _prev_state.get("processed_files", set())
+            _has_new_pdf = any(
+                att.get("saved_path") not in _prev_processed
+                for att in (attachments or [])
+                if att.get("saved_path", "").lower().endswith(".pdf")
+            )
+            if _has_new_pdf:
+                pdf_agent.reset_for_new_source(chat_id)
+
         # Run in thread so SSE stream stays alive during heavy PDF extraction
         agent_inst, agent_ctx = await asyncio.to_thread(
             pdf_agent.process_agent_request, chat_id, latest_user_msg, attachments
@@ -554,17 +568,23 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
                 pdf_filename=_agent_mem_pdf,
             )
             
-            yield _sse({"text": _out + "\n\n"})
-            
-            # Save Google Agent result to DB and finish early
-            _db_msgs = deepcopy(messages)
-            _db_msgs.append({"role": "assistant", "content": _out})
-            chats_col.update_one({"_id": chat_id}, {"$set": {
-                "messages": _db_msgs,
-                "updated_at": dt.datetime.utcnow().isoformat(),
-            }})
-            yield "data: [DONE]\n\n"
-            return
+            if _out == "__NORMAL_CHAT_FALLBACK__":
+                # The agent explicitly refused to hijack this message for Google Workspace.
+                # Fall through to normal conversational LLM generation.
+                pass
+            else:
+                yield _sse({"text": _out + "\n\n"})
+                
+                # Save Google Agent result to DB and finish early
+                _db_msgs = deepcopy(messages)
+                _db_msgs.append({"role": "assistant", "content": _out})
+                chats_col.update_one({"_id": chat_id}, {"$set": {
+                    "messages": _db_msgs,
+                    "updated_at": dt.datetime.utcnow().isoformat(),
+                }})
+                yield "data: [DONE]\n\n"
+                
+                return
         # ── End Google Intercept ──
 
         if agent_inst or agent_ctx:
@@ -830,12 +850,19 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
         pdf_agent.agent_memory[chat_id]["generate_pdf_now"] = False
         pdf_source = answer_text if answer_text else raw_accum_text
         _doc_type  = _mem.get("doc_type", "general")
+        
+        # ── Last-resort placeholder sanitizer ──
+        # Catch any [Value], [Amount], [X], [Name] etc. that the LLM failed to replace
+        import re as _re
+        pdf_source = _re.sub(r'\[(?:Value|value|Amount|amount|X|x|Name|name|数据|金额|数值)\]', 'N/A', pdf_source)
+        
         print(f"[PDF GEN] Generating PDF, source_len={len(pdf_source)}, type={_doc_type}")
         try:
             _, _pdf_filename = await pdf_generator.markdown_to_pdf(pdf_source, _doc_type)
             print(f"[PDF GEN] Done: {_pdf_filename}")
-            # Advance agent stage to 'done' — prevents future messages from auto-generating PDF
-            if chat_id in pdf_agent.agent_memory:
+            # Advance agent stage to 'done' — but ONLY if still in 'generate'.
+            # A newer request may have already reset the state (e.g., user uploaded new PDF).
+            if chat_id in pdf_agent.agent_memory and pdf_agent.agent_memory[chat_id].get("stage") == "generate":
                 pdf_agent.agent_memory[chat_id]["stage"] = "done"
                 # Store generated PDF so Google Agent can email it later
                 pdf_agent.agent_memory[chat_id]["last_generated_pdf"] = _pdf_filename
