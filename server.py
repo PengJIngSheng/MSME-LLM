@@ -348,6 +348,31 @@ def _summarise_history(messages: list, threshold: int = SLIDING_WINDOW_TURNS) ->
     }
     return [summary_msg] + recent
 
+def _prune_agent_generation_history(messages: list, max_items: int = 10) -> list:
+    """
+    For PDF generation/regeneration, keep the latest user intent but drop older
+    long assistant report bodies that can cause the model to keep extending the
+    previous report instead of cleanly regenerating a fresh one.
+    """
+    kept = []
+    for msg in messages:
+        role = msg.get("role")
+        content = msg.get("content", "") or ""
+        if role == "user":
+            kept.append({"role": "user", "content": content})
+            continue
+        if role == "assistant":
+            if (
+                len(content) <= 600
+                and "⚙️ **Google Workspace**" not in content
+                and "[GMAIL_CONFIRM_PENDING]" not in content
+                and "Your PDF Report is Ready!" not in content
+            ):
+                kept.append({"role": "assistant", "content": content})
+    if not kept:
+        return messages[-2:] if len(messages) >= 2 else list(messages)
+    return kept[-max_items:]
+
 def _extract_pdf(path: str, max_chars: int = 50000) -> str:
     """Extract text from PDF with increased context limit."""
     import pymupdf
@@ -540,7 +565,11 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
         if isinstance(_doc_start, int) and _doc_start >= 0:
             scoped_messages = messages[_doc_start:]
             if agent_mode:
-                inference_messages = list(scoped_messages)
+                if _agent_state.get("generate_pdf_now") or pdf_agent._is_explicit_pdf_output_request(latest_user_msg):
+                    inference_messages = _prune_agent_generation_history(scoped_messages)
+                    print(f"[AGENT CONTEXT] Regeneration context pruned: {len(scoped_messages)} -> {len(inference_messages)} messages")
+                else:
+                    inference_messages = list(scoped_messages)
             else:
                 inference_messages = _summarise_history(scoped_messages)
                 inference_messages = _apply_sliding_window(inference_messages)
