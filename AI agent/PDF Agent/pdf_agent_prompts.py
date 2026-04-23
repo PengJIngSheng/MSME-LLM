@@ -688,32 +688,36 @@ def build_template_regeneration_instruction(template_data: str) -> str:
     )
 
 
-def build_generate_mode_instruction(doc_type: str, has_template: bool) -> str:
+def build_generate_mode_instruction(doc_type: str, has_template: bool, structure: str = "") -> str:
     if has_template:
         return (
             f"你现在处于报告生成模式（document type: {doc_type}）。"
             "请根据用户的要求生成完整的专业报告，严格遵守高保真复刻协议。"
             "保持模板视觉结构不变，用源数据填充所有内容。"
             "所有内容都必须有数据依据。"
+            "如模板中存在表格布局，必须继续使用 Markdown 表格完整输出，严禁改成纯段落。"
         )
     return (
         f"你现在处于报告生成模式（document type: {doc_type}）。"
+        f"你必须严格遵循以下报告骨架，不可自行弱化成普通文章：\n\n{structure}\n\n"
         "请根据用户的要求生成完整的专业报告。"
         "保持专业结构和可打印排版。"
+        "所有关键数据、对比、指标、摘要都必须尽可能使用 Markdown 表格输出。"
         "禁止 filler text，所有内容都必须有数据依据。"
     )
 
 
-def build_done_template_regeneration_instruction(doc_type: str) -> str:
+def build_done_template_regeneration_instruction(doc_type: str, structure: str = "") -> str:
     return (
         f"你现在处于报告迭代模式（document type: {doc_type}）。"
         "用户提供了新的模板并要求重新生成报告。"
         "请根据新模板的设计风格，结合源数据重新生成**完整报告全文**。"
         "严格遵守高保真复刻协议。必须输出从 `# 标题` 开始的完整内容，不要只输出修改的部分。所有内容都必须有数据依据。"
+        f"同时必须保持当前文档类型的核心结构与表格要求：\n\n{structure}"
     )
 
 
-def build_done_regenerate_instruction(doc_type: str, has_template: bool, user_message: str = "") -> str:
+def build_done_regenerate_instruction(doc_type: str, has_template: bool, user_message: str = "", structure: str = "") -> str:
     feedback = user_message.strip() if user_message else ""
     feedback_block = (
         f"用户本轮的重新生成要求如下：{feedback}。"
@@ -727,11 +731,14 @@ def build_done_regenerate_instruction(doc_type: str, has_template: bool, user_me
             f"{feedback_block}请根据用户反馈更新内容，并继续严格遵守高保真复刻协议。"
             "保持模板视觉结构不变，但你必须**重新输出从 `# 标题` 开始的完整报告全文**！绝对不要只输出修改的部分。"
             "新的 PDF 会在本次输出后自动生成。所有内容都必须有数据依据。"
+            f"同时必须保持当前文档类型的核心结构与表格要求：\n\n{structure}"
         )
     return (
         f"你现在处于报告迭代模式（document type: {doc_type}）。"
+        f"你必须严格遵循以下报告骨架，不可把它写成普通文章：\n\n{structure}\n\n"
         f"{feedback_block}请根据用户反馈修订、扩展或更新报告。"
         "保持同样的专业结构和可打印排版，你必须**重新输出从 `# 标题` 开始的完整报告全文**！绝对不要只输出片段。"
+        "所有关键数据、对比、指标、摘要都必须尽可能使用 Markdown 表格输出。"
         "禁止 filler text，所有内容都必须有数据依据。"
     )
 

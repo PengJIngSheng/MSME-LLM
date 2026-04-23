@@ -587,10 +587,17 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
             _log(f"[agent] First-time generation → type={doc_type} generate_pdf_now=True")
             if _is_regenerate_request(user_message) or _is_pdf_generation_request(user_message):
                 instruction = _prompts.build_done_regenerate_instruction(
-                    doc_type, bool(state.get("template_data")), user_message
+                    doc_type,
+                    bool(state.get("template_data")),
+                    user_message,
+                    _prompts.get_structure(doc_type),
                 )
             else:
-                instruction = _prompts.build_generate_mode_instruction(doc_type, bool(state.get("template_data")))
+                instruction = _prompts.build_generate_mode_instruction(
+                    doc_type,
+                    bool(state.get("template_data")),
+                    _prompts.get_structure(doc_type),
+                )
 
     # ══════════════════════════════════════════════════════════════════════════
     # STAGE: done (PDF already generated — conversation mode)
@@ -638,7 +645,9 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
             state["generate_pdf_now"]= True
             state["use_fast_model"]  = False
             _log(f"[agent] New template + regenerate request in done stage → generate")
-            instruction = _prompts.build_done_template_regeneration_instruction(doc_type)
+            instruction = _prompts.build_done_template_regeneration_instruction(
+                doc_type, _prompts.get_structure(doc_type)
+            )
 
         # Case 3: User explicitly asked to regenerate/update PDF (no new file)
         elif _is_regenerate_request(user_message) or _is_pdf_generation_request(user_message):
@@ -650,7 +659,10 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
             state["generation_choice_answered"] = True
             _log(f"[agent] Explicit regenerate request in done stage → generate")
             instruction = _prompts.build_done_regenerate_instruction(
-                doc_type, bool(state.get("template_data")), user_message
+                doc_type,
+                bool(state.get("template_data")),
+                user_message,
+                _prompts.get_structure(doc_type),
             )
 
         # Case 4: Normal follow-up question → just answer, NO PDF generation
@@ -689,6 +701,7 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
             state.get("doc_type", "general"),
             bool(state.get("template_data")),
             user_message,
+            _prompts.get_structure(state.get("doc_type", "general")),
         )
 
     hidden_context = "\n\n" + "\n\n".join(ctx_parts) if ctx_parts else ""
