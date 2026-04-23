@@ -826,6 +826,9 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
             state["doc_type"]      = _detect_doc_type(state["source_data"])
             state["stage"]         = "wait_template"
             state["use_fast_model"]= False   # analysis: switch to think model for deeper deepseek analysis
+            state["generation_question_pending"] = True
+            state["generation_question_asked"] = False
+            state["generation_choice_answered"] = False
             doc_list = ", ".join(new_names) or "the uploaded document"
             dtype    = state["doc_type"].replace("_", " ").title()
             _log(f"[agent] Detected doc_type={state['doc_type']} → think_model for deep analysis")
@@ -949,6 +952,9 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
             state["stage"]           = "generate"
             state["generate_pdf_now"]= True
             state["use_fast_model"]  = False
+            state["generation_question_pending"] = False
+            state["generation_question_asked"] = True
+            state["generation_choice_answered"] = True
             tname = ", ".join(new_names) or "the template"
             
             instruction = (
@@ -1008,6 +1014,9 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
             state["stage"]           = "generate"
             state["generate_pdf_now"]= True
             state["use_fast_model"]  = False
+            state["generation_question_pending"] = False
+            state["generation_question_asked"] = True
+            state["generation_choice_answered"] = True
             instruction = (
                 "角色设定：你是一位精通文档智能（Document Intelligence）与排版渲染的专家级 AI 助手。\n\n"
                 "【执行指令：生成策略（Precision Generation）】\n"
@@ -1026,10 +1035,13 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
                 "<agent_memory_source_data>"
             )
 
-        elif _is_direct(user_message):
+        else:
             state["stage"]           = "generate"
             state["generate_pdf_now"]= True
             state["use_fast_model"]  = False
+            state["generation_question_pending"] = False
+            state["generation_question_asked"] = True
+            state["generation_choice_answered"] = True
             doc_type = state.get("doc_type", "general")
             structure = _STRUCTURE.get(doc_type, _STRUCTURE["general"])
 
@@ -1038,23 +1050,16 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
                 f"DOCUMENT TYPE DETECTED: **{doc_type.replace('_', ' ').upper()}**\n\n"
                 f"{structure}\n\n"
                 "【执行指令：自主生成策略】\n"
-                "用户明确表示不需要指定样板，要求你直接生成。\n"
-                "请严格按照以上提供的行业标准模版结构，自主设计专业清晰排版。\n"
+                "用户已经进入 PDF 生成阶段；如果没有上传模板，必须默认使用专业自动排版直接生成最终 PDF 报告。\n"
+                f"用户当前补充说明：{user_message or '未提供额外说明'}\n"
+                "请严格使用已有分析结果和源文档数据，按照以上行业标准结构自主设计专业清晰排版。\n"
                 "1. 表格重建：原分析报告中涉及到数值比对的数据必须通过高度严谨的 Markdown 表格完整具现。\n"
                 "2. 零损坏要求：保证最终所有的文本都能安全无损地进入底层生成引擎。\n"
                 "3. ⛔ 占位符零容忍：绝对禁止输出 [Value], [Amount], [X], [Name] 等任何方括号占位符。找不到数据就写 N/A。\n"
                 "4. 🚨 拒绝空表：如果某个表格或章节在源数据中完全没有对应内容，**请直接不生成该表格/章节**，绝对不要输出空壳表格。\n"
-                "回答规范性：严禁口语闲聊，直接从 `# [标题]` 开始吐出最终排版内容即可。\n\n"
+                "5. 强制收尾：本轮必须输出完整可渲染 Markdown 正文，后端会立即调用 pdf_generator 生成真实 PDF 文件。\n"
+                "回答规范性：严禁口语闲聊，严禁再次询问是否需要模板，直接从 `# [标题]` 开始吐出最终排版内容即可。\n\n"
                 "源文档数据参考：<agent_memory_source_data>"
-            )
-
-        else:
-            state["use_fast_model"] = False
-            instruction = (
-                "【状态提醒】当前流程停留在“等待用户决定是否生成最终PDF报告”的阶段。\n"
-                "用户当前发送的消息不属于模板操作，请正常回答用户的问题。\n\n"
-                "在回答的最后，请顺带提醒用户：\n"
-                f"“提示：当您准备好后，随时可以上传模板或告诉我‘直接生成’。”"
             )
 
     # ══════════════════════════════════════════════════════════════════════════
@@ -1064,6 +1069,9 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
         state["stage"]           = "generate"
         state["generate_pdf_now"]= True
         state["use_fast_model"]  = False
+        state["generation_question_pending"] = False
+        state["generation_question_asked"] = True
+        state["generation_choice_answered"] = True
 
         instruction = (
             f"用户的确认或微调指示如下：\n**{user_message}**\n\n"
@@ -1094,6 +1102,9 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
                 state["template_data"] = layout_report + "\n\n[Template Table Structures]:\n" + table_structures
                 state["generate_pdf_now"] = True
                 state["use_fast_model"] = False
+                state["generation_question_pending"] = False
+                state["generation_question_asked"] = True
+                state["generation_choice_answered"] = True
                 instruction = (
                     "用户提供了一份**新的样板/模版**。\n"
                     "请使用最新提取的模版骨架，严格遵循高保真填充规则，重新排版并生成报告正文：\n"
@@ -1109,6 +1120,9 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
                 state["generate_pdf_now"] = False
                 state["use_fast_model"]   = False
                 state["processed_files"]  = set()  # Clear so future uploads are not blocked
+                state["generation_question_pending"] = True
+                state["generation_question_asked"] = False
+                state["generation_choice_answered"] = False
                 _log(f"[agent] New source PDF during generate → full reset to wait_template")
                 instruction = (
                     "# Role\n"
@@ -1130,6 +1144,9 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
         else:
             # Normal first-time generation (triggered from wait_template)
             state["generate_pdf_now"] = True
+            state["generation_question_pending"] = False
+            state["generation_question_asked"] = True
+            state["generation_choice_answered"] = True
             doc_type = state.get("doc_type", "general")
             _log(f"[agent] First-time generation → type={doc_type} generate_pdf_now=True")
             if state.get("template_data"):
@@ -1164,6 +1181,9 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
                 state["stage"]           = "generate"
                 state["generate_pdf_now"]= True
                 state["use_fast_model"]  = False
+                state["generation_question_pending"] = False
+                state["generation_question_asked"] = True
+                state["generation_choice_answered"] = True
                 instruction = (
                     "用户提供了一份**新的样板/模版**。\n"
                     "请使用最新提取的模版骨架，严格遵循高保真填充规则，重新排版并生成报告正文：\n"
@@ -1179,6 +1199,9 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
                 state["generate_pdf_now"]= False
                 state["use_fast_model"]  = False
                 state["processed_files"] = set()  # Clear so future uploads are not blocked
+                state["generation_question_pending"] = True
+                state["generation_question_asked"] = False
+                state["generation_choice_answered"] = False
                 doc_list = ", ".join(new_names) or "the uploaded document"
                 dtype    = state["doc_type"].replace("_", " ").title()
                 _log(f"[agent] New source PDF in done stage → reset to wait_template for fresh analysis")
@@ -1215,10 +1238,13 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
             )
 
         # Case 3: User explicitly asked to regenerate/update PDF (no new file)
-        elif _is_regenerate_request(user_message):
+        elif _is_regenerate_request(user_message) or _is_pdf_generation_request(user_message):
             state["stage"]           = "generate"
             state["generate_pdf_now"]= True
             state["use_fast_model"]  = False
+            state["generation_question_pending"] = False
+            state["generation_question_asked"] = True
+            state["generation_choice_answered"] = True
             _log(f"[agent] Explicit regenerate request in done stage → generate")
             if state.get("template_data"):
                 instruction = (

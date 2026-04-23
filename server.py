@@ -831,7 +831,12 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
 
     # === Force mandatory interactive prompt if LLM dropped it ===
     _mem = pdf_agent.agent_memory.get(chat_id, {})
-    if agent_mode and _mem.get("stage") == "wait_template":
+    if (
+        agent_mode
+        and _mem.get("stage") == "wait_template"
+        and _mem.get("generation_question_pending")
+        and not _mem.get("generation_question_asked")
+    ):
         _reply_lang = _mem.get("reply_lang", "en")
         _routing_q = pdf_agent.get_routing_question(_reply_lang)
         mandatory_q = (
@@ -842,6 +847,9 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
             yield _sse({'text': mandatory_q})
             raw_accum_text += mandatory_q
             answer_text = (answer_text if answer_text else "") + mandatory_q
+        if chat_id in pdf_agent.agent_memory:
+            pdf_agent.agent_memory[chat_id]["generation_question_pending"] = False
+            pdf_agent.agent_memory[chat_id]["generation_question_asked"] = True
 
     # === PDF Auto-Generation (Agent Mode) ===
     _mem = pdf_agent.agent_memory.get(chat_id, {}) if agent_mode else {}
