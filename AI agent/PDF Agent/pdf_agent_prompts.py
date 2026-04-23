@@ -713,17 +713,24 @@ def build_done_template_regeneration_instruction(doc_type: str) -> str:
     )
 
 
-def build_done_regenerate_instruction(doc_type: str, has_template: bool) -> str:
+def build_done_regenerate_instruction(doc_type: str, has_template: bool, user_message: str = "") -> str:
+    feedback = user_message.strip() if user_message else ""
+    feedback_block = (
+        f"用户本轮的重新生成要求如下：{feedback}。"
+        "你必须严格吸收这次反馈，并据此重新输出完整报告全文。"
+        if feedback else
+        "用户要求重新生成当前报告。你必须重新输出完整报告全文。"
+    )
     if has_template:
         return (
             f"你现在处于报告迭代模式（document type: {doc_type}）。"
-            "用户要求重新生成/更新报告。请根据用户反馈更新内容，并继续严格遵守高保真复刻协议。"
+            f"{feedback_block}请根据用户反馈更新内容，并继续严格遵守高保真复刻协议。"
             "保持模板视觉结构不变，但你必须**重新输出从 `# 标题` 开始的完整报告全文**！绝对不要只输出修改的部分。"
             "新的 PDF 会在本次输出后自动生成。所有内容都必须有数据依据。"
         )
     return (
         f"你现在处于报告迭代模式（document type: {doc_type}）。"
-        "用户要求重新生成/更新报告。请根据用户反馈修订、扩展或更新报告。"
+        f"{feedback_block}请根据用户反馈修订、扩展或更新报告。"
         "保持同样的专业结构和可打印排版，你必须**重新输出从 `# 标题` 开始的完整报告全文**！绝对不要只输出片段。"
         "禁止 filler text，所有内容都必须有数据依据。"
     )

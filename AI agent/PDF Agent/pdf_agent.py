@@ -154,12 +154,27 @@ _REGENERATE_WORDS = [
     '重新生成', '再生成', '更新报告', '更新PDF', '更新pdf', '重新做', '重做',
     '再做一次', '再来一次', '重新制作', '修改报告', '修改PDF', '修改pdf',
     '再生成一次', '重新输出', '重新导出', '再导出', '更新一下报告',
+    '多生成一次', '再来一版', '再出一版', '重出一版', '再来一个版本', '重新来一份',
+    '再给我一版', '再做一份', '再生成多一次',
     '不满意', '改一下', '帮我修改', '修改', '改', '重写',
     'regenerate', 'redo', 'update pdf', 'update report', 'redo pdf',
     'recreate', 'generate again', 'make again', 'new pdf', 'new report',
     'revise report', 'revise pdf', 'modify report', 'modify pdf',
+    'one more time', 'once more', 'again', 'do it again', 'make another one',
+    'another version', 'rerender', 'render again', 'regenerate again',
 ]
-def _is_regenerate_request(t): return any(w in t.lower() for w in _REGENERATE_WORDS)
+def _is_regenerate_request(t):
+    low = (t or "").lower()
+    compact = re.sub(r"\s+", "", low)
+    compact_words = [re.sub(r"\s+", "", w.lower()) for w in _REGENERATE_WORDS]
+    if any(w in low for w in _REGENERATE_WORDS) or any(w in compact for w in compact_words):
+        return True
+    regen_patterns = [
+        r"(再|重新|重).{0,8}(生成|导出|输出|做|出).{0,8}(pdf|报告|版本|一版)?",
+        r"(one more time|once more|again).{0,12}(pdf|report|version|file)?",
+        r"(redo|rerender|regenerate).{0,12}(again|pdf|report|version)?",
+    ]
+    return any(re.search(p, low) for p in regen_patterns)
 
 
 # ─── Language Helpers ─────────────────────────────────────────────────────────
@@ -567,7 +582,12 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
             state["generation_choice_answered"] = True
             doc_type = state.get("doc_type", "general")
             _log(f"[agent] First-time generation → type={doc_type} generate_pdf_now=True")
-            instruction = _prompts.build_generate_mode_instruction(doc_type, bool(state.get("template_data")))
+            if _is_regenerate_request(user_message) or _is_pdf_generation_request(user_message):
+                instruction = _prompts.build_done_regenerate_instruction(
+                    doc_type, bool(state.get("template_data")), user_message
+                )
+            else:
+                instruction = _prompts.build_generate_mode_instruction(doc_type, bool(state.get("template_data")))
 
     # ══════════════════════════════════════════════════════════════════════════
     # STAGE: done (PDF already generated — conversation mode)
@@ -626,7 +646,9 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
             state["generation_question_asked"] = True
             state["generation_choice_answered"] = True
             _log(f"[agent] Explicit regenerate request in done stage → generate")
-            instruction = _prompts.build_done_regenerate_instruction(doc_type, bool(state.get("template_data")))
+            instruction = _prompts.build_done_regenerate_instruction(
+                doc_type, bool(state.get("template_data")), user_message
+            )
 
         # Case 4: Normal follow-up question → just answer, NO PDF generation
         else:
