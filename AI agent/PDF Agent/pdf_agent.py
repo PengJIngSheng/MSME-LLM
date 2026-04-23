@@ -120,6 +120,9 @@ def _is_pdf_generation_request(t):
     compact = re.sub(r"\s+", "", low)
     return any(w in low for w in _GENERATE_PDF_WORDS) or any(w in compact for w in _GENERATE_PDF_WORDS)
 
+def _is_explicit_pdf_output_request(t: str) -> bool:
+    return _is_regenerate_request(t) or _is_pdf_generation_request(t) or _is_direct(t)
+
 _TEMPLATE_YES_WORDS = [
     '是的', '按这个来', '按这个做', '照这个来', '按样板来', '按模板来',
     '按模版来', '用这个模板', '用这个模版', '就按这个', '确认', '开始吧',
@@ -666,6 +669,26 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
     if state.get("template_data"):
         ctx_parts.append(
             f"<agent_memory_template_data>\n{state['template_data']}\n</agent_memory_template_data>"
+        )
+
+    # Safety net: whenever the user explicitly asks to generate/regenerate the PDF
+    # and we already have source data loaded, never fall back to a text-only reply.
+    if (
+        state.get("source_data")
+        and _is_explicit_pdf_output_request(user_message)
+        and state.get("stage") in ("done", "generate")
+        and not new_text
+    ):
+        state["stage"] = "generate"
+        state["generate_pdf_now"] = True
+        state["use_fast_model"] = False
+        state["generation_question_pending"] = False
+        state["generation_question_asked"] = True
+        state["generation_choice_answered"] = True
+        instruction = _prompts.build_done_regenerate_instruction(
+            state.get("doc_type", "general"),
+            bool(state.get("template_data")),
+            user_message,
         )
 
     hidden_context = "\n\n" + "\n\n".join(ctx_parts) if ctx_parts else ""

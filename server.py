@@ -485,8 +485,11 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
     )
 
     # --- History compression: summarise old turns, then apply sliding window ---
-    inference_messages = _summarise_history(messages)
-    inference_messages = _apply_sliding_window(inference_messages)
+    if agent_mode:
+        inference_messages = list(messages)
+    else:
+        inference_messages = _summarise_history(messages)
+        inference_messages = _apply_sliding_window(inference_messages)
 
     _chat_doc = chats_col.find_one({"_id": chat_id})
     _stream_user_id = _chat_doc.get("user_id") if _chat_doc else None
@@ -536,8 +539,11 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
         _doc_start = _agent_state.get("document_context_start_index")
         if isinstance(_doc_start, int) and _doc_start >= 0:
             scoped_messages = messages[_doc_start:]
-            inference_messages = _summarise_history(scoped_messages)
-            inference_messages = _apply_sliding_window(inference_messages)
+            if agent_mode:
+                inference_messages = list(scoped_messages)
+            else:
+                inference_messages = _summarise_history(scoped_messages)
+                inference_messages = _apply_sliding_window(inference_messages)
             final_messages = inference_messages
 
         # ── Intercept Google Connector Requests via Google Agent ──
