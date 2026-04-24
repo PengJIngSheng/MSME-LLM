@@ -1026,7 +1026,6 @@ async function handleSend(isResume = false, resumeIndex = null) {
     let currentSources = [];
     let frontendThinkAccum = '';
     let frontendAnswerAccum = '';
-    let guestQuestionCounted = false;
 
     if (!isResume) {
 
@@ -1068,6 +1067,15 @@ async function handleSend(isResume = false, resumeIndex = null) {
         appendMessage(text, 'user', newMsg, chatMessages.length - 1);
         userInput.value = '';
         userInput.style.height = 'auto';
+
+        if (!currentUserId && !isAgentMode) {
+            const guestCount = incrementGuestQuestionCount();
+            if (guestCount >= GUEST_QUESTION_LIMIT) {
+                showGuestLoginPrompt(true);
+            } else {
+                syncGuestAccessState();
+            }
+        }
         
         assistantWrapper = document.createElement('div');
         assistantWrapper.className = 'assistant-msg-wrapper';
@@ -1188,14 +1196,6 @@ async function handleSend(isResume = false, resumeIndex = null) {
             }),
             signal: currentAbortController.signal,
         });
-
-        if (response.ok && !isResume && !currentUserId && !isAgentMode && !guestQuestionCounted) {
-            guestQuestionCounted = true;
-            const guestCount = incrementGuestQuestionCount();
-            if (guestCount >= GUEST_QUESTION_LIMIT) {
-                showGuestLoginPrompt(true);
-            }
-        }
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
