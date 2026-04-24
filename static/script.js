@@ -299,8 +299,7 @@ async function loadChat(chatId) {
     } catch (e) { console.error("Failed to load chat", e); }
 }
 
-document.getElementById('newChatBtn').addEventListener('click', () => {
-    if (isGenerating) return;
+function openFreshNormalChat() {
     isAgentMode = false;
     document.getElementById('uploadBtn').style.display = 'none';
     // Restore toggles in normal chat mode
@@ -317,14 +316,9 @@ document.getElementById('newChatBtn').addEventListener('click', () => {
     logoContainer.innerHTML = '<h2><span class="logo-text"><i class="fa-solid fa-leaf"></i> PEPPER LABS</span><br/>How can I help you today?</h2>';
     document.querySelectorAll('.nav-menu-btn').forEach(btn => btn.classList.remove('active'));
     document.getElementById('newChatBtn').classList.add('active');
-});
+}
 
-document.getElementById('agentModeBtn').addEventListener('click', () => {
-    if (isGenerating) return;
-    if (!currentUserId) {
-        showGuestLoginPrompt(true);
-        return;
-    }
+function openFreshAgentChat(showLoginPrompt = false) {
     isAgentMode = true;
     document.getElementById('uploadBtn').style.display = 'inline-flex';
     // Agent mode: hide think/web toggles, show connectors
@@ -341,6 +335,23 @@ document.getElementById('agentModeBtn').addEventListener('click', () => {
     logoContainer.innerHTML = '<h2>Your personalize AI agent</h2>';
     document.querySelectorAll('.nav-menu-btn').forEach(btn => btn.classList.remove('active'));
     document.getElementById('agentModeBtn').classList.add('active');
+    if (showLoginPrompt) {
+        showGuestLoginPrompt(true);
+    }
+}
+
+document.getElementById('newChatBtn').addEventListener('click', () => {
+    if (isGenerating) return;
+    openFreshNormalChat();
+});
+
+document.getElementById('agentModeBtn').addEventListener('click', () => {
+    if (isGenerating) return;
+    if (!currentUserId) {
+        openFreshAgentChat(true);
+        return;
+    }
+    openFreshAgentChat(false);
 });
 loadHistory();
 syncGuestAccessState();
@@ -1001,6 +1012,11 @@ async function handleSend(isResume = false, resumeIndex = null) {
     
     if (!isResume && !text && pendingFiles.length === 0) return;
 
+    if (!isResume && !currentUserId && isAgentMode) {
+        showGuestLoginPrompt(true);
+        return;
+    }
+
     if (!isResume && !currentUserId && !isAgentMode && getGuestQuestionCount() >= GUEST_QUESTION_LIMIT) {
         showGuestLoginPrompt(true);
         return;
@@ -1564,6 +1580,10 @@ const uploadBtn = document.getElementById('uploadBtn');
 const attachmentsPreview = document.getElementById('attachmentsPreview');
 
 uploadBtn.addEventListener('click', () => {
+    if (!currentUserId && isAgentMode) {
+        showGuestLoginPrompt(true);
+        return;
+    }
     fileInput.click();
 });
 
