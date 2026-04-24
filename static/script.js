@@ -17,6 +17,95 @@ let currentUsername = localStorage.getItem('pepperUsername') || null;
 let currentAbortController = null;
 let isPaused = false;
 let pausedMsgIndex = null;
+let guestLoginPromptForced = false;
+
+const GUEST_QUESTION_LIMIT = 2;
+const agentModeBtn = document.getElementById('agentModeBtn');
+const guestLimitBanner = document.getElementById('guestLimitBanner');
+const guestLimitBannerText = document.getElementById('guestLimitBannerText');
+const guestLimitLoginBtn = document.getElementById('guestLimitLoginBtn');
+const guestLimitRegisterBtn = document.getElementById('guestLimitRegisterBtn');
+const appContainer = document.querySelector('.app-container');
+
+function getGuestQuestionCount() {
+    return Number(localStorage.getItem('pepperGuestQuestionCount') || '0');
+}
+
+function setGuestQuestionCount(count) {
+    localStorage.setItem('pepperGuestQuestionCount', String(Math.max(0, count)));
+}
+
+function incrementGuestQuestionCount() {
+    const next = getGuestQuestionCount() + 1;
+    setGuestQuestionCount(next);
+    return next;
+}
+
+function getUiCopy() {
+    return window._pepperLang || {
+        loginBtn: 'Login',
+        registerBtn: 'Register',
+        guestLimitText: 'Get smarter responses, upload files and images, and unlock more features.',
+        guestLimitRegisterBtn: 'Sign up for free',
+        agentRequiresLogin: 'Login required for Agent mode'
+    };
+}
+
+function updateGuestLimitBannerCopy() {
+    const t = getUiCopy();
+    if (guestLimitBannerText) guestLimitBannerText.textContent = t.guestLimitText;
+    if (guestLimitLoginBtn) guestLimitLoginBtn.textContent = t.loginBtn;
+    if (guestLimitRegisterBtn) guestLimitRegisterBtn.textContent = t.guestLimitRegisterBtn || t.registerBtn;
+    if (agentModeBtn) agentModeBtn.title = currentUserId ? 'AI Agent' : (t.agentRequiresLogin || 'Login required for Agent mode');
+}
+
+function showGuestLoginPrompt(force = false) {
+    if (currentUserId || !guestLimitBanner) return;
+    if (force) guestLoginPromptForced = true;
+    updateGuestLimitBannerCopy();
+    guestLimitBanner.hidden = false;
+    guestLimitBanner.classList.add('show');
+    if (appContainer) appContainer.classList.add('guest-cta-visible');
+}
+
+function hideGuestLoginPrompt(resetForce = false) {
+    if (!guestLimitBanner) return;
+    if (resetForce) guestLoginPromptForced = false;
+    guestLimitBanner.classList.remove('show');
+    guestLimitBanner.hidden = true;
+    if (appContainer) appContainer.classList.remove('guest-cta-visible');
+}
+
+function syncGuestAccessState() {
+    currentUserId = localStorage.getItem('pepperUserId') || null;
+    currentUsername = localStorage.getItem('pepperUsername') || null;
+    updateGuestLimitBannerCopy();
+    if (agentModeBtn) agentModeBtn.classList.toggle('requires-login', !currentUserId);
+
+    if (currentUserId) {
+        setGuestQuestionCount(0);
+        hideGuestLoginPrompt(true);
+        return;
+    }
+
+    if (guestLoginPromptForced || getGuestQuestionCount() >= GUEST_QUESTION_LIMIT) {
+        showGuestLoginPrompt(false);
+    } else {
+        hideGuestLoginPrompt(false);
+    }
+}
+
+if (guestLimitLoginBtn) {
+    guestLimitLoginBtn.addEventListener('click', () => {
+        window.location.href = '/static/login.html';
+    });
+}
+
+if (guestLimitRegisterBtn) {
+    guestLimitRegisterBtn.addEventListener('click', () => {
+        window.location.href = '/static/register.html';
+    });
+}
 
 if (currentUsername) {
     const ud = document.getElementById('userDisplay');
@@ -232,6 +321,10 @@ document.getElementById('newChatBtn').addEventListener('click', () => {
 
 document.getElementById('agentModeBtn').addEventListener('click', () => {
     if (isGenerating) return;
+    if (!currentUserId) {
+        showGuestLoginPrompt(true);
+        return;
+    }
     isAgentMode = true;
     document.getElementById('uploadBtn').style.display = 'inline-flex';
     // Agent mode: hide think/web toggles, show connectors
@@ -250,6 +343,7 @@ document.getElementById('agentModeBtn').addEventListener('click', () => {
     document.getElementById('agentModeBtn').classList.add('active');
 });
 loadHistory();
+syncGuestAccessState();
 
 // ============ Toggles ============
 function updateTogglesUI() {
@@ -495,9 +589,30 @@ function renderMd(text) {
     return html;
 }
 
+function unwrapPriceBadgesInTables(root) {
+    if (!root) return;
+    root.querySelectorAll('table .price-badge').forEach(span => {
+        span.replaceWith(document.createTextNode(span.textContent || ''));
+    });
+}
+
+function wrapMarkdownTables(root) {
+    if (!root) return;
+    root.querySelectorAll('table').forEach(table => {
+        if (table.parentElement && table.parentElement.classList.contains('table-scroll-wrap')) return;
+        const wrapper = document.createElement('div');
+        wrapper.className = 'table-scroll-wrap';
+        table.parentNode.insertBefore(wrapper, table);
+        wrapper.appendChild(table);
+    });
+}
+
 // Apply Prism.js + KaTeX + code copy buttons after setting innerHTML
 function applyRichFormatting(el) {
     if (!el) return;
+
+    unwrapPriceBadgesInTables(el);
+    wrapMarkdownTables(el);
 
     // Wrap bare <pre> blocks with code-block-wrapper + copy button header
     el.querySelectorAll('pre').forEach(pre => {
@@ -885,6 +1000,11 @@ async function handleSend(isResume = false, resumeIndex = null) {
     }
     
     if (!isResume && !text && pendingFiles.length === 0) return;
+
+    if (!isResume && !currentUserId && !isAgentMode && getGuestQuestionCount() >= GUEST_QUESTION_LIMIT) {
+        showGuestLoginPrompt(true);
+        return;
+    }
     
     if (isResume) {
         isPaused = false;
@@ -906,6 +1026,7 @@ async function handleSend(isResume = false, resumeIndex = null) {
     let currentSources = [];
     let frontendThinkAccum = '';
     let frontendAnswerAccum = '';
+    let guestQuestionCounted = false;
 
     if (!isResume) {
 
@@ -1067,6 +1188,14 @@ async function handleSend(isResume = false, resumeIndex = null) {
             }),
             signal: currentAbortController.signal,
         });
+
+        if (response.ok && !isResume && !currentUserId && !isAgentMode && !guestQuestionCounted) {
+            guestQuestionCounted = true;
+            const guestCount = incrementGuestQuestionCount();
+            if (guestCount >= GUEST_QUESTION_LIMIT) {
+                showGuestLoginPrompt(true);
+            }
+        }
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
@@ -1857,14 +1986,20 @@ async function loadChatPreview(chatId, title, liElement) {
     // Hide nav if user is logged in
     function updateNavVisibility() {
         nav.style.display = currentUserId ? 'none' : 'flex';
+        syncGuestAccessState();
     }
     updateNavVisibility();
 
     // Observe login state changes
     const origSetItem = localStorage.setItem.bind(localStorage);
+    const origRemoveItem = localStorage.removeItem.bind(localStorage);
     localStorage.setItem = function(key, val) {
         origSetItem(key, val);
-        if (key === 'pepperUserId') setTimeout(updateNavVisibility, 100);
+        if (key === 'pepperUserId' || key === 'pepperUsername') setTimeout(updateNavVisibility, 100);
+    };
+    localStorage.removeItem = function(key) {
+        origRemoveItem(key);
+        if (key === 'pepperUserId' || key === 'pepperUsername') setTimeout(updateNavVisibility, 100);
     };
 
     // ── Gear Button: Toggle Dropdown ──
@@ -1958,6 +2093,9 @@ async function loadChatPreview(chatId, title, liElement) {
                 navAgent: 'Agent',
                 navHistory: 'History',
                 loadingHistory: 'Loading history...',
+                guestLimitText: 'Get smarter responses, upload files and images, and unlock more features.',
+                guestLimitRegisterBtn: 'Sign up for free',
+                agentRequiresLogin: 'Login required for Agent mode',
                 ctxSettings: 'Settings',
                 ctxTheme: 'Theme',
                 ctxLang: 'Language',
@@ -1980,6 +2118,9 @@ async function loadChatPreview(chatId, title, liElement) {
                 navAgent: '深度分析',
                 navHistory: '历史记录',
                 loadingHistory: '加载历史中...',
+                guestLimitText: '获取更加智能的回复、上传文件和图片，并获享更多功能。',
+                guestLimitRegisterBtn: '免费注册',
+                agentRequiresLogin: 'Agent 模式需要先登录',
                 ctxSettings: '设置',
                 ctxTheme: '主题',
                 ctxLang: '语言',
@@ -2002,6 +2143,9 @@ async function loadChatPreview(chatId, title, liElement) {
                 navAgent: 'Ejen',
                 navHistory: 'Sejarah',
                 loadingHistory: 'Memuatkan sejarah...',
+                guestLimitText: 'Dapatkan jawapan yang lebih pintar, muat naik fail dan imej, serta buka lebih banyak fungsi.',
+                guestLimitRegisterBtn: 'Daftar percuma',
+                agentRequiresLogin: 'Log masuk diperlukan untuk mod Agent',
                 ctxSettings: 'Tetapan',
                 ctxTheme: 'Tema',
                 ctxLang: 'Bahasa',
@@ -2058,6 +2202,7 @@ async function loadChatPreview(chatId, title, liElement) {
             if (ud) ud.innerText = t.login;
         }
         window._pepperLang = t;
+        updateGuestLimitBannerCopy();
     }
 })();
 
@@ -2164,6 +2309,7 @@ async function loadChatPreview(chatId, title, liElement) {
             localStorage.removeItem('pepperUserId');
             localStorage.removeItem('pepperUsername');
             localStorage.removeItem('pepperAvatar');
+            localStorage.removeItem('pepperGuestQuestionCount');
             window.location.href = '/static/login.html';
         });
     }

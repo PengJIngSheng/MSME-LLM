@@ -447,7 +447,7 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
             doc_list = ", ".join(new_names) or "the uploaded document"
             dtype    = state["doc_type"].replace("_", " ").title()
             _log(f"[agent] Detected doc_type={state['doc_type']} → think_model for deep analysis")
-            instruction = _prompts.build_initial_analysis_instruction(routing_q)
+            instruction = _prompts.build_initial_analysis_instruction(routing_q, reply_lang)
         else:
             state["use_fast_model"] = False
             instruction = _prompts.build_no_document_instruction()
@@ -511,7 +511,9 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
             state["generation_question_asked"] = True
             state["generation_choice_answered"] = True
             tname = ", ".join(new_names) or "the template"
-            instruction = _prompts.build_template_generation_instruction(tname, table_structures, layout_report)
+            instruction = _prompts.build_template_generation_instruction(
+                tname, table_structures, layout_report, reply_lang
+            )
 
         elif state.get("template_data") and _is_template_yes(user_message):
             state["stage"]           = "generate"
@@ -520,7 +522,7 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
             state["generation_question_pending"] = False
             state["generation_question_asked"] = True
             state["generation_choice_answered"] = True
-            instruction = _prompts.build_existing_template_generation_instruction()
+            instruction = _prompts.build_existing_template_generation_instruction(reply_lang)
 
         else:
             state["stage"]           = "generate"
@@ -531,7 +533,9 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
             state["generation_choice_answered"] = True
             doc_type = state.get("doc_type", "general")
             structure = _prompts.get_structure(doc_type)
-            instruction = _prompts.build_default_generation_instruction(doc_type, structure, user_message)
+            instruction = _prompts.build_default_generation_instruction(
+                doc_type, structure, user_message, reply_lang
+            )
 
     # ══════════════════════════════════════════════════════════════════════════
     # STAGE: wait_confirmation (backward compatibility for existing chats)
@@ -543,7 +547,7 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
         state["generation_question_pending"] = False
         state["generation_question_asked"] = True
         state["generation_choice_answered"] = True
-        instruction = _prompts.build_wait_confirmation_instruction(user_message)
+        instruction = _prompts.build_wait_confirmation_instruction(user_message, reply_lang)
 
     # ══════════════════════════════════════════════════════════════════════════
     # STAGE: generate (first-time generation — PDF will be created this turn)
@@ -561,7 +565,9 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
                 state["generation_question_pending"] = False
                 state["generation_question_asked"] = True
                 state["generation_choice_answered"] = True
-                instruction = _prompts.build_template_regeneration_instruction(state["template_data"])
+                instruction = _prompts.build_template_regeneration_instruction(
+                    state["template_data"], reply_lang
+                )
             else:
                 # It's a brand-new source PDF! Full reset for a fresh analysis cycle
                 state["source_data"]      = new_text  # replace, not append
@@ -576,7 +582,7 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
                 state["generation_question_asked"] = False
                 state["generation_choice_answered"] = False
                 _log(f"[agent] New source PDF during generate → full reset to wait_template")
-                instruction = _prompts.build_new_source_analysis_instruction(routing_q)
+                instruction = _prompts.build_new_source_analysis_instruction(routing_q, reply_lang)
         else:
             # Normal first-time generation (triggered from wait_template)
             state["generate_pdf_now"] = True
@@ -591,12 +597,14 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
                     bool(state.get("template_data")),
                     user_message,
                     _prompts.get_structure(doc_type),
+                    reply_lang,
                 )
             else:
                 instruction = _prompts.build_generate_mode_instruction(
                     doc_type,
                     bool(state.get("template_data")),
                     _prompts.get_structure(doc_type),
+                    reply_lang,
                 )
 
     # ══════════════════════════════════════════════════════════════════════════
@@ -619,7 +627,9 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
                 state["generation_question_pending"] = False
                 state["generation_question_asked"] = True
                 state["generation_choice_answered"] = True
-                instruction = _prompts.build_template_regeneration_instruction(state["template_data"])
+                instruction = _prompts.build_template_regeneration_instruction(
+                    state["template_data"], reply_lang
+                )
             elif not _is_regenerate_request(user_message):
                 # It's a brand-new source PDF! Reset to init for a fresh analysis cycle
                 state["source_data"]     = new_text
@@ -636,7 +646,7 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
                 doc_list = ", ".join(new_names) or "the uploaded document"
                 dtype    = state["doc_type"].replace("_", " ").title()
                 _log(f"[agent] New source PDF in done stage → reset to wait_template for fresh analysis")
-            instruction = _prompts.build_new_source_analysis_instruction(routing_q)
+            instruction = _prompts.build_new_source_analysis_instruction(routing_q, reply_lang)
 
         # Case 2: User uploaded a new TEMPLATE PDF with regeneration intent
         elif new_text and _is_regenerate_request(user_message):
@@ -646,7 +656,7 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
             state["use_fast_model"]  = False
             _log(f"[agent] New template + regenerate request in done stage → generate")
             instruction = _prompts.build_done_template_regeneration_instruction(
-                doc_type, _prompts.get_structure(doc_type)
+                doc_type, _prompts.get_structure(doc_type), reply_lang
             )
 
         # Case 3: User explicitly asked to regenerate/update PDF (no new file)
@@ -663,6 +673,7 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
                 bool(state.get("template_data")),
                 user_message,
                 _prompts.get_structure(doc_type),
+                reply_lang,
             )
 
         # Case 4: Normal follow-up question → just answer, NO PDF generation
@@ -670,7 +681,7 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
             state["generate_pdf_now"] = False
             state["use_fast_model"]   = False
             _log(f"[agent] Follow-up question in done stage → text-only response, no PDF")
-            instruction = _prompts.build_done_followup_instruction(doc_type)
+            instruction = _prompts.build_done_followup_instruction(doc_type, reply_lang)
 
     # ── Hidden context ────────────────────────────────────────────────────────
     ctx_parts = []
@@ -702,12 +713,13 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
             bool(state.get("template_data")),
             user_message,
             _prompts.get_structure(state.get("doc_type", "general")),
+            reply_lang,
         )
 
     hidden_context = "\n\n" + "\n\n".join(ctx_parts) if ctx_parts else ""
     
     instruction = _prompts.apply_language_and_generation_rules(
-        lang_rule, instruction, state.get("generate_pdf_now")
+        lang_rule, instruction, state.get("generate_pdf_now"), reply_lang
     )
 
     _log(f"[agent] → stage={state['stage']} doc_type={state.get('doc_type')} "

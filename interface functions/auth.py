@@ -1,16 +1,14 @@
 import os
 import uuid
 import random
+import hashlib
 from datetime import datetime, timedelta
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from pymongo import MongoClient
-from passlib.context import CryptContext
+import bcrypt
 import jwt
-
-# Secure Pasword Hashing Context
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # JWT Configuration
 JWT_SECRET = os.getenv("JWT_SECRET", "super-secret-pepper-key-2026")
@@ -37,19 +35,63 @@ class OAuthRequest(BaseModel):
     token: str
     
 # ─── Utility Functions ─────────────────────────────────
+def _bcrypt_prehash(password: str) -> bytes:
+    # Pre-hash with SHA-256 so arbitrarily long passwords become safe for bcrypt.
+    return hashlib.sha256(password.encode("utf-8")).hexdigest().encode("utf-8")
+
+
 def get_password_hash(password: str) -> str:
-    return pwd_context.hash(password)
+    return bcrypt.hashpw(_bcrypt_prehash(password), bcrypt.gensalt()).decode("utf-8")
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    # Handle legacy sha256 passwords gracefully if needed in the future, 
-    # but for now we enforce bcrypt.
+    if not hashed_password:
+        return False
+    if hashed_password.startswith("$2"):
+        hashed_bytes = hashed_password.encode("utf-8")
+        # New scheme: bcrypt(sha256(password))
+        try:
+            if bcrypt.checkpw(_bcrypt_prehash(plain_password), hashed_bytes):
+                return True
+        except ValueError:
+            return False
+
+        # Legacy scheme: bcrypt(password) for older short-password accounts.
+        plain_bytes = plain_password.encode("utf-8")
+        if len(plain_bytes) <= 72:
+            try:
+                if bcrypt.checkpw(plain_bytes, hashed_bytes):
+                    return True
+            except ValueError:
+                return False
+
+    # Fallback for old sha256 testing accounts
+    legacy_hash = hashlib.sha256(plain_password.encode("utf-8")).hexdigest()
+    return legacy_hash == hashed_password
+
+
+def maybe_upgrade_password_hash(plain_password: str, hashed_password: str) -> str | None:
+    if not hashed_password:
+        return None
+    if not hashed_password.startswith("$2"):
+        if hashlib.sha256(plain_password.encode("utf-8")).hexdigest() == hashed_password:
+            return get_password_hash(plain_password)
+        return None
+
+    hashed_bytes = hashed_password.encode("utf-8")
     try:
-        return pwd_context.verify(plain_password, hashed_password)
-    except Exception:
-        # Fallback for old sha256 testing accounts
-        import hashlib
-        legacy_hash = hashlib.sha256(plain_password.encode('utf-8')).hexdigest()
-        return legacy_hash == hashed_password
+        if bcrypt.checkpw(_bcrypt_prehash(plain_password), hashed_bytes):
+            return None
+    except ValueError:
+        return None
+
+    plain_bytes = plain_password.encode("utf-8")
+    if len(plain_bytes) <= 72:
+        try:
+            if bcrypt.checkpw(plain_bytes, hashed_bytes):
+                return get_password_hash(plain_password)
+        except ValueError:
+            return None
+    return None
 
 def create_jwt_token(data: dict) -> str:
     to_encode = data.copy()
@@ -144,6 +186,14 @@ async def login(req: AuthRequest):
     
     if not user or not verify_password(req.password, user.get("password", "")):
         raise HTTPException(status_code=401, detail="Invalid username or password")
+
+    new_password_hash = maybe_upgrade_password_hash(req.password, user.get("password", ""))
+    if new_password_hash:
+        users_col.update_one(
+            {"_id": user["_id"]},
+            {"$set": {"password": new_password_hash}}
+        )
+        user["password"] = new_password_hash
         
     if user.get("status") == "unverified":
         # Block login. They must verify.
