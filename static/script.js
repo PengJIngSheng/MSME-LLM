@@ -26,6 +26,8 @@ const guestLimitBannerText = document.getElementById('guestLimitBannerText');
 const guestLimitLoginBtn = document.getElementById('guestLimitLoginBtn');
 const guestLimitRegisterBtn = document.getElementById('guestLimitRegisterBtn');
 const appContainer = document.querySelector('.app-container');
+const inputWrapper = document.querySelector('.input-wrapper');
+const liquidGlassInput = document.querySelector('.liquid-glass-input');
 
 function getGuestQuestionCount() {
     return Number(localStorage.getItem('pepperGuestQuestionCount') || '0');
@@ -59,6 +61,38 @@ function updateGuestLimitBannerCopy() {
     if (agentModeBtn) agentModeBtn.title = currentUserId ? 'AI Agent' : (t.agentRequiresLogin || 'Login required for Agent mode');
 }
 
+function updateGuestInputUi() {
+    const shouldHideNormalInput = !currentUserId && !isAgentMode && getGuestQuestionCount() >= GUEST_QUESTION_LIMIT;
+    const shouldLockGuestAgent = !currentUserId && isAgentMode;
+
+    if (inputWrapper) {
+        inputWrapper.classList.toggle('guest-input-hidden', shouldHideNormalInput);
+    }
+    if (appContainer) {
+        appContainer.classList.toggle('guest-input-hidden', shouldHideNormalInput);
+    }
+    if (liquidGlassInput) {
+        liquidGlassInput.classList.toggle('guest-agent-locked', shouldLockGuestAgent);
+    }
+    if (userInput) {
+        userInput.readOnly = shouldLockGuestAgent;
+        if (shouldLockGuestAgent) {
+            userInput.blur();
+        }
+    }
+}
+
+function pulseGuestLoginPrompt() {
+    if (currentUserId || !guestLimitBanner) return;
+    showGuestLoginPrompt(true);
+    guestLimitBanner.classList.remove('attention');
+    void guestLimitBanner.offsetWidth;
+    guestLimitBanner.classList.add('attention');
+    setTimeout(() => {
+        guestLimitBanner.classList.remove('attention');
+    }, 1200);
+}
+
 function showGuestLoginPrompt(force = false) {
     if (currentUserId || !guestLimitBanner) return;
     if (force) guestLoginPromptForced = true;
@@ -66,6 +100,7 @@ function showGuestLoginPrompt(force = false) {
     guestLimitBanner.hidden = false;
     guestLimitBanner.classList.add('show');
     if (appContainer) appContainer.classList.add('guest-cta-visible');
+    updateGuestInputUi();
 }
 
 function hideGuestLoginPrompt(resetForce = false) {
@@ -74,6 +109,7 @@ function hideGuestLoginPrompt(resetForce = false) {
     guestLimitBanner.classList.remove('show');
     guestLimitBanner.hidden = true;
     if (appContainer) appContainer.classList.remove('guest-cta-visible');
+    updateGuestInputUi();
 }
 
 function syncGuestAccessState() {
@@ -93,6 +129,7 @@ function syncGuestAccessState() {
     } else {
         hideGuestLoginPrompt(false);
     }
+    updateGuestInputUi();
 }
 
 if (guestLimitLoginBtn) {
@@ -316,6 +353,10 @@ function openFreshNormalChat() {
     logoContainer.innerHTML = '<h2><span class="logo-text"><i class="fa-solid fa-leaf"></i> PEPPER LABS</span><br/>How can I help you today?</h2>';
     document.querySelectorAll('.nav-menu-btn').forEach(btn => btn.classList.remove('active'));
     document.getElementById('newChatBtn').classList.add('active');
+    if (!currentUserId && getGuestQuestionCount() < GUEST_QUESTION_LIMIT) {
+        guestLoginPromptForced = false;
+    }
+    syncGuestAccessState();
 }
 
 function openFreshAgentChat(showLoginPrompt = false) {
@@ -337,6 +378,8 @@ function openFreshAgentChat(showLoginPrompt = false) {
     document.getElementById('agentModeBtn').classList.add('active');
     if (showLoginPrompt) {
         showGuestLoginPrompt(true);
+    } else {
+        updateGuestInputUi();
     }
 }
 
@@ -355,6 +398,20 @@ document.getElementById('agentModeBtn').addEventListener('click', () => {
 });
 loadHistory();
 syncGuestAccessState();
+
+if (liquidGlassInput) {
+    const lockedGuestAgentHandler = (e) => {
+        if (!currentUserId && isAgentMode) {
+            e.preventDefault();
+            e.stopPropagation();
+            pulseGuestLoginPrompt();
+        }
+    };
+    liquidGlassInput.addEventListener('mousedown', lockedGuestAgentHandler, true);
+    liquidGlassInput.addEventListener('click', lockedGuestAgentHandler, true);
+    liquidGlassInput.addEventListener('touchstart', lockedGuestAgentHandler, true);
+    liquidGlassInput.addEventListener('focusin', lockedGuestAgentHandler, true);
+}
 
 // ============ Toggles ============
 function updateTogglesUI() {
@@ -1091,6 +1148,7 @@ async function handleSend(isResume = false, resumeIndex = null) {
             } else {
                 syncGuestAccessState();
             }
+            updateGuestInputUi();
         }
         
         assistantWrapper = document.createElement('div');
