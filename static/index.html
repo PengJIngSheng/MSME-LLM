@@ -337,6 +337,22 @@
                 <button class="account-dialog-close" id="accountDownloadDialogClose" data-account-i18n="closeBtn">关闭</button>
             </div>
         </div>
+
+        <div class="account-dialog-backdrop" id="accountDeleteDialog" hidden>
+            <div class="account-delete-dialog" role="dialog" aria-modal="true" aria-labelledby="accountDeleteDialogTitle">
+                <div class="account-dialog-warning"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                <h2 id="accountDeleteDialogTitle" data-account-i18n="deleteDialogTitle">您确定吗?</h2>
+                <p data-account-i18n="deleteDialogDesc">此操作将删除您所有与 MOF 关联的数据，并将您退出登录。如果您在 30 天内再次登录，可以恢复您的数据。30 天后您的数据将被永久删除。</p>
+                <label class="account-delete-label" for="accountDeleteEmailInput">
+                    <span id="accountDeleteEmailPrompt"></span>
+                </label>
+                <input class="account-delete-input" id="accountDeleteEmailInput" type="email" autocomplete="off">
+                <div class="account-delete-actions">
+                    <button class="account-delete-cancel" id="accountDeleteCancelBtn" data-account-i18n="cancelBtn">取消</button>
+                    <button class="account-delete-confirm" id="accountDeleteConfirmBtn" data-account-i18n="deleteBtn" disabled>删除</button>
+                </div>
+            </div>
+        </div>
     </section>
 
     <!-- Auth Requirement Modal -->

@@ -329,7 +329,6 @@ def send_otp_email(
     device_info: str,
     ip_address: str,
     language: Optional[str] = "en",
-    theme: Optional[str] = "dark",
 ) -> None:
     if not SMTP_APP_PASSWORD:
         raise RuntimeError("SMTP_APP_PASSWORD is not configured")
@@ -381,6 +380,7 @@ def _store_pending_otp(
     device_info: str,
     ip_address: str,
     language: Optional[str] = "en",
+    theme: Optional[str] = "dark",
 ) -> None:
     _ensure_pending_otp_indexes()
     now = datetime.utcnow()

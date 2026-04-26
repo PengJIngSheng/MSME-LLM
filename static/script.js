@@ -2633,6 +2633,11 @@ loadUserPreferences();
     const deleteBtn = document.getElementById('accountDeleteBtn');
     const downloadDialog = document.getElementById('accountDownloadDialog');
     const downloadDialogClose = document.getElementById('accountDownloadDialogClose');
+    const deleteDialog = document.getElementById('accountDeleteDialog');
+    const deleteEmailPrompt = document.getElementById('accountDeleteEmailPrompt');
+    const deleteEmailInput = document.getElementById('accountDeleteEmailInput');
+    const deleteCancelBtn = document.getElementById('accountDeleteCancelBtn');
+    const deleteConfirmBtn = document.getElementById('accountDeleteConfirmBtn');
     if (!overlay) return;
 
     const languageLabels = { en: 'EN', zh: '中文', ms: 'BM' };
@@ -2661,7 +2666,12 @@ loadUserPreferences();
             downloadSentTitle: '邮件已发送!',
             downloadSentDesc: '我们将很快向您发送一封包含数据下载链接的邮件。',
             closeBtn: '关闭',
-            deleteConfirm: '确定要删除这个账户吗？此操作会删除账户和相关对话数据。'
+            deleteDialogTitle: '您确定吗?',
+            deleteDialogDesc: '此操作将删除您所有与 MOF 关联的数据，并将您退出登录。如果您在 30 天内再次登录，可以恢复您的数据。30 天后您的数据将被永久删除。',
+            deleteEmailPrefix: '输入您的邮箱 ',
+            deleteEmailSuffix: ' 以确认',
+            cancelBtn: '取消',
+            deleteMismatch: '请输入当前账号邮箱以确认删除。'
         },
         en: {
             welcomePrefix: 'Welcome, ',
@@ -2686,7 +2696,12 @@ loadUserPreferences();
             downloadSentTitle: 'Email sent!',
             downloadSentDesc: 'We will soon send you an email containing a data download link.',
             closeBtn: 'Close',
-            deleteConfirm: 'Are you sure you want to delete this account? This will remove the account and related conversation data.'
+            deleteDialogTitle: 'Are you sure?',
+            deleteDialogDesc: 'This will delete all data associated with MOF and log you out. If you log in again within 30 days, your data can be restored. After 30 days your data will be permanently deleted.',
+            deleteEmailPrefix: 'Enter your email ',
+            deleteEmailSuffix: ' to confirm',
+            cancelBtn: 'Cancel',
+            deleteMismatch: 'Enter the current account email to confirm deletion.'
         },
         ms: {
             welcomePrefix: 'Selamat datang, ',
@@ -2711,7 +2726,12 @@ loadUserPreferences();
             downloadSentTitle: 'E-mel dihantar!',
             downloadSentDesc: 'Kami akan menghantar e-mel yang mengandungi pautan muat turun data tidak lama lagi.',
             closeBtn: 'Tutup',
-            deleteConfirm: 'Anda pasti mahu memadam akaun ini? Ini akan membuang akaun dan data perbualan berkaitan.'
+            deleteDialogTitle: 'Anda pasti?',
+            deleteDialogDesc: 'Tindakan ini akan memadam semua data yang berkaitan dengan MOF dan melog anda keluar. Jika anda log masuk semula dalam 30 hari, data anda boleh dipulihkan. Selepas 30 hari, data anda akan dipadam secara kekal.',
+            deleteEmailPrefix: 'Masukkan e-mel anda ',
+            deleteEmailSuffix: ' untuk mengesahkan',
+            cancelBtn: 'Batal',
+            deleteMismatch: 'Masukkan e-mel akaun semasa untuk mengesahkan pemadaman.'
         }
     };
 
@@ -2758,7 +2778,41 @@ loadUserPreferences();
             const key = el.dataset.accountI18n;
             if (copy[key]) el.textContent = copy[key];
         });
+        updateDeletePrompt();
         syncAccountLanguageLabel();
+    }
+
+    function getAccountEmail() {
+        return localStorage.getItem('pepperUsername') || '';
+    }
+
+    function updateDeletePrompt() {
+        if (!deleteEmailPrompt) return;
+        const lang = localStorage.getItem('pepperLang') || 'en';
+        const copy = accountCopy[lang] || accountCopy.en;
+        const email = getAccountEmail();
+        deleteEmailPrompt.innerHTML = `${copy.deleteEmailPrefix}<strong>${email}</strong>${copy.deleteEmailSuffix}`;
+        if (deleteEmailInput) deleteEmailInput.placeholder = email;
+    }
+
+    function syncDeleteConfirmState() {
+        if (!deleteConfirmBtn || !deleteEmailInput) return;
+        deleteConfirmBtn.disabled = deleteEmailInput.value.trim().toLowerCase() !== getAccountEmail().toLowerCase();
+    }
+
+    function openDeleteDialog() {
+        if (!deleteDialog) return;
+        renderAccountLanguage();
+        if (deleteEmailInput) {
+            deleteEmailInput.value = '';
+            syncDeleteConfirmState();
+        }
+        deleteDialog.hidden = false;
+        setTimeout(() => deleteEmailInput && deleteEmailInput.focus(), 0);
+    }
+
+    function closeDeleteDialog() {
+        if (deleteDialog) deleteDialog.hidden = true;
     }
 
     function syncAccountThemeIcon() {
@@ -2836,16 +2890,38 @@ loadUserPreferences();
     }
 
     if (deleteBtn) {
-        deleteBtn.addEventListener('click', async () => {
+        deleteBtn.addEventListener('click', openDeleteDialog);
+    }
+
+    if (deleteEmailInput) {
+        deleteEmailInput.addEventListener('input', syncDeleteConfirmState);
+    }
+
+    if (deleteCancelBtn) {
+        deleteCancelBtn.addEventListener('click', closeDeleteDialog);
+    }
+
+    if (deleteDialog) {
+        deleteDialog.addEventListener('click', (e) => {
+            if (e.target === deleteDialog) closeDeleteDialog();
+        });
+    }
+
+    if (deleteConfirmBtn) {
+        deleteConfirmBtn.addEventListener('click', async () => {
             const lang = localStorage.getItem('pepperLang') || 'en';
             const copy = accountCopy[lang] || accountCopy.en;
-            if (!window.confirm(copy.deleteConfirm)) return;
+            if (deleteEmailInput && deleteEmailInput.value.trim().toLowerCase() !== getAccountEmail().toLowerCase()) {
+                alert(copy.deleteMismatch);
+                return;
+            }
             const token = localStorage.getItem('pepperJwt');
             if (!token) {
                 window.location.href = '/static/login.html';
                 return;
             }
             try {
+                deleteConfirmBtn.disabled = true;
                 const res = await fetch('/api/account', {
                     method: 'DELETE',
                     headers: { 'Authorization': `Bearer ${token}` }
@@ -2857,6 +2933,7 @@ loadUserPreferences();
                 ['pepperJwt', 'pepperUserId', 'pepperUsername', 'pepperDisplayName', 'pepperAvatar', 'pepperGuestQuestionCount'].forEach(key => localStorage.removeItem(key));
                 window.location.href = '/static/login.html';
             } catch (err) {
+                syncDeleteConfirmState();
                 alert(err.message || 'Delete failed');
             }
         });
