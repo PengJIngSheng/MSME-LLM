@@ -74,7 +74,7 @@ def is_google_request(msg: str, user_id: str = None) -> bool:
         return True
 
     # Explicit branded phrases → immediate intercept
-    explicit_brands = ["google docs", "google doc", "google drive", "gdocs", "gdrive", "gmail", "google calendar"]
+    explicit_brands = ["google docs", "google doc", "google drive", "gdocs", "gdrive", "gmail", "google calendar", "google meet"]
     if any(b in low for b in explicit_brands):
         return True
 
@@ -104,6 +104,7 @@ _SCOPE_TOOL_MAP = {
     "gmail.send":      "gmail_send",
     "documents":       "docs_create",
     "calendar.events": "calendar_create",
+    "meet":            "meet_create",
 }
 
 def _build_enabled_schemas(active_scopes: str) -> list:
@@ -248,7 +249,8 @@ async def process_google_request(
         "Example: 'Please find attached the financial analysis report for [Entity Name]. Feel free to reach out if you have any questions.' "
         "Never leave the body empty when there is an attachment.\n"
         "7. 🚨 CRITICAL ESCAPE HATCH: If the user's message is completely unrelated to Google Workspace tools (e.g., 'explain this to me', 'what is 1+1', 'how does this work?'), you MUST output `{\"name\": \"normal_chat\", \"arguments\": {}}`. DO NOT force it into an email draft!\n"
-        "8. For calendar_create: Convert relative dates to absolute ISO format.\n\n"
+        "8. For calendar_create and meet_create: Convert relative dates to absolute ISO format. "
+        "Use meet_create when the user asks for a Google Meet, video call, or online meeting link.\n\n"
         'RESPOND WITH ONLY THIS FORMAT:\n'
         '{"name": "tool_name", "arguments": {...}}\n'
     )
@@ -268,11 +270,12 @@ async def process_google_request(
                 llm_messages = [
                     {"role": "system", "content": (
                         "Output ONLY a JSON object. No thinking, no explanation, no <think> tags.\n"
-                        "Available tools: docs_create, gmail_send, drive_upload, calendar_create.\n"
+                        "Available tools: docs_create, gmail_send, drive_upload, calendar_create, meet_create.\n"
                         "docs_create args: title (string), content (string, use 'USE_PREVIOUS_ANALYSIS' for past content)\n"
                         "gmail_send args: recipient (string), subject (string), body (string)\n"
                         "drive_upload args: file_name (string)\n"
                         "calendar_create args: title (string), date_iso (string)\n"
+                        "meet_create args: title (string), date_iso (string), participants (array), duration_minutes (integer)\n"
                     )},
                     {"role": "user", "content": current_msg},
                     {"role": "assistant", "content": "{"},  # Force JSON start
@@ -426,6 +429,12 @@ def _check_connector_enabled(user_id: str, tool_name: str, lang: str = "en") -> 
         if lang == "zh":
             return "⚠️ 用户记录不存在，请重新登录。"
         return "⚠️ User record not found. Please log in again."
+    if not user.get("auth_provider_id"):
+        if lang == "zh":
+            return "⚠️ 您还没有绑定 Google 账号，无法使用 Google 连接器。请先在 Account 页面连接 Google。"
+        if lang == "ms":
+            return "⚠️ Akaun Google anda belum dipautkan. Sila sambungkan Google pada halaman Account dahulu."
+        return "⚠️ Your Google account is not linked yet. Please connect Google in Account first."
     
     # Check the required connector first
     creds_key = f"google_creds_{service_id}"

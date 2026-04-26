@@ -738,6 +738,7 @@ async def get_account_preferences(request: Request):
         "username": user.get("username"),
         "display_name": _user_display_name(user),
         "avatarUrl": user.get("picture"),
+        "created_at": user.get("created_at").isoformat() if user.get("created_at") else None,
         "preferences": _user_preferences(user),
         "has_password": bool(user.get("password")),
         "auth_provider": auth_provider,
@@ -940,7 +941,7 @@ async def link_google(req: LinkGoogleRequest, request: Request):
         updates["picture"] = picture
     users_col.update_one({"_id": user["_id"]}, {"$set": updates})
 
-    return {"status": "success", "google_linked": True, "google_email": google_email}
+    return {"status": "success", "google_linked": True, "google_email": google_email, "auth_provider": user.get("auth_provider", "local")}
 
 @auth_router.post("/api/account/unlink-google")
 async def unlink_google(request: Request):
@@ -951,7 +952,27 @@ async def unlink_google(request: Request):
         raise HTTPException(status_code=400, detail="Set a password first before unlinking Google")
     users_col.update_one(
         {"_id": user["_id"]},
-        {"$unset": {"auth_provider_id": "", "google_email": ""}}
+        {
+            "$set": {"auth_provider": "local", "updated_at": datetime.utcnow()},
+            "$unset": {
+                "auth_provider_id": "",
+                "google_email": "",
+                "google_creds_drive": "",
+                "google_creds_gmail": "",
+                "google_creds_docs": "",
+                "google_creds_calendar": "",
+                "google_creds_meet": "",
+                "google_token": "",
+                "google_refresh_token": "",
+                "google_scopes": "",
+                "google_token_expiry": "",
+                "google_token_uri": "",
+                "google_client_id": "",
+                "google_client_secret": "",
+                "google_token_updated_at": "",
+                "google_access_token": "",
+            }
+        }
     )
     return {"status": "success", "google_linked": False}
 

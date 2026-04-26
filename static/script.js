@@ -145,15 +145,44 @@ async function loadUserPreferences() {
         });
         if (!res.ok) return;
         const data = await res.json();
+        if (data.username) localStorage.setItem('pepperUsername', data.username);
         if (data.display_name) localStorage.setItem('pepperDisplayName', data.display_name);
         if (data.avatarUrl) localStorage.setItem('pepperAvatar', data.avatarUrl);
+        if (data.created_at) localStorage.setItem('pepperCreatedAt', data.created_at);
+        localStorage.setItem('pepperHasPassword', data.has_password ? 'true' : 'false');
+        localStorage.setItem('pepperAuthProvider', data.auth_provider || 'local');
+        localStorage.setItem('pepperGoogleLinked', data.google_linked ? 'true' : 'false');
+        if (data.google_email) localStorage.setItem('pepperGoogleEmail', data.google_email);
+        else localStorage.removeItem('pepperGoogleEmail');
         if (data.preferences) applyStoredPreferences(data.preferences);
+        if (data.google_linked) fetchConnectorsStatus();
+        else clearConnectorChecks();
         const sidebarName = document.getElementById('userDisplayName');
         if (sidebarName && data.display_name) sidebarName.textContent = data.display_name;
     } catch (err) {
         console.warn('Failed to load user preferences', err);
     }
 }
+
+function showToast(message, isError = false) {
+    let stack = document.getElementById('mofToastStack');
+    if (!stack) {
+        stack = document.createElement('div');
+        stack.id = 'mofToastStack';
+        stack.className = 'mof-toast-stack';
+        document.body.appendChild(stack);
+    }
+    const toast = document.createElement('div');
+    toast.className = `mof-toast${isError ? ' error' : ''}`;
+    toast.textContent = message;
+    stack.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add('show'));
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 220);
+    }, 3400);
+}
+window.showToast = showToast;
 
 function updateGuestInputUi() {
     const shouldHideNormalInput = !currentUserId && !isAgentMode && getGuestQuestionCount() >= GUEST_QUESTION_LIMIT;
@@ -550,14 +579,37 @@ function updateConnectorStatus(service, data) {
     const switchLabel = document.getElementById(`switch-${service}`);
     const checkbox = document.getElementById(`checkbox-${service}`);
     if (switchLabel && checkbox && data) {
-        checkbox.checked = data.active;
+        checkbox.checked = !!data.active;
     }
 }
 
+function clearConnectorChecks() {
+    Object.keys(SCOPE_MAP).forEach(service => {
+        updateConnectorStatus(service, { active: false });
+    });
+}
+
 async function fetchConnectorsStatus() {
-    // Deliberately disabled per user instruction.
-    // Connectors will now always default to unchecked (OFF) upon login/page reload.
-    return;
+    const token = localStorage.getItem('pepperJwt');
+    if (!token) {
+        clearConnectorChecks();
+        return;
+    }
+    try {
+        const res = await fetch('/api/connectors/status', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) {
+            clearConnectorChecks();
+            return;
+        }
+        const status = await res.json();
+        Object.keys(SCOPE_MAP).forEach(service => {
+            updateConnectorStatus(service, status[service] || { active: false });
+        });
+    } catch (err) {
+        console.warn('Failed to fetch connector status', err);
+    }
 }
 
 // Google OAuth client builder cache
@@ -609,9 +661,9 @@ function initGoogleClients() {
                         
                         const data = await res.json();
                         if (res.ok && data.status === "success") {
-                            // Manually turn switch ON since we no longer sync state globally
                             const checkbox = document.getElementById(`checkbox-${pendingOAuthService}`);
-                            if(checkbox) checkbox.checked = true;
+                            if (checkbox) checkbox.checked = true;
+                            fetchConnectorsStatus();
                         } else {
                             // Only pop up if there is an error
                             showToast("Connector Auth Failed: " + (data.detail || data.message || "Unknown error"), true);
@@ -688,7 +740,7 @@ document.querySelectorAll('.liquid-glass-switch').forEach(switchLabel => {
                 // Optimistic UI update which instantly triggers CSS gray color
                 checkbox.checked = false;
                 
-                await fetch('/api/connectors/toggle', {
+                const res = await fetch('/api/connectors/toggle', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -696,7 +748,8 @@ document.querySelectorAll('.liquid-glass-switch').forEach(switchLabel => {
                     },
                     body: JSON.stringify({ service: service, enabled: willBeActive })
                 });
-                // No status fetch!
+                if (!res.ok) throw new Error('Toggle failed');
+                updateConnectorStatus(service, { active: false });
             } catch (err) {
                 console.error("Toggle failed", err);
                 // Revert UI on failure
@@ -706,20 +759,11 @@ document.querySelectorAll('.liquid-glass-switch').forEach(switchLabel => {
     });
 });
 
-// Init Connectors UI data and build 4 background OAuth clients
-setTimeout(async () => {
-    // Wipe all old Google credentials on page load so user must re-authorize
-    const token = localStorage.getItem('pepperJwt');
-    if (token) {
-        try {
-            await fetch('/api/connectors/clear_all', {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-        } catch (e) { /* ignore */ }
-    }
+// Init Connectors UI data and build background OAuth clients
+setTimeout(() => {
     initGoogleClients();
-}, 2000);
+    fetchConnectorsStatus();
+}, 1200);
 
 // ============ Helpers ============
 function scrollToBottom() {
@@ -3070,6 +3114,7 @@ loadUserPreferences();
                     localStorage.setItem('pepperHasPassword', data.has_password ? 'true' : 'false');
                     if (data.google_email) localStorage.setItem('pepperGoogleEmail', data.google_email);
                     else localStorage.removeItem('pepperGoogleEmail');
+                    if (!data.google_linked) clearConnectorChecks();
                     updateLoginMethodButtons(data.has_password, data.google_linked, data.auth_provider);
                 }
             } catch (_) {}
@@ -3583,6 +3628,7 @@ loadUserPreferences();
                     const data = await res.json().catch(() => ({}));
                     if (!res.ok) throw new Error(data.detail || 'Failed to link Google');
                     localStorage.setItem('pepperGoogleLinked', 'true');
+                    localStorage.setItem('pepperAuthProvider', data.auth_provider || localStorage.getItem('pepperAuthProvider') || 'local');
                     if (data.google_email) localStorage.setItem('pepperGoogleEmail', data.google_email);
                     renderProfileSection();
                 } catch (err) {
@@ -3638,7 +3684,9 @@ loadUserPreferences();
                     const data = await res.json().catch(() => ({}));
                     if (!res.ok) throw new Error(data.detail || 'Failed');
                     localStorage.setItem('pepperGoogleLinked', 'false');
+                    localStorage.setItem('pepperAuthProvider', 'local');
                     localStorage.removeItem('pepperGoogleEmail');
+                    clearConnectorChecks();
                     renderProfileSection();
                 } catch (err) {
                     alert(err.message);

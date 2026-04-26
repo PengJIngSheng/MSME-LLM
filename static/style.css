@@ -4456,15 +4456,16 @@ html:not([data-theme="dark"]) .account-page-overlay {
     bottom: 0;
     width: min(37vw, 390px);
     min-width: 292px;
-    padding: 148px 0 26px 34px;
+    padding: 148px 0 26px 36px;
 }
 
 .account-welcome {
-    font-size: 29px;
+    font-size: 28.4px;
     line-height: 1.18;
     font-weight: 760;
     color: #ffffff;
-    margin-left: -14px;
+    margin-left: -13px;
+    margin-top: -6px;
 }
 
 .account-welcome-muted {
@@ -4473,9 +4474,9 @@ html:not([data-theme="dark"]) .account-page-overlay {
 }
 
 .account-nav-list {
-    margin-top: 45px;
+    margin-top: 49px;
     width: 222px;
-    margin-left: -33px;
+    margin-left: -34px;
     display: flex;
     flex-direction: column;
     gap: 13px;
@@ -4684,21 +4685,21 @@ html:not([data-theme="dark"]) .account-row-btn-danger {
 }
 
 .account-download-dialog {
-    width: min(500px, calc(100vw - 42px));
-    border-radius: 22px;
+    width: min(430px, calc(100vw - 42px));
+    border-radius: 20px;
     border: 1px solid #343434;
     background: #1a1a1a;
-    padding: 30px 30px 24px;
+    padding: 26px 26px 22px;
     display: flex;
     flex-direction: column;
     align-items: center;
     text-align: center;
-    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.36);
+    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.34);
 }
 
 .account-dialog-check {
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     display: inline-flex;
     align-items: center;
@@ -4706,34 +4707,34 @@ html:not([data-theme="dark"]) .account-row-btn-danger {
     border: 3px solid #49d06b;
     color: #49d06b;
     font-size: 16px;
-    margin-bottom: 30px;
+    margin-bottom: 22px;
 }
 
 .account-download-dialog h2 {
     margin: 0;
     color: #ffffff;
-    font-size: 20px;
+    font-size: 18px;
     line-height: 1.2;
     font-weight: 760;
 }
 
 .account-download-dialog p {
-    margin: 20px 0 28px;
+    margin: 16px 0 24px;
     color: #a8a8a8;
-    font-size: 14px;
+    font-size: 13.5px;
     line-height: 1.5;
-    font-weight: 560;
+    font-weight: 400;
 }
 
 .account-dialog-close {
     width: 100%;
-    height: 50px;
+    height: 44px;
     border-radius: 999px;
     border: 2px solid #f4f4f4;
     background: #282828;
     color: #ffffff;
     font-family: inherit;
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 700;
     cursor: pointer;
 }
@@ -4758,11 +4759,11 @@ html:not([data-theme="dark"]) .account-dialog-close {
 }
 
 .account-delete-dialog {
-    width: min(560px, calc(100vw - 42px));
-    border-radius: 24px;
+    width: min(480px, calc(100vw - 42px));
+    border-radius: 22px;
     border: 1px solid #303030;
     background: #1a1a1a;
-    padding: 34px 34px 30px;
+    padding: 28px 28px 26px;
     display: flex;
     flex-direction: column;
     align-items: stretch;
@@ -4772,33 +4773,33 @@ html:not([data-theme="dark"]) .account-dialog-close {
 .account-dialog-warning {
     align-self: center;
     color: #ff4f4f;
-    font-size: 40px;
+    font-size: 32px;
     line-height: 1;
-    margin-bottom: 30px;
+    margin-bottom: 22px;
 }
 
 .account-delete-dialog h2 {
     margin: 0;
     color: #ffffff;
     text-align: center;
-    font-size: 24px;
+    font-size: 20px;
     line-height: 1.2;
     font-weight: 760;
 }
 
 .account-delete-dialog p {
-    margin: 26px auto 36px;
-    max-width: 440px;
+    margin: 18px auto 26px;
+    max-width: 390px;
     color: #aaa;
     text-align: center;
-    font-size: 16px;
+    font-size: 14px;
     line-height: 1.55;
-    font-weight: 560;
+    font-weight: 400;
 }
 
 .account-delete-label {
     color: #aaa;
-    font-size: 15px;
+    font-size: 14px;
     line-height: 1.45;
     font-weight: 650;
     margin-bottom: 14px;
@@ -4811,14 +4812,14 @@ html:not([data-theme="dark"]) .account-dialog-close {
 
 .account-delete-input {
     width: 100%;
-    height: 48px;
+    height: 44px;
     border-radius: 8px;
     border: 1.5px solid #eeeeee;
     background: transparent;
     color: #ffffff;
     padding: 0 16px;
     font-family: inherit;
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 650;
     outline: none;
 }
@@ -4830,16 +4831,16 @@ html:not([data-theme="dark"]) .account-dialog-close {
 .account-delete-actions {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 18px;
-    margin-top: 34px;
+    gap: 14px;
+    margin-top: 24px;
 }
 
 .account-delete-cancel,
 .account-delete-confirm {
-    height: 52px;
+    height: 44px;
     border-radius: 999px;
     font-family: inherit;
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 730;
     cursor: pointer;
 }
@@ -4988,6 +4989,9 @@ html:not([data-theme="dark"]) .account-delete-cancel {
     .account-nav-item {
         width: 100%;
     }
+    .account-nav-list {
+        margin-left: 0;
+    }
     .account-bottom-actions {
         position: fixed;
         left: 18px;
@@ -5010,8 +5014,10 @@ html:not([data-theme="dark"]) .account-delete-cancel {
 .account-page-overlay,
 .account-download-dialog,
 .account-delete-dialog,
+.account-confirm-dialog,
+.account-edit-dialog,
 .cookie-prefs-dialog {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+    font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
 }
 
 /* =========================================================================
@@ -5244,17 +5250,17 @@ html:not([data-theme="dark"]) .account-login-method-btn--connect {
    Google Unlink / Generic Confirm Dialog
    ========================================================================= */
 .account-confirm-dialog {
-    width: min(400px, calc(100vw - 48px));
-    border-radius: 24px;
+    width: min(370px, calc(100vw - 48px));
+    border-radius: 22px;
     background: #1a1a1a;
     border: 1px solid #2e2e2e;
-    padding: 40px 32px 32px;
+    padding: 30px 28px 28px;
     display: flex;
     flex-direction: column;
     align-items: center;
     text-align: center;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
-    box-shadow: 0 24px 64px rgba(0,0,0,0.55);
+    box-shadow: 0 20px 54px rgba(0,0,0,0.48);
 }
 
 html:not([data-theme="dark"]) .account-confirm-dialog {
@@ -5264,17 +5270,17 @@ html:not([data-theme="dark"]) .account-confirm-dialog {
 }
 
 .account-confirm-icon {
-    width: 56px;
-    height: 56px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     background: #252525;
     border: 1px solid #3a3a3a;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 22px;
-    color: #c0c0c0;
-    margin-bottom: 22px;
+    font-size: 19px;
+    color: #f0f0f0;
+    margin-bottom: 18px;
     flex-shrink: 0;
 }
 
@@ -5285,7 +5291,7 @@ html:not([data-theme="dark"]) .account-confirm-icon {
 }
 
 .account-confirm-dialog h2 {
-    font-size: 19px;
+    font-size: 18px;
     font-weight: 760;
     color: #f0f0f0;
     margin: 0 0 12px;
@@ -5298,10 +5304,10 @@ html:not([data-theme="dark"]) .account-confirm-dialog h2 {
 }
 
 .account-confirm-dialog p {
-    font-size: 14px;
+    font-size: 13.5px;
     color: #8a8a8a;
     font-weight: 400;
-    margin: 0 0 32px;
+    margin: 0 0 24px;
     line-height: 1.55;
     font-family: inherit;
 }
@@ -5315,10 +5321,10 @@ html:not([data-theme="dark"]) .account-confirm-dialog h2 {
 .account-confirm-cancel,
 .account-confirm-proceed {
     flex: 1;
-    height: 46px;
+    height: 42px;
     border-radius: 999px;
     font-family: inherit;
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 650;
     cursor: pointer;
     border: 1px solid transparent;
@@ -5499,14 +5505,14 @@ html:not([data-theme="dark"]) .account-password-icon-btn:hover {
    ========================================================================= */
 .cookie-prefs-dialog {
     position: relative;
-    width: min(540px, calc(100vw - 32px));
-    max-height: calc(100vh - 64px);
+    width: min(560px, calc(100vw - 32px));
+    max-height: calc(100vh - 52px);
     overflow-y: auto;
-    border-radius: 20px;
+    border-radius: 18px;
     background: #1c1c1c;
     border: 1px solid #2e2e2e;
-    padding: 28px 28px 24px;
-    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+    padding: 24px 24px 22px;
+    box-shadow: 0 22px 56px rgba(0, 0, 0, 0.48);
     display: flex;
     flex-direction: column;
     gap: 0;
@@ -5522,8 +5528,8 @@ html:not([data-theme="dark"]) .cookie-prefs-dialog {
     position: absolute;
     top: 16px;
     right: 16px;
-    width: 32px;
-    height: 32px;
+    width: 34px;
+    height: 34px;
     border-radius: 8px;
     border: 1px solid #3a3a3a;
     background: #2a2a2a;
@@ -5553,11 +5559,11 @@ html:not([data-theme="dark"]) .cookie-prefs-close:hover {
 }
 
 .cookie-prefs-logo {
-    margin-bottom: 18px;
+    margin-bottom: 16px;
 }
 
 .cookie-prefs-title {
-    font-size: 20px;
+    font-size: 19px;
     font-weight: 760;
     color: #f0f0f0;
     margin: 0 0 14px;
@@ -5569,10 +5575,11 @@ html:not([data-theme="dark"]) .cookie-prefs-title {
 }
 
 .cookie-prefs-desc {
-    font-size: 13.5px;
+    font-size: 13px;
     color: #999;
-    line-height: 1.6;
-    margin: 0 0 20px;
+    line-height: 1.56;
+    margin: 0 0 18px;
+    font-weight: 400;
 }
 
 html:not([data-theme="dark"]) .cookie-prefs-desc {
@@ -5582,16 +5589,16 @@ html:not([data-theme="dark"]) .cookie-prefs-desc {
 .cookie-allow-all-btn {
     display: block;
     width: 100%;
-    height: 52px;
+    height: 44px;
     border-radius: 999px;
     border: 0;
     background: #1a1a1a;
     color: #f0f0f0;
     font-family: inherit;
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 700;
     cursor: pointer;
-    margin-bottom: 28px;
+    margin-bottom: 24px;
     transition: background 0.2s;
 }
 
@@ -5609,7 +5616,7 @@ html:not([data-theme="dark"]) .cookie-allow-all-btn:hover {
 }
 
 .cookie-manage-title {
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 700;
     color: #c0c0c0;
     margin: 0 0 12px;
@@ -5648,8 +5655,8 @@ html:not([data-theme="dark"]) .cookie-category {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 18px 18px;
-    min-height: 64px;
+    padding: 14px 16px;
+    min-height: 54px;
 }
 
 .cookie-expand-btn {
@@ -5676,7 +5683,7 @@ html:not([data-theme="dark"]) .cookie-expand-btn {
 }
 
 .cookie-category-name {
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 650;
     color: #e0e0e0;
     flex: 1;
@@ -5759,18 +5766,62 @@ html:not([data-theme="dark"]) .cookie-toggle-thumb {
 .cookie-prefs-actions {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 14px;
+    gap: 12px;
 }
 
 .cookie-reject-all-btn,
 .cookie-confirm-btn {
-    height: 50px;
+    height: 44px;
     border-radius: 999px;
     font-family: inherit;
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 700;
     cursor: pointer;
     transition: all 0.2s;
+}
+
+.mof-toast-stack {
+    position: fixed;
+    right: 22px;
+    bottom: 22px;
+    z-index: 7000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+}
+
+.mof-toast {
+    max-width: min(360px, calc(100vw - 44px));
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(22, 22, 22, 0.94);
+    color: #f5f5f5;
+    font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+    font-size: 13px;
+    line-height: 1.45;
+    font-weight: 500;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.26);
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.mof-toast.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.mof-toast.error {
+    border-color: rgba(165, 52, 44, 0.38);
+}
+
+html:not([data-theme="dark"]) .mof-toast {
+    background: rgba(255, 255, 255, 0.96);
+    color: #151515;
+    border-color: rgba(0, 0, 0, 0.1);
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.14);
 }
 
 .cookie-reject-all-btn {

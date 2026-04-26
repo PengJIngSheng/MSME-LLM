@@ -137,19 +137,37 @@ async def clear_all_connectors(user_id: str = Depends(get_current_user)):
 async def get_status(user_id: str = Depends(get_current_user)):
     user = users_col.find_one({"_id": user_id})
 
-    status_map = {"drive": {"granted": False, "active": False}, 
-                  "gmail": {"granted": False, "active": False}, 
-                  "docs": {"granted": False, "active": False}, 
-                  "calendar": {"granted": False, "active": False}}
+    scope_markers = {
+        "drive": "drive.file",
+        "gmail": "gmail.send",
+        "docs": "documents",
+        "calendar": "calendar.events",
+        "meet": "calendar.events",
+    }
+    status_map = {service: {"granted": False, "active": False} for service in scope_markers}
 
-    if user and (user.get("google_refresh_token") or user.get("google_token")):
+    if not user:
+        return status_map
+    if not user.get("auth_provider_id"):
+        return status_map
+
+    for service, marker in scope_markers.items():
+        creds = user.get(f"google_creds_{service}") or {}
+        scopes = creds.get("google_scopes", [])
+        scopes_str = " ".join(scopes) if isinstance(scopes, list) else str(scopes)
+        has_token = bool(creds.get("google_refresh_token") or creds.get("google_token"))
+        active = has_token and marker in scopes_str
+        status_map[service]["granted"] = active
+        status_map[service]["active"] = active
+
+    # Legacy single-token users can still show the matching connector as active.
+    if user.get("google_refresh_token") or user.get("google_token"):
         scopes = user.get("google_scopes", [])
         scopes_str = " ".join(scopes) if isinstance(scopes, list) else str(scopes)
-        
-        status_map["drive"]["active"] = "drive.file" in scopes_str
-        status_map["gmail"]["active"] = "gmail.send" in scopes_str
-        status_map["docs"]["active"] = "documents" in scopes_str
-        status_map["calendar"]["active"] = "calendar.events" in scopes_str
+        for service, marker in scope_markers.items():
+            if marker in scopes_str:
+                status_map[service]["granted"] = True
+                status_map[service]["active"] = True
 
     return status_map
 
@@ -158,6 +176,8 @@ def get_google_creds_offline(user_id: str, service_id: str = "default") -> Crede
     user = users_col.find_one({"_id": user_id})
     if not user:
         raise ValueError("User not found")
+    if not user.get("auth_provider_id"):
+        raise ValueError("Google account is not linked")
 
     creds_dict = user.get(f"google_creds_{service_id}")
     if not creds_dict or not creds_dict.get("google_refresh_token"):
@@ -960,6 +980,28 @@ GOOGLE_WORKSPACE_TOOLS_SCHEMA = [
                     "duration_minutes": {"type": "integer", "description": "Event length in minutes. Default 60."},
                     "description": {"type": "string", "description": "Event description or agenda notes"},
                     "location": {"type": "string", "description": "Event location (office, meeting room, address, or online link)"}
+                },
+                "required": ["title", "date_iso"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "meet_create",
+            "description": "Create a Google Meet video meeting by creating a Calendar event with a Meet conference link. Use this when the user asks to create, schedule, or set up a Google Meet, video call, video conference, or online meeting.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string", "description": "Meeting title/summary"},
+                    "date_iso": {"type": "string", "description": "Start time in ISO format WITHOUT timezone suffix, e.g. 2026-04-20T14:00:00"},
+                    "duration_minutes": {"type": "integer", "description": "Meeting length in minutes. Default 60."},
+                    "description": {"type": "string", "description": "Meeting agenda or notes"},
+                    "participants": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Optional attendee email addresses."
+                    }
                 },
                 "required": ["title", "date_iso"]
             }
