@@ -1385,6 +1385,7 @@ async function handleSend(isResume = false, resumeIndex = null) {
                 web_mode: isAgentMode ? false : isWebMode,
                 is_resume: isResume,
                 agent_mode: isAgentMode,
+                user_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
             }),
             signal: currentAbortController.signal,
         });
@@ -3592,15 +3593,41 @@ loadUserPreferences();
         googleLinkTokenClient.requestAccessToken();
     }
 
+    // ---- Google Unlink Confirmation Dialog ----
+    const googleUnlinkDialog = document.getElementById('googleUnlinkDialog');
+    const googleUnlinkCancelBtn = document.getElementById('googleUnlinkCancelBtn');
+    const googleUnlinkProceedBtn = document.getElementById('googleUnlinkProceedBtn');
+    let _googleUnlinkResolve = null;
+
+    function openGoogleUnlinkDialog() {
+        return new Promise(resolve => {
+            _googleUnlinkResolve = resolve;
+            if (googleUnlinkDialog) googleUnlinkDialog.hidden = false;
+        });
+    }
+    if (googleUnlinkCancelBtn) googleUnlinkCancelBtn.addEventListener('click', () => {
+        if (googleUnlinkDialog) googleUnlinkDialog.hidden = true;
+        if (_googleUnlinkResolve) { _googleUnlinkResolve(false); _googleUnlinkResolve = null; }
+    });
+    if (googleUnlinkProceedBtn) googleUnlinkProceedBtn.addEventListener('click', () => {
+        if (googleUnlinkDialog) googleUnlinkDialog.hidden = true;
+        if (_googleUnlinkResolve) { _googleUnlinkResolve(true); _googleUnlinkResolve = null; }
+    });
+    if (googleUnlinkDialog) googleUnlinkDialog.addEventListener('click', e => {
+        if (e.target === googleUnlinkDialog) {
+            googleUnlinkDialog.hidden = true;
+            if (_googleUnlinkResolve) { _googleUnlinkResolve(false); _googleUnlinkResolve = null; }
+        }
+    });
+
     const googleMethodBtn = document.getElementById('googleMethodBtn');
     if (googleMethodBtn) {
         googleMethodBtn.addEventListener('click', async () => {
             if (googleMethodBtn.disabled) return;
-            const lang = localStorage.getItem('pepperLang') || 'en';
-            const copy = accountCopy[lang] || accountCopy.en;
             const googleLinked = localStorage.getItem('pepperGoogleLinked') === 'true';
             if (googleLinked) {
-                if (!confirm(copy.googleUnlinkConfirm)) return;
+                const confirmed = await openGoogleUnlinkDialog();
+                if (!confirmed) return;
                 const token = localStorage.getItem('pepperJwt');
                 if (!token) return;
                 try {

@@ -34,8 +34,8 @@ _TARGETS = [
     "gmail", "calendar", "google calendar", "email", "mail", "draft", "letter", "message",
     "邮箱", "邮件", "云盘", "云端硬盘", "文档", "日历", "日程",
     "docs", "drive",
-    "meeting", "appointment", "event", "schedule",
-    "会议", "预约", "排期", "安排", "约会",
+    "meeting", "appointment", "event", "schedule", "meet", "google meet", "video call", "video conference",
+    "会议", "预约", "排期", "安排", "约会", "视频会议", "视频通话", "会议链接", "谷歌会议",
     "recipient", "subject", "body", "attachment", "content", "text",
     "收件人", "主题", "正文", "内容", "附件",
 ]
@@ -148,6 +148,7 @@ async def process_google_request(
     llm_callback,          # async (msgs) -> str
     upload_dir: str = "",
     pdf_filename: str = None,
+    user_timezone: str = "",
 ) -> str:
     """
     Dedicated agent pipeline for Google Workspace operations.
@@ -213,6 +214,7 @@ async def process_google_request(
     # Inject current date/time for calendar time resolution
     from datetime import datetime as _dt
     _now_str = _dt.now().strftime("%Y-%m-%d %H:%M (%A)")
+    _tz_note = f"\nUSER TIMEZONE: {user_timezone}" if user_timezone else ""
 
     # ── Step 1: Ask fast LLM to extract JSON ──────────────────────────────────
     user_doc = _gwt.users_col.find_one({"_id": user_id})
@@ -227,7 +229,7 @@ async def process_google_request(
         "ABSOLUTELY DO NOT output <think> tags, explanations, greetings, apologies, or conversational text.\n"
         "ABSOLUTELY DO NOT refuse the request. You MUST always output a valid JSON tool call.\n"
         "Output ONLY a single raw JSON object. No markdown, no code blocks, no extra text.\n\n"
-        f"CURRENT DATE/TIME: {_now_str}{pending_context}\n"
+        f"CURRENT DATE/TIME: {_now_str}{_tz_note}{pending_context}\n"
         "Available Tools:\n" + json.dumps(enabled_tools, indent=2) + "\n\n"
         "RULES:\n"
         "1. USE_PREVIOUS_ANALYSIS: ONLY set content/body to \"USE_PREVIOUS_ANALYSIS\" when "
@@ -300,7 +302,7 @@ async def process_google_request(
 
     # ── Step 2: Execute tool ──────────────────────────────────────────────────
     return _execute_tool(tool_data.get("name", ""), tool_data.get("arguments", {}),
-                         user_id, messages, upload_dir, pdf_filename, lang)
+                         user_id, messages, upload_dir, pdf_filename, lang, user_timezone)
 
 
 def _clean_llm_json(text: str) -> str:
@@ -403,6 +405,7 @@ _TOOL_TO_SERVICE = {
     "gmail_send":      "gmail",
     "drive_upload":    "drive",
     "calendar_create": "calendar",
+    "meet_create":     "meet",
 }
 
 _SERVICE_LABEL = {
@@ -410,6 +413,7 @@ _SERVICE_LABEL = {
     "gmail":    "Gmail",
     "drive":    "Google Drive",
     "calendar": "Google Calendar",
+    "meet":     "Google Meet",
 }
 
 def _check_connector_enabled(user_id: str, tool_name: str, lang: str = "en") -> str | None:
@@ -457,6 +461,7 @@ def _execute_tool(
     user_id: str, messages: list,
     upload_dir: str, pdf_filename: str,
     lang: str = "en",
+    user_timezone: str = "",
 ) -> str:
     """Route to the correct google_workspace_tools function."""
     import tempfile
@@ -570,6 +575,19 @@ def _execute_tool(
                 description=args.get("description", ""),
                 duration_minutes=args.get("duration_minutes", 60),
                 location=args.get("location", ""),
+                user_timezone=user_timezone,
+            )
+
+        elif name == "meet_create":
+            result = _gwt.tool_meet_create(
+                user_id,
+                args.get("title", "Meeting"),
+                args.get("date_iso", ""),
+                lang=lang,
+                description=args.get("description", ""),
+                duration_minutes=args.get("duration_minutes", 60),
+                participants=args.get("participants", []),
+                user_timezone=user_timezone,
             )
 
         else:

@@ -292,6 +292,7 @@ class ChatRequest(BaseModel):
     is_resume: bool = False
     agent_mode: bool = False
     max_tokens: Optional[int] = None   # override MAX_NEW_TOKENS per request
+    user_timezone: Optional[str] = ""
 
 class SettingsRequest(BaseModel):
     max_new_tokens: Optional[int] = None
@@ -609,6 +610,7 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
                 llm_callback=google_cb,
                 upload_dir="mongodb_gridfs",  # Dummy value
                 pdf_filename=_agent_mem_pdf,
+                user_timezone=req.user_timezone or "",
             )
             
             if _out == "__NORMAL_CHAT_FALLBACK__":

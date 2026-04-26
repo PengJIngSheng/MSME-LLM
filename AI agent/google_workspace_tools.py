@@ -119,6 +119,7 @@ async def clear_all_connectors(user_id: str = Depends(get_current_user)):
             "google_creds_gmail": "",
             "google_creds_docs": "",
             "google_creds_calendar": "",
+            "google_creds_meet": "",
             # Legacy fields
             "google_token": "",
             "google_refresh_token": "",
@@ -751,7 +752,8 @@ def tool_docs_create(user_id: str, title: str, content: str, lang: str = "zh") -
         return f"⚠️ 发生未知错误：{str(e)}"
 
 def tool_calendar_create(user_id: str, title: str, date_iso: str, lang: str = "zh",
-                         description: str = "", duration_minutes: int = 60, location: str = "") -> str:
+                         description: str = "", duration_minutes: int = 60, location: str = "",
+                         user_timezone: str = "") -> str:
     from googleapiclient.errors import HttpError
     try:
         creds = get_google_creds_offline(user_id, "calendar")
@@ -770,9 +772,9 @@ def tool_calendar_create(user_id: str, title: str, date_iso: str, lang: str = "z
         start_dt = datetime.datetime.fromisoformat(clean_iso)
         end_dt = start_dt + datetime.timedelta(minutes=max(duration_minutes, 15))
         
-        # Use configured timezone (UTC+8 default)
+        # Use user's timezone if provided, else fall back to server config
         from config_loader import cfg
-        timezone = cfg.timezone
+        timezone = user_timezone.strip() if user_timezone and user_timezone.strip() else cfg.timezone
         
         event = {
             'summary': title,
@@ -837,6 +839,95 @@ def tool_calendar_create(user_id: str, title: str, date_iso: str, lang: str = "z
         elif lang == "ms":
             return f"⚠️ Gagal mencipta acara Kalendar: {str(e)}"
         return f"⚠️ 发生未知错误：{str(e)}"
+
+def tool_meet_create(user_id: str, title: str, date_iso: str, lang: str = "zh",
+                     description: str = "", duration_minutes: int = 60,
+                     participants: list = None, user_timezone: str = "") -> str:
+    import random, string
+    from googleapiclient.errors import HttpError
+    try:
+        creds = get_google_creds_offline(user_id, "meet")
+        required_scope = 'https://www.googleapis.com/auth/calendar.events'
+        if not creds.scopes or required_scope not in creds.scopes:
+            if lang == "en":
+                return "⚠️ Operation blocked: You are missing Google Meet/Calendar permissions. 👉 Please enable the Meet switch in the sidebar."
+            elif lang == "ms":
+                return "⚠️ Operasi disekat: Anda kehilangan kebenaran Google Meet/Kalendar. 👉 Sila hidupkan suis Meet di bar sisi."
+            return "⚠️ 操作被拦截：缺少 Google Meet/Calendar 访问权限。👉 请在侧边栏中开启 Meet 开关以授权。"
+
+        service = build('calendar', 'v3', credentials=creds)
+
+        clean_iso = date_iso.replace('Z', '').strip()
+        start_dt = datetime.datetime.fromisoformat(clean_iso)
+        end_dt = start_dt + datetime.timedelta(minutes=max(duration_minutes, 15))
+
+        from config_loader import cfg
+        timezone = user_timezone.strip() if user_timezone and user_timezone.strip() else cfg.timezone
+
+        request_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=16))
+        event_body = {
+            'summary': title,
+            'start': {'dateTime': start_dt.isoformat(), 'timeZone': timezone},
+            'end': {'dateTime': end_dt.isoformat(), 'timeZone': timezone},
+            'conferenceData': {
+                'createRequest': {
+                    'requestId': request_id,
+                    'conferenceSolutionKey': {'type': 'hangoutsMeet'}
+                }
+            },
+        }
+        if description:
+            event_body['description'] = description
+        if participants:
+            event_body['attendees'] = [{'email': p} for p in participants if p]
+
+        event = service.events().insert(
+            calendarId='primary',
+            body=event_body,
+            conferenceDataVersion=1
+        ).execute()
+
+        meet_link = event.get('hangoutLink', '')
+        cal_link = event.get('htmlLink', '')
+        time_str = start_dt.strftime('%Y-%m-%d %H:%M')
+        dur_str = f"{duration_minutes} min"
+
+        if lang == "en":
+            parts = ["✅ Google Meet created!", f"📌 **{title}**", f"🕐 {time_str} ({dur_str})"]
+            if meet_link: parts.append(f"🎥 Meet link: {meet_link}")
+            parts.append(f"📅 Calendar: {cal_link}")
+            return "\n".join(parts)
+        elif lang == "ms":
+            parts = ["✅ Google Meet berjaya dicipta!", f"📌 **{title}**", f"🕐 {time_str} ({dur_str})"]
+            if meet_link: parts.append(f"🎥 Pautan Meet: {meet_link}")
+            parts.append(f"📅 Kalendar: {cal_link}")
+            return "\n".join(parts)
+        parts = ["✅ Google Meet 已创建！", f"📌 **{title}**", f"🕐 {time_str} ({dur_str})"]
+        if meet_link: parts.append(f"🎥 会议链接：{meet_link}")
+        parts.append(f"📅 日历链接：{cal_link}")
+        return "\n".join(parts)
+
+    except HttpError as error:
+        if error.resp.status in [401, 403]:
+            users_col.update_one({"_id": user_id}, {"$unset": {"google_creds_meet": ""}})
+            if lang == "en":
+                return "⚠️ Meet creation failed: Token expired or unauthorized. Sidebar switch has been reset."
+            elif lang == "ms":
+                return "⚠️ Penciptaan Meet gagal: Token tamat tempoh. Suis bar sisi telah ditetapkan semula."
+            return "⚠️ 创建 Meet 失败：Token 过期或未授权。侧边栏开关已被重置，请重新开启授权。"
+        err_reason = getattr(error, 'reason', str(error))
+        if lang == "en":
+            return f"⚠️ Failed to create Google Meet. Reason: {err_reason}"
+        elif lang == "ms":
+            return f"⚠️ Gagal mencipta Google Meet. Sebab: {err_reason}"
+        return f"⚠️ 创建 Meet 失败，原因：{err_reason}"
+    except Exception as e:
+        if lang == "en":
+            return f"⚠️ Error: {str(e)}"
+        elif lang == "ms":
+            return f"⚠️ Ralat: {str(e)}"
+        return f"⚠️ 发生错误：{str(e)}"
+
 
 # --- Schema Definitions ---
 GOOGLE_WORKSPACE_TOOLS_SCHEMA = [
