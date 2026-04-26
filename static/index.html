@@ -269,20 +269,16 @@
             </div>
 
             <nav class="account-nav-list" aria-label="Account sections">
-                <button class="account-nav-item">
+                <button class="account-nav-item active" data-account-section="profile">
+                    <span class="account-nav-bullet"></span>
                     <i class="fa-regular fa-user"></i>
                     <span data-account-i18n="navAccount">账户</span>
                 </button>
-                <button class="account-nav-item">
+                <button class="account-nav-item" data-account-section="security">
                     <i class="fa-solid fa-lock"></i>
                     <span data-account-i18n="navSecurity">安全</span>
                 </button>
-                <button class="account-nav-item">
-                    <i class="fa-solid fa-earth-americas"></i>
-                    <span data-account-i18n="navSessions">会话</span>
-                </button>
-                <button class="account-nav-item active">
-                    <span class="account-nav-bullet"></span>
+                <button class="account-nav-item" data-account-section="data">
                     <i class="fa-solid fa-database"></i>
                     <span data-account-i18n="navData">数据</span>
                 </button>
@@ -297,7 +293,95 @@
         </aside>
 
         <main class="account-main-panel">
-            <section class="account-data-section">
+            <!-- Profile Section (default) -->
+            <section class="account-profile-section" id="accountProfileSection">
+                <header class="account-section-header">
+                    <div class="account-profile-header-row">
+                        <div>
+                            <h1 data-account-i18n="profileTitle">您的账户</h1>
+                            <p data-account-i18n="profileSubtitle">管理您的账户信息。</p>
+                        </div>
+                        <div class="account-profile-avatar-large" id="accountProfileAvatar"></div>
+                    </div>
+                </header>
+
+                <div class="account-profile-info-card">
+                    <div class="account-profile-info-row">
+                        <div>
+                            <div class="account-profile-label" data-account-i18n="labelName">全名</div>
+                            <div class="account-profile-value" id="accountProfileName">A</div>
+                        </div>
+                        <button class="account-row-btn" data-account-i18n="editNameBtn">编辑姓名</button>
+                    </div>
+                    <div class="account-profile-info-row">
+                        <div>
+                            <div class="account-profile-label" data-account-i18n="labelEmail">邮箱</div>
+                            <div class="account-profile-value" id="accountProfileEmail">—</div>
+                        </div>
+                        <button class="account-row-btn" data-account-i18n="updateEmailBtn">更新邮箱</button>
+                    </div>
+                    <div class="account-profile-info-row">
+                        <div>
+                            <div class="account-profile-label" data-account-i18n="labelSubscription">订阅</div>
+                            <div class="account-profile-value" data-account-i18n="subscriptionText">管理您的订阅</div>
+                        </div>
+                        <button class="account-row-btn account-row-btn-link" data-account-i18n="manageSubBtn">管理 ↗</button>
+                    </div>
+                    <div class="account-profile-info-row account-profile-info-row--no-border">
+                        <div>
+                            <div class="account-profile-label" data-account-i18n="labelCreated">账户创建</div>
+                            <div class="account-profile-value" id="accountProfileCreated">—</div>
+                        </div>
+                    </div>
+                </div>
+
+                <h2 class="account-login-methods-title" data-account-i18n="loginMethodsTitle">登录方法</h2>
+                <p class="account-login-methods-subtitle" data-account-i18n="loginMethodsSubtitle">管理您登录 MOF 的方式。</p>
+
+                <div class="account-login-methods-card">
+                    <div class="account-login-method-row">
+                        <div class="account-login-method-info">
+                            <div class="account-login-method-icon"><i class="fa-regular fa-envelope"></i></div>
+                            <div>
+                                <div class="account-login-method-name" data-account-i18n="loginEmail">邮箱和密码</div>
+                                <div class="account-login-method-sub" data-account-i18n="loginEmailSub">启用邮箱登录</div>
+                            </div>
+                        </div>
+                        <button class="account-login-method-btn account-login-method-btn--enabled" data-account-i18n="btnEnabled">启用</button>
+                    </div>
+                    <div class="account-login-method-row">
+                        <div class="account-login-method-info">
+                            <div class="account-login-method-icon"><i class="fa-brands fa-google"></i></div>
+                            <div>
+                                <div class="account-login-method-name">Google</div>
+                                <div class="account-login-method-sub" id="accountGoogleEmail">—</div>
+                            </div>
+                        </div>
+                        <button class="account-login-method-btn account-login-method-btn--disabled" data-account-i18n="btnDisabled">停用</button>
+                    </div>
+                    <div class="account-login-method-row account-login-method-row--last">
+                        <div class="account-login-method-info">
+                            <div class="account-login-method-icon"><i class="fa-brands fa-apple"></i></div>
+                            <div>
+                                <div class="account-login-method-name">Apple</div>
+                                <div class="account-login-method-sub" data-account-i18n="loginAppleSub">连接您的 Apple 账户</div>
+                            </div>
+                        </div>
+                        <button class="account-login-method-btn account-login-method-btn--connect" data-account-i18n="btnConnect">连接</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Security Section (placeholder) -->
+            <section class="account-security-section" id="accountSecuritySection" hidden>
+                <header class="account-section-header">
+                    <h1 data-account-i18n="navSecurity">安全</h1>
+                    <p data-account-i18n="securitySubtitle">管理您的账户安全设置。</p>
+                </header>
+            </section>
+
+            <!-- Data Section -->
+            <section class="account-data-section" id="accountDataSection" hidden>
                 <header class="account-section-header">
                     <h1 data-account-i18n="dataTitle">您的数据</h1>
                     <p data-account-i18n="dataSubtitle">管理您存储在 MOF 的个人数据。</p>
@@ -354,6 +438,53 @@
             </div>
         </div>
     </section>
+
+    <!-- Cookie Preference Dialog -->
+    <div class="account-dialog-backdrop" id="cookiePrefsDialog" hidden>
+        <div class="cookie-prefs-dialog" role="dialog" aria-modal="true" aria-labelledby="cookiePrefsTitle">
+            <button class="cookie-prefs-close" id="cookiePrefsCloseBtn" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+            <div class="cookie-prefs-logo">
+                <img src="/static/MOF_Logo.png" alt="MOF" style="height:28px;width:auto;object-fit:contain;">
+            </div>
+            <h2 class="cookie-prefs-title" id="cookiePrefsTitle" data-account-i18n="cookiePrefTitle">隐私偏好中心</h2>
+            <p class="cookie-prefs-desc" data-account-i18n="cookiePrefDesc">当您访问任何网站时，该网站可能会在您的浏览器中存储或检索信息，主要以 Cookie 的形式。这些信息可能与您、您的偏好或您的设备有关，主要用于使网站按您的预期运行。这些信息通常不会直接识别您的身份，但可以为您提供更加个性化的网络体验。由于我们尊重您的隐私权，您可以选择不允许某些类型的 Cookie。点击不同类别的标题以了解更多信息并更改我们的默认设置。阻止某些类型的 Cookie 可能会影响您对网站的使用体验以及我们能够提供的服务。</p>
+            <button class="cookie-allow-all-btn" id="cookieAllowAllBtn" data-account-i18n="cookieAllowAll">全部允许</button>
+            <h3 class="cookie-manage-title" data-account-i18n="cookieManageTitle">管理许可偏好</h3>
+            <div class="cookie-categories">
+                <div class="cookie-category">
+                    <div class="cookie-category-header">
+                        <button class="cookie-expand-btn" aria-expanded="false"><span>+</span></button>
+                        <span class="cookie-category-name" data-account-i18n="cookieEssential">绝对必要的 Cookie</span>
+                        <span class="cookie-always-active" data-account-i18n="cookieAlwaysActive">始终处于活动状态</span>
+                    </div>
+                </div>
+                <div class="cookie-category">
+                    <div class="cookie-category-header">
+                        <button class="cookie-expand-btn" aria-expanded="false"><span>+</span></button>
+                        <span class="cookie-category-name" data-account-i18n="cookieTargeting">定向 Cookie</span>
+                        <label class="cookie-toggle-switch">
+                            <input type="checkbox" id="cookieTargetingToggle">
+                            <span class="cookie-toggle-track"><span class="cookie-toggle-thumb"></span></span>
+                        </label>
+                    </div>
+                </div>
+                <div class="cookie-category">
+                    <div class="cookie-category-header">
+                        <button class="cookie-expand-btn" aria-expanded="false"><span>+</span></button>
+                        <span class="cookie-category-name" data-account-i18n="cookiePerformance">性能 Cookie</span>
+                        <label class="cookie-toggle-switch">
+                            <input type="checkbox" id="cookiePerformanceToggle">
+                            <span class="cookie-toggle-track"><span class="cookie-toggle-thumb"></span></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="cookie-prefs-actions">
+                <button class="cookie-reject-all-btn" id="cookieRejectAllBtn" data-account-i18n="cookieRejectAll">全部拒绝</button>
+                <button class="cookie-confirm-btn" id="cookieConfirmBtn" data-account-i18n="cookieConfirm">确认我的选择</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Auth Requirement Modal -->
     <div class="modal-overlay" id="authRequiredModal">

@@ -4472,8 +4472,8 @@ html:not([data-theme="dark"]) .account-page-overlay {
 
 .account-nav-list {
     margin-top: 72px;
-    width: 210px;
-    margin-left: -10px;
+    width: 222px;
+    margin-left: -28px;
     display: flex;
     flex-direction: column;
     gap: 13px;
@@ -4995,5 +4995,559 @@ html:not([data-theme="dark"]) .account-delete-cancel {
         align-items: flex-start;
         min-height: 0;
         padding: 34px 0;
+    }
+}
+
+/* =========================================================================
+   Account Page — Global Font Fix
+   ========================================================================= */
+.account-page-overlay,
+.account-download-dialog,
+.account-delete-dialog,
+.cookie-prefs-dialog {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+}
+
+/* =========================================================================
+   Account Page — Profile Section
+   ========================================================================= */
+.account-profile-header-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+}
+
+.account-profile-avatar-large {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: linear-gradient(135deg, #303030, #101010);
+    color: #ffffff;
+    font-size: 26px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.account-profile-avatar-large img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+.account-profile-info-card {
+    margin-top: 40px;
+    border: 1px solid #2a2a2a;
+    border-radius: 16px;
+    overflow: hidden;
+}
+
+html:not([data-theme="dark"]) .account-profile-info-card {
+    border-color: #e0e0e0;
+    background: #f9f9f9;
+}
+
+.account-profile-info-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 20px 24px;
+    border-bottom: 1px solid #2a2a2a;
+    min-height: 80px;
+}
+
+.account-profile-info-row--no-border {
+    border-bottom: none;
+}
+
+html:not([data-theme="dark"]) .account-profile-info-row {
+    border-color: #e0e0e0;
+}
+
+.account-profile-label {
+    font-size: 13px;
+    color: #8a8a8a;
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+
+html:not([data-theme="dark"]) .account-profile-label {
+    color: #666666;
+}
+
+.account-profile-value {
+    font-size: 16px;
+    color: #f0f0f0;
+    font-weight: 500;
+}
+
+html:not([data-theme="dark"]) .account-profile-value {
+    color: #111111;
+}
+
+.account-row-btn-link {
+    white-space: nowrap;
+}
+
+.account-login-methods-title {
+    margin: 52px 0 8px;
+    font-size: 24px;
+    font-weight: 760;
+    color: #ffffff;
+}
+
+html:not([data-theme="dark"]) .account-login-methods-title {
+    color: #111111;
+}
+
+.account-login-methods-subtitle {
+    font-size: 14px;
+    color: #8a8a8a;
+    margin-bottom: 28px;
+    line-height: 1.5;
+}
+
+.account-login-methods-card {
+    border: 1px solid #2a2a2a;
+    border-radius: 16px;
+    overflow: hidden;
+}
+
+html:not([data-theme="dark"]) .account-login-methods-card {
+    border-color: #e0e0e0;
+    background: #f9f9f9;
+}
+
+.account-login-method-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px 24px;
+    border-bottom: 1px solid #2a2a2a;
+    min-height: 78px;
+}
+
+.account-login-method-row--last {
+    border-bottom: none;
+}
+
+html:not([data-theme="dark"]) .account-login-method-row {
+    border-color: #e0e0e0;
+}
+
+.account-login-method-info {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.account-login-method-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #1e1e1e;
+    border: 1px solid #333;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    color: #d0d0d0;
+    flex-shrink: 0;
+}
+
+html:not([data-theme="dark"]) .account-login-method-icon {
+    background: #f0f0f0;
+    border-color: #ddd;
+    color: #333;
+}
+
+.account-login-method-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: #f0f0f0;
+}
+
+html:not([data-theme="dark"]) .account-login-method-name {
+    color: #111111;
+}
+
+.account-login-method-sub {
+    font-size: 13px;
+    color: #7a7a7a;
+    margin-top: 2px;
+}
+
+.account-login-method-btn {
+    height: 36px;
+    min-width: 60px;
+    padding: 0 18px;
+    border-radius: 999px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 650;
+    cursor: pointer;
+    border: 1px solid #3a3a3a;
+    background: transparent;
+    color: #ffffff;
+    white-space: nowrap;
+}
+
+.account-login-method-btn--enabled {
+    background: #ffffff;
+    color: #111111;
+    border-color: #ffffff;
+    font-weight: 700;
+}
+
+.account-login-method-btn--disabled {
+    background: transparent;
+    color: #a0a0a0;
+    border-color: #3a3a3a;
+}
+
+.account-login-method-btn--connect {
+    background: #ffffff;
+    color: #111111;
+    border-color: #ffffff;
+    font-weight: 700;
+}
+
+html:not([data-theme="dark"]) .account-login-method-btn {
+    border-color: #d0d0d0;
+    color: #333333;
+}
+
+html:not([data-theme="dark"]) .account-login-method-btn--enabled,
+html:not([data-theme="dark"]) .account-login-method-btn--connect {
+    background: #111111;
+    color: #ffffff;
+    border-color: #111111;
+}
+
+/* =========================================================================
+   Cookie Preference Dialog
+   ========================================================================= */
+.cookie-prefs-dialog {
+    position: relative;
+    width: min(540px, calc(100vw - 32px));
+    max-height: calc(100vh - 64px);
+    overflow-y: auto;
+    border-radius: 20px;
+    background: #1c1c1c;
+    border: 1px solid #2e2e2e;
+    padding: 28px 28px 24px;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+html:not([data-theme="dark"]) .cookie-prefs-dialog {
+    background: #ffffff;
+    border-color: #e0e0e0;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.12);
+}
+
+.cookie-prefs-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid #3a3a3a;
+    background: #2a2a2a;
+    color: #aaa;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.cookie-prefs-close:hover {
+    background: #3a3a3a;
+    color: #fff;
+}
+
+html:not([data-theme="dark"]) .cookie-prefs-close {
+    background: #f0f0f0;
+    border-color: #d8d8d8;
+    color: #555;
+}
+
+html:not([data-theme="dark"]) .cookie-prefs-close:hover {
+    background: #e0e0e0;
+    color: #111;
+}
+
+.cookie-prefs-logo {
+    margin-bottom: 18px;
+}
+
+.cookie-prefs-title {
+    font-size: 20px;
+    font-weight: 760;
+    color: #f0f0f0;
+    margin: 0 0 14px;
+    line-height: 1.2;
+}
+
+html:not([data-theme="dark"]) .cookie-prefs-title {
+    color: #111111;
+}
+
+.cookie-prefs-desc {
+    font-size: 13.5px;
+    color: #999;
+    line-height: 1.6;
+    margin: 0 0 20px;
+}
+
+html:not([data-theme="dark"]) .cookie-prefs-desc {
+    color: #555555;
+}
+
+.cookie-allow-all-btn {
+    display: block;
+    width: 100%;
+    height: 52px;
+    border-radius: 999px;
+    border: 0;
+    background: #1a1a1a;
+    color: #f0f0f0;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-bottom: 28px;
+    transition: background 0.2s;
+}
+
+.cookie-allow-all-btn:hover {
+    background: #252525;
+}
+
+html:not([data-theme="dark"]) .cookie-allow-all-btn {
+    background: #111111;
+    color: #ffffff;
+}
+
+html:not([data-theme="dark"]) .cookie-allow-all-btn:hover {
+    background: #333333;
+}
+
+.cookie-manage-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #c0c0c0;
+    margin: 0 0 12px;
+}
+
+html:not([data-theme="dark"]) .cookie-manage-title {
+    color: #333333;
+}
+
+.cookie-categories {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #2e2e2e;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 24px;
+}
+
+html:not([data-theme="dark"]) .cookie-categories {
+    border-color: #e0e0e0;
+}
+
+.cookie-category {
+    border-bottom: 1px solid #2e2e2e;
+}
+
+.cookie-category:last-child {
+    border-bottom: none;
+}
+
+html:not([data-theme="dark"]) .cookie-category {
+    border-color: #e0e0e0;
+}
+
+.cookie-category-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 18px 18px;
+    min-height: 64px;
+}
+
+.cookie-expand-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: 1px solid #3a3a3a;
+    background: #2a2a2a;
+    color: #aaa;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+html:not([data-theme="dark"]) .cookie-expand-btn {
+    background: #f0f0f0;
+    border-color: #d0d0d0;
+    color: #444;
+}
+
+.cookie-category-name {
+    font-size: 15px;
+    font-weight: 650;
+    color: #e0e0e0;
+    flex: 1;
+}
+
+html:not([data-theme="dark"]) .cookie-category-name {
+    color: #1a1a1a;
+}
+
+.cookie-always-active {
+    font-size: 13px;
+    font-weight: 600;
+    color: #5b9cf6;
+    white-space: nowrap;
+}
+
+/* Cookie toggle switch */
+.cookie-toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 52px;
+    height: 28px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.cookie-toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute;
+}
+
+.cookie-toggle-track {
+    position: absolute;
+    inset: 0;
+    border-radius: 999px;
+    background: #3a3a3a;
+    transition: background 0.25s;
+    border: 1px solid #4a4a4a;
+}
+
+.cookie-toggle-switch input:checked + .cookie-toggle-track {
+    background: #4a9eff;
+    border-color: #4a9eff;
+}
+
+.cookie-toggle-thumb {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #888;
+    transition: transform 0.25s, background 0.25s;
+}
+
+.cookie-toggle-switch input:checked + .cookie-toggle-track .cookie-toggle-thumb {
+    transform: translateX(24px);
+    background: #ffffff;
+}
+
+html:not([data-theme="dark"]) .cookie-toggle-track {
+    background: #d0d0d0;
+    border-color: #c0c0c0;
+}
+
+html:not([data-theme="dark"]) .cookie-toggle-switch input:checked + .cookie-toggle-track {
+    background: #4a9eff;
+    border-color: #4a9eff;
+}
+
+html:not([data-theme="dark"]) .cookie-toggle-thumb {
+    background: #ffffff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+/* Cookie bottom action buttons */
+.cookie-prefs-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+}
+
+.cookie-reject-all-btn,
+.cookie-confirm-btn {
+    height: 50px;
+    border-radius: 999px;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.cookie-reject-all-btn {
+    background: #2a2a2a;
+    border: 1px solid #3a3a3a;
+    color: #d0d0d0;
+}
+
+.cookie-reject-all-btn:hover {
+    background: #353535;
+}
+
+.cookie-confirm-btn {
+    background: #2a2a2a;
+    border: 1px solid #3a3a3a;
+    color: #d0d0d0;
+}
+
+.cookie-confirm-btn:hover {
+    background: #353535;
+}
+
+html:not([data-theme="dark"]) .cookie-reject-all-btn,
+html:not([data-theme="dark"]) .cookie-confirm-btn {
+    background: #f0f0f0;
+    border-color: #d0d0d0;
+    color: #111111;
+}
+
+html:not([data-theme="dark"]) .cookie-reject-all-btn:hover,
+html:not([data-theme="dark"]) .cookie-confirm-btn:hover {
+    background: #e4e4e4;
+}
+
+@media (max-width: 480px) {
+    .cookie-prefs-dialog {
+        padding: 22px 18px 18px;
+        border-radius: 16px;
+    }
+    .cookie-prefs-actions {
+        grid-template-columns: 1fr;
     }
 }

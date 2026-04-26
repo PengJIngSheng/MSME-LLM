@@ -2649,9 +2649,27 @@ loadUserPreferences();
             manageAccount: '管理您的mof账户。',
             navAccount: '账户',
             navSecurity: '安全',
-            navSessions: '会话',
             navData: '数据',
             backHome: '返回主页面',
+            profileTitle: '您的账户',
+            profileSubtitle: '管理您的账户信息。',
+            labelName: '全名',
+            labelEmail: '邮箱',
+            labelSubscription: '订阅',
+            subscriptionText: '管理您的订阅',
+            manageSubBtn: '管理 ↗',
+            labelCreated: '账户创建',
+            editNameBtn: '编辑姓名',
+            updateEmailBtn: '更新邮箱',
+            loginMethodsTitle: '登录方法',
+            loginMethodsSubtitle: '管理您登录 MOF 的方式。',
+            loginEmail: '邮箱和密码',
+            loginEmailSub: '启用邮箱登录',
+            loginAppleSub: '连接您的 Apple 账户',
+            btnEnabled: '启用',
+            btnDisabled: '停用',
+            btnConnect: '连接',
+            securitySubtitle: '管理您的账户安全设置。',
             dataTitle: '您的数据',
             dataSubtitle: '管理您存储在 MOF 的个人数据。',
             cookieTitle: 'Cookie 设置',
@@ -2671,7 +2689,17 @@ loadUserPreferences();
             deleteEmailPrefix: '输入您的邮箱 ',
             deleteEmailSuffix: ' 以确认',
             cancelBtn: '取消',
-            deleteMismatch: '请输入当前账号邮箱以确认删除。'
+            deleteMismatch: '请输入当前账号邮箱以确认删除。',
+            cookiePrefTitle: '隐私偏好中心',
+            cookiePrefDesc: '当您访问任何网站时，该网站可能会在您的浏览器中存储或检索信息，主要以 Cookie 的形式。这些信息通常不会直接识别您的身份，但可以为您提供更加个性化的网络体验。',
+            cookieAllowAll: '全部允许',
+            cookieManageTitle: '管理许可偏好',
+            cookieEssential: '绝对必要的 Cookie',
+            cookieAlwaysActive: '始终处于活动状态',
+            cookieTargeting: '定向 Cookie',
+            cookiePerformance: '性能 Cookie',
+            cookieRejectAll: '全部拒绝',
+            cookieConfirm: '确认我的选择'
         },
         en: {
             welcomePrefix: 'Welcome, ',
@@ -2679,9 +2707,27 @@ loadUserPreferences();
             manageAccount: 'Manage your mof account.',
             navAccount: 'Account',
             navSecurity: 'Security',
-            navSessions: 'Sessions',
             navData: 'Data',
             backHome: 'Back to home',
+            profileTitle: 'Your account',
+            profileSubtitle: 'Manage your account information.',
+            labelName: 'Full name',
+            labelEmail: 'Email',
+            labelSubscription: 'Subscription',
+            subscriptionText: 'Manage your subscription',
+            manageSubBtn: 'Manage ↗',
+            labelCreated: 'Account created',
+            editNameBtn: 'Edit name',
+            updateEmailBtn: 'Update email',
+            loginMethodsTitle: 'Login methods',
+            loginMethodsSubtitle: 'Manage how you log in to MOF.',
+            loginEmail: 'Email and password',
+            loginEmailSub: 'Enable email login',
+            loginAppleSub: 'Connect your Apple account',
+            btnEnabled: 'Enabled',
+            btnDisabled: 'Disabled',
+            btnConnect: 'Connect',
+            securitySubtitle: 'Manage your account security settings.',
             dataTitle: 'Your data',
             dataSubtitle: 'Manage the personal data you store with MOF.',
             cookieTitle: 'Cookie settings',
@@ -2701,7 +2747,17 @@ loadUserPreferences();
             deleteEmailPrefix: 'Enter your email ',
             deleteEmailSuffix: ' to confirm',
             cancelBtn: 'Cancel',
-            deleteMismatch: 'Enter the current account email to confirm deletion.'
+            deleteMismatch: 'Enter the current account email to confirm deletion.',
+            cookiePrefTitle: 'Privacy Preference Centre',
+            cookiePrefDesc: 'When you visit any website, it may store or retrieve information on your browser, mostly in the form of cookies. This information does not usually directly identify you, but it can give you a more personalised web experience.',
+            cookieAllowAll: 'Allow All',
+            cookieManageTitle: 'Manage Consent Preferences',
+            cookieEssential: 'Strictly Necessary Cookies',
+            cookieAlwaysActive: 'Always Active',
+            cookieTargeting: 'Targeting Cookies',
+            cookiePerformance: 'Performance Cookies',
+            cookieRejectAll: 'Reject All',
+            cookieConfirm: 'Confirm My Choices'
         },
         ms: {
             welcomePrefix: 'Selamat datang, ',
@@ -2709,9 +2765,27 @@ loadUserPreferences();
             manageAccount: 'Urus akaun mof anda.',
             navAccount: 'Akaun',
             navSecurity: 'Keselamatan',
-            navSessions: 'Sesi',
             navData: 'Data',
             backHome: 'Kembali ke halaman utama',
+            profileTitle: 'Akaun anda',
+            profileSubtitle: 'Urus maklumat akaun anda.',
+            labelName: 'Nama penuh',
+            labelEmail: 'E-mel',
+            labelSubscription: 'Langganan',
+            subscriptionText: 'Urus langganan anda',
+            manageSubBtn: 'Urus ↗',
+            labelCreated: 'Akaun dibuat',
+            editNameBtn: 'Edit nama',
+            updateEmailBtn: 'Kemaskini e-mel',
+            loginMethodsTitle: 'Kaedah log masuk',
+            loginMethodsSubtitle: 'Urus cara anda log masuk ke MOF.',
+            loginEmail: 'E-mel dan kata laluan',
+            loginEmailSub: 'Aktifkan log masuk e-mel',
+            loginAppleSub: 'Sambung akaun Apple anda',
+            btnEnabled: 'Aktif',
+            btnDisabled: 'Tidak aktif',
+            btnConnect: 'Sambung',
+            securitySubtitle: 'Urus tetapan keselamatan akaun anda.',
             dataTitle: 'Data anda',
             dataSubtitle: 'Urus data peribadi yang anda simpan di MOF.',
             cookieTitle: 'Tetapan Cookie',
@@ -2731,7 +2805,17 @@ loadUserPreferences();
             deleteEmailPrefix: 'Masukkan e-mel anda ',
             deleteEmailSuffix: ' untuk mengesahkan',
             cancelBtn: 'Batal',
-            deleteMismatch: 'Masukkan e-mel akaun semasa untuk mengesahkan pemadaman.'
+            deleteMismatch: 'Masukkan e-mel akaun semasa untuk mengesahkan pemadaman.',
+            cookiePrefTitle: 'Pusat Keutamaan Privasi',
+            cookiePrefDesc: 'Apabila anda melawat mana-mana laman web, ia mungkin menyimpan atau mendapatkan maklumat pada pelayar anda, kebanyakannya dalam bentuk kuki.',
+            cookieAllowAll: 'Benarkan Semua',
+            cookieManageTitle: 'Urus Pilihan Persetujuan',
+            cookieEssential: 'Kuki Yang Diperlukan',
+            cookieAlwaysActive: 'Sentiasa Aktif',
+            cookieTargeting: 'Kuki Penyasaran',
+            cookiePerformance: 'Kuki Prestasi',
+            cookieRejectAll: 'Tolak Semua',
+            cookieConfirm: 'Sahkan Pilihan Saya'
         }
     };
 
@@ -2774,7 +2858,7 @@ loadUserPreferences();
     function renderAccountLanguage() {
         const lang = localStorage.getItem('pepperLang') || 'en';
         const copy = accountCopy[lang] || accountCopy.en;
-        overlay.querySelectorAll('[data-account-i18n]').forEach(el => {
+        document.querySelectorAll('[data-account-i18n]').forEach(el => {
             const key = el.dataset.accountI18n;
             if (copy[key]) el.textContent = copy[key];
         });
@@ -2822,6 +2906,55 @@ loadUserPreferences();
         themeBtn.setAttribute('aria-label', isDark ? 'Dark mode' : 'Light mode');
     }
 
+    function renderProfileSection() {
+        const name = getProfileName();
+        const email = getAccountEmail();
+        const profileNameEl = document.getElementById('accountProfileName');
+        const profileEmailEl = document.getElementById('accountProfileEmail');
+        const profileAvatarEl = document.getElementById('accountProfileAvatar');
+        const profileGoogleEl = document.getElementById('accountGoogleEmail');
+        const profileCreatedEl = document.getElementById('accountProfileCreated');
+        if (profileNameEl) profileNameEl.textContent = name || 'A';
+        if (profileEmailEl) profileEmailEl.textContent = email || '—';
+        if (profileGoogleEl) profileGoogleEl.textContent = email || '—';
+        if (profileCreatedEl) {
+            const stored = localStorage.getItem('pepperCreatedAt');
+            if (stored) {
+                const d = new Date(stored);
+                const lang = localStorage.getItem('pepperLang') || 'en';
+                profileCreatedEl.textContent = d.toLocaleDateString(lang === 'zh' ? 'zh-CN' : lang === 'ms' ? 'ms-MY' : 'en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+            } else {
+                profileCreatedEl.textContent = '—';
+            }
+        }
+        if (profileAvatarEl) renderAvatar(profileAvatarEl);
+    }
+
+    function switchAccountSection(sectionKey) {
+        const sections = {
+            profile: document.getElementById('accountProfileSection'),
+            security: document.getElementById('accountSecuritySection'),
+            data: document.getElementById('accountDataSection')
+        };
+        Object.values(sections).forEach(s => { if (s) s.hidden = true; });
+        if (sections[sectionKey]) sections[sectionKey].hidden = false;
+
+        overlay.querySelectorAll('.account-nav-item').forEach(btn => {
+            const isActive = btn.dataset.accountSection === sectionKey;
+            btn.classList.toggle('active', isActive);
+            const existing = btn.querySelector('.account-nav-bullet');
+            if (isActive && !existing) {
+                const bullet = document.createElement('span');
+                bullet.className = 'account-nav-bullet';
+                btn.insertBefore(bullet, btn.firstChild);
+            } else if (!isActive && existing) {
+                existing.remove();
+            }
+        });
+
+        if (sectionKey === 'profile') renderProfileSection();
+    }
+
     function openAccountPage() {
         if (!localStorage.getItem('pepperUserId')) {
             window.location.href = '/static/login.html';
@@ -2831,6 +2964,7 @@ loadUserPreferences();
         renderAvatar(topAvatar);
         renderAccountLanguage();
         syncAccountThemeIcon();
+        switchAccountSection('profile');
         overlay.classList.add('show');
         overlay.setAttribute('aria-hidden', 'false');
         document.body.classList.add('account-page-open');
@@ -2845,6 +2979,10 @@ loadUserPreferences();
     window.addEventListener('open-mof-account-page', openAccountPage);
 
     if (backBtn) backBtn.addEventListener('click', closeAccountPage);
+
+    overlay.querySelectorAll('.account-nav-item[data-account-section]').forEach(btn => {
+        btn.addEventListener('click', () => switchAccountSection(btn.dataset.accountSection));
+    });
 
     if (langBtn) {
         langBtn.addEventListener('click', () => {
@@ -2947,6 +3085,77 @@ loadUserPreferences();
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && overlay.classList.contains('show')) {
             closeAccountPage();
+        }
+    });
+
+    // ---- Cookie Preference Dialog ----
+    const cookieManageBtn = document.getElementById('accountCookieManageBtn');
+    const cookieDialog = document.getElementById('cookiePrefsDialog');
+    const cookieCloseBtn = document.getElementById('cookiePrefsCloseBtn');
+    const cookieAllowAllBtn = document.getElementById('cookieAllowAllBtn');
+    const cookieRejectAllBtn = document.getElementById('cookieRejectAllBtn');
+    const cookieConfirmBtn = document.getElementById('cookieConfirmBtn');
+    const cookieTargetingToggle = document.getElementById('cookieTargetingToggle');
+    const cookiePerformanceToggle = document.getElementById('cookiePerformanceToggle');
+
+    function loadCookiePrefs() {
+        const prefs = JSON.parse(localStorage.getItem('mofCookiePrefs') || '{}');
+        if (cookieTargetingToggle) cookieTargetingToggle.checked = !!prefs.targeting;
+        if (cookiePerformanceToggle) cookiePerformanceToggle.checked = !!prefs.performance;
+    }
+
+    function saveCookiePrefs(targeting, performance) {
+        localStorage.setItem('mofCookiePrefs', JSON.stringify({ targeting, performance }));
+    }
+
+    function openCookieDialog() {
+        loadCookiePrefs();
+        if (cookieDialog) cookieDialog.hidden = false;
+    }
+
+    function closeCookieDialog() {
+        if (cookieDialog) cookieDialog.hidden = true;
+    }
+
+    if (cookieManageBtn) cookieManageBtn.addEventListener('click', openCookieDialog);
+    if (cookieCloseBtn) cookieCloseBtn.addEventListener('click', closeCookieDialog);
+
+    if (cookieAllowAllBtn) {
+        cookieAllowAllBtn.addEventListener('click', () => {
+            if (cookieTargetingToggle) cookieTargetingToggle.checked = true;
+            if (cookiePerformanceToggle) cookiePerformanceToggle.checked = true;
+            saveCookiePrefs(true, true);
+            closeCookieDialog();
+        });
+    }
+
+    if (cookieRejectAllBtn) {
+        cookieRejectAllBtn.addEventListener('click', () => {
+            if (cookieTargetingToggle) cookieTargetingToggle.checked = false;
+            if (cookiePerformanceToggle) cookiePerformanceToggle.checked = false;
+            saveCookiePrefs(false, false);
+            closeCookieDialog();
+        });
+    }
+
+    if (cookieConfirmBtn) {
+        cookieConfirmBtn.addEventListener('click', () => {
+            const targeting = cookieTargetingToggle ? cookieTargetingToggle.checked : false;
+            const performance = cookiePerformanceToggle ? cookiePerformanceToggle.checked : false;
+            saveCookiePrefs(targeting, performance);
+            closeCookieDialog();
+        });
+    }
+
+    if (cookieDialog) {
+        cookieDialog.addEventListener('click', (e) => {
+            if (e.target === cookieDialog) closeCookieDialog();
+        });
+    }
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && cookieDialog && !cookieDialog.hidden) {
+            closeCookieDialog();
         }
     });
 })();
