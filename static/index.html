@@ -225,6 +225,15 @@
                                             <span class="slider"></span>
                                         </label>
                                     </div>
+                                    <div class="connector-item" data-service="meet">
+                                        <div class="connector-icon-name">
+                                            <i class="fa-solid fa-video" style="color:#00bcd4;"></i> Google Meet
+                                        </div>
+                                        <label class="liquid-glass-switch" id="switch-meet" data-service="meet">
+                                            <input type="checkbox" id="checkbox-meet">
+                                            <span class="slider"></span>
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
                             <div class="submit-group">
@@ -347,7 +356,7 @@
                                 <div class="account-login-method-sub" data-account-i18n="loginEmailSub">启用邮箱登录</div>
                             </div>
                         </div>
-                        <button class="account-login-method-btn account-login-method-btn--enabled" data-account-i18n="btnEnabled">启用</button>
+                        <button class="account-login-method-btn account-login-method-btn--enabled" id="emailMethodBtn">启用</button>
                     </div>
                     <div class="account-login-method-row account-login-method-row--last">
                         <div class="account-login-method-info">
@@ -357,17 +366,67 @@
                                 <div class="account-login-method-sub" id="accountGoogleEmail">—</div>
                             </div>
                         </div>
-                        <button class="account-login-method-btn account-login-method-btn--disabled" data-account-i18n="btnDisabled">停用</button>
+                        <button class="account-login-method-btn account-login-method-btn--connect" id="googleMethodBtn">连接</button>
                     </div>
                 </div>
             </section>
 
-            <!-- Security Section (placeholder) -->
+            <!-- Security Section -->
             <section class="account-security-section" id="accountSecuritySection" hidden>
-                <header class="account-section-header">
-                    <h1 data-account-i18n="navSecurity">安全</h1>
-                    <p data-account-i18n="securitySubtitle">管理您的账户安全设置。</p>
-                </header>
+                <!-- Main security view -->
+                <div id="securityMainView">
+                    <header class="account-section-header">
+                        <h1 data-account-i18n="navSecurity">账户安全</h1>
+                        <p data-account-i18n="securitySubtitle">管理您的账户安全设置。</p>
+                    </header>
+                    <div class="account-data-list">
+                        <div class="account-data-row">
+                            <div class="account-data-copy">
+                                <h2 data-account-i18n="securityPasswordTitle">使用密码登录</h2>
+                                <p data-account-i18n="securityPasswordDesc">管理您账户的密码。</p>
+                            </div>
+                            <button class="account-row-btn" id="setPasswordBtn" data-account-i18n="securitySetPasswordBtn">设置密码</button>
+                        </div>
+                        <div class="account-data-row">
+                            <div class="account-data-copy">
+                                <h2 data-account-i18n="securityMfaTitle">多因素身份验证</h2>
+                                <p data-account-i18n="securityMfaDesc">使用第二个身份验证因素保护您的账户。</p>
+                            </div>
+                            <button class="account-row-btn" id="enableMfaBtn" data-account-i18n="securityEnableMfaBtn">启用 MFA</button>
+                        </div>
+                        <div class="account-data-row account-data-row--no-btn">
+                            <div class="account-data-copy">
+                                <h2 data-account-i18n="securityRecoveryTitle">恢复代码</h2>
+                                <p data-account-i18n="securityRecoveryDesc">您需要至少启用一种多因素方法才能生成恢复代码。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Set Password sub-view -->
+                <div id="securitySetPasswordView" hidden>
+                    <div class="account-breadcrumb">
+                        <button class="account-breadcrumb-link" id="securityBreadcrumbBack" data-account-i18n="navSecurity">安全</button>
+                        <span class="account-breadcrumb-sep">/</span>
+                        <span data-account-i18n="securitySetPasswordBtn">设置密码</span>
+                    </div>
+                    <h1 class="account-subview-title" data-account-i18n="securitySetPasswordBtn">设置密码</h1>
+                    <p class="account-subview-subtitle" data-account-i18n="securitySetPasswordSubtitle">填写下方表单以更改您的登录密码。</p>
+                    <div class="account-password-divider"></div>
+                    <div class="account-password-field">
+                        <label data-account-i18n="securityNewPasswordLabel">新密码</label>
+                        <div class="account-password-input-wrap">
+                            <input type="password" id="newPasswordInput" autocomplete="new-password">
+                            <button type="button" class="account-password-icon-btn" id="newPasswordVisibilityBtn">
+                                <i class="fa-regular fa-eye-slash" id="newPasswordVisibilityIcon"></i>
+                            </button>
+                        </div>
+                        <p class="account-edit-error" id="newPasswordError"></p>
+                    </div>
+                    <div class="account-edit-actions">
+                        <button class="account-edit-cancel" id="setPasswordCancelBtn" data-account-i18n="cancelBtn">取消</button>
+                        <button class="account-edit-save" id="setPasswordSaveBtn" data-account-i18n="securitySavePasswordBtn">保存密码</button>
+                    </div>
+                </div>
             </section>
 
             <!-- Data Section -->
@@ -419,18 +478,35 @@
             </div>
         </div>
 
-        <!-- Edit Email Dialog -->
+        <!-- Edit Email Dialog (multi-step) -->
         <div class="account-dialog-backdrop" id="editEmailDialog" hidden>
             <div class="account-edit-dialog" role="dialog" aria-modal="true">
-                <h3 data-account-i18n="updateEmailTitle">更新邮箱</h3>
-                <div>
-                    <label for="editEmailInput" data-account-i18n="updateEmailLabel">新邮箱地址</label>
-                    <input type="email" id="editEmailInput" maxlength="200" autocomplete="off">
+                <!-- Step 1: Enter new email -->
+                <div id="editEmailStep1">
+                    <h3 data-account-i18n="updateEmailTitle">更新邮箱</h3>
+                    <div>
+                        <label for="editEmailInput" data-account-i18n="updateEmailLabel">新邮箱地址</label>
+                        <input type="email" id="editEmailInput" maxlength="200" autocomplete="off">
+                    </div>
+                    <p class="account-edit-error" id="editEmailError"></p>
+                    <div class="account-edit-actions">
+                        <button class="account-edit-cancel" id="editEmailCancelBtn" data-account-i18n="cancelBtn">取消</button>
+                        <button class="account-edit-save" id="editEmailContinueBtn" data-account-i18n="continueBtn">继续</button>
+                    </div>
                 </div>
-                <p class="account-edit-error" id="editEmailError"></p>
-                <div class="account-edit-actions">
-                    <button class="account-edit-cancel" id="editEmailCancelBtn" data-account-i18n="cancelBtn">取消</button>
-                    <button class="account-edit-save" id="editEmailSaveBtn" data-account-i18n="saveBtn">保存</button>
+                <!-- Step 2: OTP verification -->
+                <div id="editEmailStep2" hidden>
+                    <h3 data-account-i18n="verifyEmailTitle">验证新邮箱</h3>
+                    <p class="account-edit-desc"><span data-account-i18n="verifyEmailDesc">验证码已发送至</span> <strong id="editEmailOTPTarget"></strong></p>
+                    <div>
+                        <label for="editEmailOTPInput" data-account-i18n="otpLabel">验证码</label>
+                        <input type="text" id="editEmailOTPInput" maxlength="6" inputmode="numeric" autocomplete="one-time-code">
+                    </div>
+                    <p class="account-edit-error" id="editEmailOTPError"></p>
+                    <div class="account-edit-actions">
+                        <button class="account-edit-cancel" id="editEmailBackBtn" data-account-i18n="backBtn">返回</button>
+                        <button class="account-edit-save" id="editEmailVerifyBtn" data-account-i18n="verifyBtn">验证</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -441,6 +517,19 @@
                 <h2 id="accountDownloadDialogTitle" data-account-i18n="downloadSentTitle">邮件已发送!</h2>
                 <p data-account-i18n="downloadSentDesc">我们将很快向您发送一封包含数据下载链接的邮件。</p>
                 <button class="account-dialog-close" id="accountDownloadDialogClose" data-account-i18n="closeBtn">关闭</button>
+            </div>
+        </div>
+
+        <!-- Google Unlink Confirmation Dialog -->
+        <div class="account-dialog-backdrop" id="googleUnlinkDialog" hidden>
+            <div class="account-confirm-dialog" role="dialog" aria-modal="true">
+                <div class="account-confirm-icon"><i class="fa-solid fa-shield-halved"></i></div>
+                <h2 data-account-i18n="googleUnlinkTitle">您可能会被退出登录</h2>
+                <p data-account-i18n="googleUnlinkDesc">取消关联此方法可能会将您退出账户登录。</p>
+                <div class="account-confirm-actions">
+                    <button class="account-confirm-cancel" id="googleUnlinkCancelBtn" data-account-i18n="cancelBtn">取消</button>
+                    <button class="account-confirm-proceed" id="googleUnlinkProceedBtn" data-account-i18n="continueBtn">继续</button>
+                </div>
             </div>
         </div>
 

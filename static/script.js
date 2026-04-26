@@ -639,7 +639,8 @@ const SCOPE_MAP = {
     'drive': 'https://www.googleapis.com/auth/drive.file',
     'gmail': 'https://www.googleapis.com/auth/gmail.send',
     'docs': 'https://www.googleapis.com/auth/documents',
-    'calendar': 'https://www.googleapis.com/auth/calendar.events'
+    'calendar': 'https://www.googleapis.com/auth/calendar.events',
+    'meet': 'https://www.googleapis.com/auth/calendar.events'
 };
 
 // When a switch is clicked, trigger Google OAuth with granular scope OR toggle state
@@ -664,6 +665,14 @@ document.querySelectorAll('.liquid-glass-switch').forEach(switchLabel => {
         const willBeActive = !isCurrentlyActive;
         
         if (willBeActive) {
+            // Block if Google account not linked
+            const googleLinked = localStorage.getItem('pepperGoogleLinked') === 'true';
+            if (!googleLinked) {
+                const _lang = localStorage.getItem('pepperLang') || 'en';
+                const _msgs = { zh: '请先在账户设置中绑定您的 Google 账号后再使用连接器。', en: 'Please link your Google account in Account Settings before using connectors.', ms: 'Sila pautkan akaun Google anda dalam Tetapan Akaun sebelum menggunakan penyambung.' };
+                showToast(_msgs[_lang] || _msgs.en, true);
+                return;
+            }
             // Turning ON always requires Google Auth window to retrieve/confirm scope
             if (!googleClients[service]) {
                 showToast("Google OAuth loading... please wait.", true);
@@ -2704,7 +2713,30 @@ loadUserPreferences();
             cookieTargeting: '定向 Cookie',
             cookiePerformance: '性能 Cookie',
             cookieRejectAll: '全部拒绝',
-            cookieConfirm: '确认我的选择'
+            cookieConfirm: '确认我的选择',
+            continueBtn: '继续',
+            backBtn: '返回',
+            verifyBtn: '验证',
+            verifyEmailTitle: '验证新邮箱',
+            verifyEmailDesc: '验证码已发送至',
+            otpLabel: '验证码',
+            emailAlreadyUsed: '您输入的邮箱地址已被使用。',
+            securityPasswordTitle: '使用密码登录',
+            securityPasswordDesc: '管理您账户的密码。',
+            securitySetPasswordBtn: '设置密码',
+            securityMfaTitle: '多因素身份验证',
+            securityMfaDesc: '使用第二个身份验证因素保护您的账户。',
+            securityEnableMfaBtn: '启用 MFA',
+            securityRecoveryTitle: '恢复代码',
+            securityRecoveryDesc: '您需要至少启用一种多因素方法才能生成恢复代码。',
+            securityNewPasswordLabel: '新密码',
+            securitySavePasswordBtn: '保存密码',
+            securitySetPasswordSubtitle: '填写下方表单以更改您的登录密码。',
+            passwordTooShort: '密码至少需要8个字符',
+            googleUnlinkConfirm: '确定要解除 Google 账户绑定吗？',
+            googleUnlinkTitle: '您可能会被退出登录',
+            googleUnlinkDesc: '取消关联此方法可能会将您退出账户登录。',
+            googleNotLinked: '请先在账户设置中绑定您的 Google 账号后再使用连接器。'
         },
         en: {
             welcomePrefix: 'Welcome, ',
@@ -2767,7 +2799,30 @@ loadUserPreferences();
             cookieTargeting: 'Targeting Cookies',
             cookiePerformance: 'Performance Cookies',
             cookieRejectAll: 'Reject All',
-            cookieConfirm: 'Confirm My Choices'
+            cookieConfirm: 'Confirm My Choices',
+            continueBtn: 'Continue',
+            backBtn: 'Back',
+            verifyBtn: 'Verify',
+            verifyEmailTitle: 'Verify new email',
+            verifyEmailDesc: 'Verification code sent to',
+            otpLabel: 'Verification code',
+            emailAlreadyUsed: 'This email address is already in use.',
+            securityPasswordTitle: 'Password login',
+            securityPasswordDesc: 'Manage your account password.',
+            securitySetPasswordBtn: 'Set password',
+            securityMfaTitle: 'Multi-factor authentication',
+            securityMfaDesc: 'Protect your account with a second authentication factor.',
+            securityEnableMfaBtn: 'Enable MFA',
+            securityRecoveryTitle: 'Recovery codes',
+            securityRecoveryDesc: 'You need to enable at least one multi-factor method to generate recovery codes.',
+            securityNewPasswordLabel: 'New password',
+            securitySavePasswordBtn: 'Save password',
+            securitySetPasswordSubtitle: 'Fill in the form below to change your login password.',
+            passwordTooShort: 'Password must be at least 8 characters',
+            googleUnlinkConfirm: 'Are you sure you want to unlink your Google account?',
+            googleUnlinkTitle: 'You may be signed out',
+            googleUnlinkDesc: 'Removing this method may sign you out of your account.',
+            googleNotLinked: 'Please link your Google account in Account Settings before using connectors.'
         },
         ms: {
             welcomePrefix: 'Selamat datang, ',
@@ -2830,7 +2885,30 @@ loadUserPreferences();
             cookieTargeting: 'Kuki Penyasaran',
             cookiePerformance: 'Kuki Prestasi',
             cookieRejectAll: 'Tolak Semua',
-            cookieConfirm: 'Sahkan Pilihan Saya'
+            cookieConfirm: 'Sahkan Pilihan Saya',
+            continueBtn: 'Teruskan',
+            backBtn: 'Kembali',
+            verifyBtn: 'Sahkan',
+            verifyEmailTitle: 'Sahkan e-mel baharu',
+            verifyEmailDesc: 'Kod pengesahan dihantar ke',
+            otpLabel: 'Kod pengesahan',
+            emailAlreadyUsed: 'Alamat e-mel ini telah digunakan.',
+            securityPasswordTitle: 'Log masuk dengan kata laluan',
+            securityPasswordDesc: 'Urus kata laluan akaun anda.',
+            securitySetPasswordBtn: 'Tetapkan kata laluan',
+            securityMfaTitle: 'Pengesahan pelbagai faktor',
+            securityMfaDesc: 'Lindungi akaun anda dengan faktor pengesahan kedua.',
+            securityEnableMfaBtn: 'Aktifkan MFA',
+            securityRecoveryTitle: 'Kod pemulihan',
+            securityRecoveryDesc: 'Anda perlu mengaktifkan sekurang-kurangnya satu kaedah berbilang faktor untuk menjana kod pemulihan.',
+            securityNewPasswordLabel: 'Kata laluan baharu',
+            securitySavePasswordBtn: 'Simpan kata laluan',
+            securitySetPasswordSubtitle: 'Isi borang di bawah untuk menukar kata laluan log masuk anda.',
+            passwordTooShort: 'Kata laluan mestilah sekurang-kurangnya 8 aksara',
+            googleUnlinkConfirm: 'Adakah anda pasti ingin menyahpaut akaun Google anda?',
+            googleUnlinkTitle: 'Anda mungkin akan dilog keluar',
+            googleUnlinkDesc: 'Menyahpaut kaedah ini mungkin akan mengeluarkan anda daripada akaun anda.',
+            googleNotLinked: 'Sila pautkan akaun Google anda dalam Tetapan Akaun sebelum menggunakan penyambung.'
         }
     };
 
@@ -2921,17 +2999,53 @@ loadUserPreferences();
         themeBtn.setAttribute('aria-label', isDark ? 'Dark mode' : 'Light mode');
     }
 
-    function renderProfileSection() {
+    function updateLoginMethodButtons(hasPassword, googleLinked, authProvider) {
+        const lang = localStorage.getItem('pepperLang') || 'en';
+        const copy = accountCopy[lang] || accountCopy.en;
+        const emailBtn = document.getElementById('emailMethodBtn');
+        const googleBtn = document.getElementById('googleMethodBtn');
+        const googleEmailEl = document.getElementById('accountGoogleEmail');
+
+        if (emailBtn) {
+            if (hasPassword || authProvider === 'local') {
+                emailBtn.textContent = copy.btnEnabled;
+                emailBtn.className = 'account-login-method-btn account-login-method-btn--enabled';
+            } else {
+                emailBtn.textContent = copy.btnDisabled;
+                emailBtn.className = 'account-login-method-btn account-login-method-btn--disabled';
+            }
+        }
+        if (googleBtn) {
+            const isPrimaryGoogle = authProvider === 'google' && !hasPassword;
+            if (googleLinked) {
+                googleBtn.textContent = copy.btnEnabled;
+                googleBtn.className = 'account-login-method-btn account-login-method-btn--enabled';
+                googleBtn.disabled = isPrimaryGoogle;
+                googleBtn.style.opacity = isPrimaryGoogle ? '0.5' : '';
+                googleBtn.style.cursor = isPrimaryGoogle ? 'not-allowed' : '';
+            } else {
+                googleBtn.textContent = copy.btnConnect;
+                googleBtn.className = 'account-login-method-btn account-login-method-btn--connect';
+                googleBtn.disabled = false;
+                googleBtn.style.opacity = '';
+                googleBtn.style.cursor = '';
+            }
+        }
+        if (googleEmailEl) {
+            const gEmail = localStorage.getItem('pepperGoogleEmail');
+            googleEmailEl.textContent = gEmail || '—';
+        }
+    }
+
+    async function renderProfileSection() {
         const name = getProfileName();
         const email = getAccountEmail();
         const profileNameEl = document.getElementById('accountProfileName');
         const profileEmailEl = document.getElementById('accountProfileEmail');
         const profileAvatarEl = document.getElementById('accountProfileAvatar');
-        const profileGoogleEl = document.getElementById('accountGoogleEmail');
         const profileCreatedEl = document.getElementById('accountProfileCreated');
         if (profileNameEl) profileNameEl.textContent = name || 'A';
         if (profileEmailEl) profileEmailEl.textContent = email || '—';
-        if (profileGoogleEl) profileGoogleEl.textContent = email || '—';
         if (profileCreatedEl) {
             const stored = localStorage.getItem('pepperCreatedAt');
             if (stored) {
@@ -2943,6 +3057,28 @@ loadUserPreferences();
             }
         }
         if (profileAvatarEl) renderAvatar(profileAvatarEl);
+
+        const token = localStorage.getItem('pepperJwt');
+        if (token) {
+            try {
+                const res = await fetch('/api/account/preferences', { headers: { 'Authorization': `Bearer ${token}` } });
+                if (res.ok) {
+                    const data = await res.json();
+                    localStorage.setItem('pepperAuthProvider', data.auth_provider || 'local');
+                    localStorage.setItem('pepperGoogleLinked', data.google_linked ? 'true' : 'false');
+                    localStorage.setItem('pepperHasPassword', data.has_password ? 'true' : 'false');
+                    if (data.google_email) localStorage.setItem('pepperGoogleEmail', data.google_email);
+                    else localStorage.removeItem('pepperGoogleEmail');
+                    updateLoginMethodButtons(data.has_password, data.google_linked, data.auth_provider);
+                }
+            } catch (_) {}
+        } else {
+            updateLoginMethodButtons(
+                localStorage.getItem('pepperHasPassword') === 'true',
+                localStorage.getItem('pepperGoogleLinked') === 'true',
+                localStorage.getItem('pepperAuthProvider') || 'local'
+            );
+        }
     }
 
     function switchAccountSection(sectionKey) {
@@ -2968,6 +3104,12 @@ loadUserPreferences();
         });
 
         if (sectionKey === 'profile') renderProfileSection();
+        if (sectionKey === 'security') {
+            const mv = document.getElementById('securityMainView');
+            const pv = document.getElementById('securitySetPasswordView');
+            if (mv) mv.hidden = false;
+            if (pv) pv.hidden = true;
+        }
     }
 
     function openAccountPage() {
@@ -3168,37 +3310,102 @@ loadUserPreferences();
         });
     }
 
-    // ---- Edit Email Dialog ----
+    // ---- Edit Email Dialog (multi-step) ----
     const updateEmailBtn = document.getElementById('updateEmailBtn');
     const editEmailDialog = document.getElementById('editEmailDialog');
+    const editEmailStep1 = document.getElementById('editEmailStep1');
+    const editEmailStep2 = document.getElementById('editEmailStep2');
     const editEmailInput = document.getElementById('editEmailInput');
     const editEmailError = document.getElementById('editEmailError');
     const editEmailCancelBtn = document.getElementById('editEmailCancelBtn');
-    const editEmailSaveBtn = document.getElementById('editEmailSaveBtn');
+    const editEmailContinueBtn = document.getElementById('editEmailContinueBtn');
+    const editEmailOTPInput = document.getElementById('editEmailOTPInput');
+    const editEmailOTPError = document.getElementById('editEmailOTPError');
+    const editEmailOTPTarget = document.getElementById('editEmailOTPTarget');
+    const editEmailBackBtn = document.getElementById('editEmailBackBtn');
+    const editEmailVerifyBtn = document.getElementById('editEmailVerifyBtn');
+    let emailChangePendingId = null;
 
-    if (updateEmailBtn && editEmailDialog) {
-        updateEmailBtn.addEventListener('click', () => {
-            if (editEmailInput) editEmailInput.value = '';
-            if (editEmailError) editEmailError.textContent = '';
-            editEmailDialog.hidden = false;
-            setTimeout(() => editEmailInput && editEmailInput.focus(), 0);
-        });
+    function openEmailDialog() {
+        if (editEmailInput) editEmailInput.value = '';
+        if (editEmailError) editEmailError.textContent = '';
+        if (editEmailStep1) editEmailStep1.hidden = false;
+        if (editEmailStep2) editEmailStep2.hidden = true;
+        emailChangePendingId = null;
+        if (editEmailDialog) editEmailDialog.hidden = false;
+        setTimeout(() => editEmailInput && editEmailInput.focus(), 0);
     }
+
+    if (updateEmailBtn) updateEmailBtn.addEventListener('click', openEmailDialog);
     if (editEmailCancelBtn) editEmailCancelBtn.addEventListener('click', () => { if (editEmailDialog) editEmailDialog.hidden = true; });
     if (editEmailDialog) editEmailDialog.addEventListener('click', e => { if (e.target === editEmailDialog) editEmailDialog.hidden = true; });
 
-    if (editEmailSaveBtn && editEmailInput) {
-        editEmailSaveBtn.addEventListener('click', async () => {
-            const newEmail = editEmailInput.value.trim();
-            if (!newEmail || !newEmail.includes('@')) { if (editEmailError) editEmailError.textContent = '请输入有效的邮箱地址'; return; }
+    if (editEmailBackBtn) {
+        editEmailBackBtn.addEventListener('click', () => {
+            if (editEmailStep1) editEmailStep1.hidden = false;
+            if (editEmailStep2) editEmailStep2.hidden = true;
+            if (editEmailOTPError) editEmailOTPError.textContent = '';
+            if (editEmailOTPInput) editEmailOTPInput.value = '';
+        });
+    }
+
+    if (editEmailContinueBtn) {
+        editEmailContinueBtn.addEventListener('click', async () => {
+            const lang = localStorage.getItem('pepperLang') || 'en';
+            const copy = accountCopy[lang] || accountCopy.en;
+            const newEmail = editEmailInput ? editEmailInput.value.trim() : '';
+            if (!newEmail || !newEmail.includes('@')) {
+                if (editEmailError) editEmailError.textContent = copy.updateEmailLabel || '请输入有效的邮箱地址';
+                return;
+            }
             const token = localStorage.getItem('pepperJwt');
             if (!token) return;
-            editEmailSaveBtn.disabled = true;
+            editEmailContinueBtn.disabled = true;
+            if (editEmailError) editEmailError.textContent = '';
+            try {
+                const res = await fetch('/api/account/send-email-otp', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ new_email: newEmail })
+                });
+                const data = await res.json().catch(() => ({}));
+                if (res.status === 409) {
+                    if (editEmailError) editEmailError.textContent = copy.emailAlreadyUsed || '该邮箱已被使用';
+                    return;
+                }
+                if (!res.ok) throw new Error(data.detail || 'Failed');
+                emailChangePendingId = data.pending_id;
+                if (editEmailOTPTarget) editEmailOTPTarget.textContent = newEmail;
+                if (editEmailStep1) editEmailStep1.hidden = true;
+                if (editEmailStep2) editEmailStep2.hidden = false;
+                if (editEmailOTPInput) editEmailOTPInput.value = '';
+                if (editEmailOTPError) editEmailOTPError.textContent = '';
+                setTimeout(() => editEmailOTPInput && editEmailOTPInput.focus(), 0);
+            } catch (err) {
+                if (editEmailError) editEmailError.textContent = err.message || '发送失败';
+            } finally {
+                editEmailContinueBtn.disabled = false;
+            }
+        });
+    }
+
+    if (editEmailVerifyBtn) {
+        editEmailVerifyBtn.addEventListener('click', async () => {
+            const otp = editEmailOTPInput ? editEmailOTPInput.value.trim() : '';
+            if (!otp || otp.length !== 6) {
+                if (editEmailOTPError) editEmailOTPError.textContent = '请输入6位验证码';
+                return;
+            }
+            if (!emailChangePendingId) return;
+            const token = localStorage.getItem('pepperJwt');
+            if (!token) return;
+            editEmailVerifyBtn.disabled = true;
+            if (editEmailOTPError) editEmailOTPError.textContent = '';
             try {
                 const res = await fetch('/api/account/email', {
                     method: 'PUT',
                     headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ new_email: newEmail })
+                    body: JSON.stringify({ pending_id: emailChangePendingId, otp })
                 });
                 const data = await res.json().catch(() => ({}));
                 if (!res.ok) throw new Error(data.detail || 'Failed');
@@ -3208,9 +3415,9 @@ loadUserPreferences();
                 const emailEl = document.getElementById('userEmailDisplay');
                 if (emailEl) emailEl.textContent = data.username;
             } catch (err) {
-                if (editEmailError) editEmailError.textContent = err.message || 'Failed to update email';
+                if (editEmailOTPError) editEmailOTPError.textContent = err.message || '验证失败';
             } finally {
-                editEmailSaveBtn.disabled = false;
+                editEmailVerifyBtn.disabled = false;
             }
         });
     }
@@ -3285,4 +3492,133 @@ loadUserPreferences();
             closeCookieDialog();
         }
     });
+
+    // ---- Security Section: Set Password ----
+    const setPasswordBtn = document.getElementById('setPasswordBtn');
+    const securityMainView = document.getElementById('securityMainView');
+    const securitySetPasswordView = document.getElementById('securitySetPasswordView');
+    const securityBreadcrumbBack = document.getElementById('securityBreadcrumbBack');
+    const newPasswordInput = document.getElementById('newPasswordInput');
+    const newPasswordError = document.getElementById('newPasswordError');
+    const newPasswordVisibilityBtn = document.getElementById('newPasswordVisibilityBtn');
+    const newPasswordVisibilityIcon = document.getElementById('newPasswordVisibilityIcon');
+    const setPasswordCancelBtn = document.getElementById('setPasswordCancelBtn');
+    const setPasswordSaveBtn = document.getElementById('setPasswordSaveBtn');
+
+    function showSetPasswordView() {
+        if (securityMainView) securityMainView.hidden = true;
+        if (securitySetPasswordView) securitySetPasswordView.hidden = false;
+        if (newPasswordInput) { newPasswordInput.value = ''; setTimeout(() => newPasswordInput.focus(), 0); }
+        if (newPasswordError) newPasswordError.textContent = '';
+    }
+
+    function hideSetPasswordView() {
+        if (securityMainView) securityMainView.hidden = false;
+        if (securitySetPasswordView) securitySetPasswordView.hidden = true;
+    }
+
+    if (setPasswordBtn) setPasswordBtn.addEventListener('click', showSetPasswordView);
+    if (securityBreadcrumbBack) securityBreadcrumbBack.addEventListener('click', hideSetPasswordView);
+    if (setPasswordCancelBtn) setPasswordCancelBtn.addEventListener('click', hideSetPasswordView);
+
+    if (newPasswordVisibilityBtn && newPasswordInput) {
+        newPasswordVisibilityBtn.addEventListener('click', () => {
+            const isHidden = newPasswordInput.type === 'password';
+            newPasswordInput.type = isHidden ? 'text' : 'password';
+            if (newPasswordVisibilityIcon) newPasswordVisibilityIcon.className = isHidden ? 'fa-regular fa-eye' : 'fa-regular fa-eye-slash';
+        });
+    }
+
+    if (setPasswordSaveBtn && newPasswordInput) {
+        setPasswordSaveBtn.addEventListener('click', async () => {
+            const lang = localStorage.getItem('pepperLang') || 'en';
+            const copy = accountCopy[lang] || accountCopy.en;
+            const pw = newPasswordInput.value;
+            if (!pw || pw.length < 8) {
+                if (newPasswordError) newPasswordError.textContent = copy.passwordTooShort;
+                return;
+            }
+            const token = localStorage.getItem('pepperJwt');
+            if (!token) return;
+            setPasswordSaveBtn.disabled = true;
+            if (newPasswordError) newPasswordError.textContent = '';
+            try {
+                const res = await fetch('/api/account/password', {
+                    method: 'PUT',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ new_password: pw })
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(data.detail || 'Failed');
+                localStorage.setItem('pepperHasPassword', 'true');
+                hideSetPasswordView();
+                renderProfileSection();
+            } catch (err) {
+                if (newPasswordError) newPasswordError.textContent = err.message || '保存失败';
+            } finally {
+                setPasswordSaveBtn.disabled = false;
+            }
+        });
+    }
+
+    // ---- Google Link / Unlink ----
+    let googleLinkTokenClient = null;
+
+    function initGoogleLinkClient(callback) {
+        if (typeof google === 'undefined') { callback && callback(null, 'Google client not available'); return; }
+        googleLinkTokenClient = google.accounts.oauth2.initTokenClient({
+            client_id: '685645444928-ivt7lgsjiatv0ff0r68ckmbln1rdrrm4.apps.googleusercontent.com',
+            scope: 'email profile',
+            callback: async (tokenResponse) => {
+                if (tokenResponse.error) { callback && callback(null, tokenResponse.error); return; }
+                const token = localStorage.getItem('pepperJwt');
+                if (!token) return;
+                try {
+                    const res = await fetch('/api/account/link-google', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ token: tokenResponse.access_token })
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) throw new Error(data.detail || 'Failed to link Google');
+                    localStorage.setItem('pepperGoogleLinked', 'true');
+                    if (data.google_email) localStorage.setItem('pepperGoogleEmail', data.google_email);
+                    renderProfileSection();
+                } catch (err) {
+                    alert(err.message);
+                }
+            }
+        });
+        googleLinkTokenClient.requestAccessToken();
+    }
+
+    const googleMethodBtn = document.getElementById('googleMethodBtn');
+    if (googleMethodBtn) {
+        googleMethodBtn.addEventListener('click', async () => {
+            if (googleMethodBtn.disabled) return;
+            const lang = localStorage.getItem('pepperLang') || 'en';
+            const copy = accountCopy[lang] || accountCopy.en;
+            const googleLinked = localStorage.getItem('pepperGoogleLinked') === 'true';
+            if (googleLinked) {
+                if (!confirm(copy.googleUnlinkConfirm)) return;
+                const token = localStorage.getItem('pepperJwt');
+                if (!token) return;
+                try {
+                    const res = await fetch('/api/account/unlink-google', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) throw new Error(data.detail || 'Failed');
+                    localStorage.setItem('pepperGoogleLinked', 'false');
+                    localStorage.removeItem('pepperGoogleEmail');
+                    renderProfileSection();
+                } catch (err) {
+                    alert(err.message);
+                }
+            } else {
+                initGoogleLinkClient();
+            }
+        });
+    }
 })();

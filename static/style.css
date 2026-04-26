@@ -5241,6 +5241,146 @@ html:not([data-theme="dark"]) .account-login-method-btn--connect {
 }
 
 /* =========================================================================
+   Security Section — Breadcrumb & Password Sub-view
+   ========================================================================= */
+.account-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 28px;
+    font-size: 14px;
+    color: #8a8a8a;
+    font-weight: 400;
+}
+
+.account-breadcrumb-link {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: inherit;
+    font-size: inherit;
+    font-family: inherit;
+    font-weight: inherit;
+    text-decoration: none;
+}
+
+.account-breadcrumb-link:hover {
+    text-decoration: underline;
+    color: #cccccc;
+}
+
+html:not([data-theme="dark"]) .account-breadcrumb-link:hover {
+    color: #333333;
+}
+
+.account-breadcrumb-sep {
+    color: #555;
+}
+
+.account-subview-title {
+    font-size: 28px;
+    font-weight: 760;
+    color: #ffffff;
+    margin: 0 0 10px;
+}
+
+html:not([data-theme="dark"]) .account-subview-title {
+    color: #111111;
+}
+
+.account-subview-subtitle {
+    font-size: 14px;
+    color: #8a8a8a;
+    margin: 0;
+    font-weight: 400;
+    line-height: 1.5;
+}
+
+.account-password-divider {
+    border: none;
+    border-top: 1px solid #292929;
+    margin: 28px 0;
+}
+
+html:not([data-theme="dark"]) .account-password-divider {
+    border-color: #e0e0e0;
+}
+
+.account-password-field {
+    margin-bottom: 8px;
+}
+
+.account-password-field label {
+    display: block;
+    font-size: 13px;
+    font-weight: 400;
+    color: #8a8a8a;
+    margin-bottom: 10px;
+}
+
+.account-password-input-wrap {
+    display: flex;
+    align-items: center;
+    border: 1px solid #333;
+    border-radius: 10px;
+    background: #1a1a1a;
+    overflow: hidden;
+}
+
+html:not([data-theme="dark"]) .account-password-input-wrap {
+    border-color: #d0d0d0;
+    background: #f5f5f5;
+}
+
+.account-password-input-wrap input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    padding: 13px 16px;
+    font-size: 15px;
+    color: #f0f0f0;
+    font-family: inherit;
+}
+
+html:not([data-theme="dark"]) .account-password-input-wrap input {
+    color: #111111;
+}
+
+.account-password-icon-btn {
+    background: none;
+    border: none;
+    padding: 10px 14px;
+    cursor: pointer;
+    color: #6a6a6a;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.account-password-icon-btn:hover {
+    color: #cccccc;
+}
+
+html:not([data-theme="dark"]) .account-password-icon-btn:hover {
+    color: #333333;
+}
+
+.account-edit-desc {
+    font-size: 13px;
+    color: #8a8a8a;
+    font-weight: 400;
+    margin: 4px 0 16px;
+    line-height: 1.5;
+}
+
+.account-data-row--no-btn {
+    min-height: 100px;
+}
+
+/* =========================================================================
    Cookie Preference Dialog
    ========================================================================= */
 .cookie-prefs-dialog {

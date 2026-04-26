@@ -69,7 +69,20 @@ class UpdateProfileRequest(BaseModel):
 
 class UpdateEmailRequest(BaseModel):
     new_email: str
-    
+
+class SendEmailOTPRequest(BaseModel):
+    new_email: str
+
+class UpdateEmailWithOTPRequest(BaseModel):
+    pending_id: str
+    otp: str
+
+class SetPasswordRequest(BaseModel):
+    new_password: str
+
+class LinkGoogleRequest(BaseModel):
+    token: str
+
 # ─── Utility Functions ─────────────────────────────────
 def _bcrypt_prehash(password: str) -> bytes:
     # Pre-hash with SHA-256 so arbitrarily long passwords become safe for bcrypt.
@@ -717,12 +730,19 @@ async def google_auth(req: OAuthRequest):
 @auth_router.get("/api/account/preferences")
 async def get_account_preferences(request: Request):
     user = _auth_user(request)
+    auth_provider = user.get("auth_provider", "local")
+    google_linked = bool(user.get("auth_provider_id"))
+    google_email = user.get("google_email") or (user.get("username") if auth_provider == "google" else None)
     return {
         "status": "success",
         "username": user.get("username"),
         "display_name": _user_display_name(user),
         "avatarUrl": user.get("picture"),
         "preferences": _user_preferences(user),
+        "has_password": bool(user.get("password")),
+        "auth_provider": auth_provider,
+        "google_linked": google_linked,
+        "google_email": google_email,
     }
 
 @auth_router.put("/api/account/preferences")
@@ -768,19 +788,72 @@ async def update_profile(req: UpdateProfileRequest, request: Request):
     )
     return {"status": "success", "display_name": new_name}
 
-@auth_router.put("/api/account/email")
-async def update_email(req: UpdateEmailRequest, request: Request):
+@auth_router.post("/api/account/send-email-otp")
+async def send_account_email_otp(req: SendEmailOTPRequest, request: Request):
     user = _auth_user(request)
     new_email = req.new_email.strip().lower()
     if "@" not in new_email or "." not in new_email.split("@")[-1]:
         raise HTTPException(status_code=400, detail="Invalid email address")
     conflict = users_col.find_one({"username": new_email})
     if conflict and str(conflict["_id"]) != str(user["_id"]):
-        raise HTTPException(status_code=400, detail="Email already in use by another account")
+        raise HTTPException(status_code=409, detail="Email already in use")
+
+    pending_id = str(uuid.uuid4())
+    otp_code = generate_otp()
+    current_time = _current_time_for_email()
+    device_info = _device_info(request)
+    ip_address = _client_ip(request)
+    lang = _user_preferences(user)["language"]
+
+    _ensure_pending_otp_indexes()
+    now = datetime.utcnow()
+    pending_otps_col.delete_many({"type": "email_change", "user_id": str(user["_id"])})
+    pending_otps_col.insert_one({
+        "_id": pending_id,
+        "type": "email_change",
+        "user_id": str(user["_id"]),
+        "new_email": new_email,
+        "otp": get_password_hash(otp_code),
+        "created_at": now,
+        "expires_at": now + timedelta(minutes=OTP_TTL_MINUTES),
+        "language": lang,
+    })
+
+    try:
+        send_otp_email(new_email, otp_code, current_time, device_info, ip_address, lang)
+    except Exception as exc:
+        pending_otps_col.delete_one({"_id": pending_id})
+        raise HTTPException(status_code=502, detail=f"Failed to send OTP email: {exc}")
+
+    return {"status": "pending", "pending_id": pending_id}
+
+@auth_router.put("/api/account/email")
+async def update_email(req: UpdateEmailWithOTPRequest, request: Request):
+    user = _auth_user(request)
+    pending = pending_otps_col.find_one({
+        "_id": req.pending_id,
+        "type": "email_change",
+        "user_id": str(user["_id"])
+    })
+    if not pending:
+        raise HTTPException(status_code=400, detail="Invalid or expired verification code")
+    if datetime.utcnow() > pending["expires_at"]:
+        pending_otps_col.delete_one({"_id": req.pending_id})
+        raise HTTPException(status_code=400, detail="Verification code expired")
+    if not verify_password(req.otp, pending.get("otp", "")):
+        raise HTTPException(status_code=400, detail="Invalid verification code")
+
+    new_email = pending["new_email"]
+    conflict = users_col.find_one({"username": new_email})
+    if conflict and str(conflict["_id"]) != str(user["_id"]):
+        pending_otps_col.delete_one({"_id": req.pending_id})
+        raise HTTPException(status_code=409, detail="Email already in use by another account")
+
     users_col.update_one(
         {"_id": user["_id"]},
         {"$set": {"username": new_email, "updated_at": datetime.utcnow()}}
     )
+    pending_otps_col.delete_one({"_id": req.pending_id})
     return {"status": "success", "username": new_email}
 
 @auth_router.post("/api/account/download-data")
@@ -839,6 +912,62 @@ async def download_account_data(request: Request):
         srv.sendmail(SMTP_USERNAME, [email], msg_out.as_string())
 
     return {"status": "success"}
+
+@auth_router.post("/api/account/link-google")
+async def link_google(req: LinkGoogleRequest, request: Request):
+    user = _auth_user(request)
+    try:
+        url = "https://www.googleapis.com/oauth2/v3/userinfo"
+        req_auth = urllib.request.Request(url, headers={"Authorization": f"Bearer {req.token}"})
+        with urllib.request.urlopen(req_auth) as response:
+            user_info = json.loads(response.read().decode())
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid Google token")
+
+    google_sub = user_info.get("sub")
+    google_email = user_info.get("email")
+    picture = user_info.get("picture")
+
+    if not google_sub or not google_email:
+        raise HTTPException(status_code=400, detail="Incomplete Google profile")
+
+    existing = users_col.find_one({"auth_provider_id": google_sub})
+    if existing and str(existing["_id"]) != str(user["_id"]):
+        raise HTTPException(status_code=409, detail="This Google account is already linked to another account")
+
+    updates = {"auth_provider_id": google_sub, "google_email": google_email, "updated_at": datetime.utcnow()}
+    if picture:
+        updates["picture"] = picture
+    users_col.update_one({"_id": user["_id"]}, {"$set": updates})
+
+    return {"status": "success", "google_linked": True, "google_email": google_email}
+
+@auth_router.post("/api/account/unlink-google")
+async def unlink_google(request: Request):
+    user = _auth_user(request)
+    if not user.get("auth_provider_id"):
+        raise HTTPException(status_code=400, detail="No Google account linked")
+    if not user.get("password"):
+        raise HTTPException(status_code=400, detail="Set a password first before unlinking Google")
+    users_col.update_one(
+        {"_id": user["_id"]},
+        {"$unset": {"auth_provider_id": "", "google_email": ""}}
+    )
+    return {"status": "success", "google_linked": False}
+
+@auth_router.put("/api/account/password")
+async def set_password(req: SetPasswordRequest, request: Request):
+    user = _auth_user(request)
+    if not req.new_password or len(req.new_password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    if len(req.new_password) > 200:
+        raise HTTPException(status_code=400, detail="Password too long")
+    hashed = get_password_hash(req.new_password)
+    users_col.update_one(
+        {"_id": user["_id"]},
+        {"$set": {"password": hashed, "updated_at": datetime.utcnow()}}
+    )
+    return {"status": "success", "has_password": True}
 
 @auth_router.post("/api/auth/apple")
 async def apple_auth(req: OAuthRequest):
