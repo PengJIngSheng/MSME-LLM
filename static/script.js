@@ -58,12 +58,18 @@ function incrementGuestQuestionCount() {
 
 function getUiCopy() {
     return window._pepperLang || {
+        greeting: 'How can I help you today?',
         loginBtn: 'Login',
         registerBtn: 'Register',
         guestLimitText: 'Get smarter responses, upload files and images, and unlock more features.',
         guestLimitRegisterBtn: 'Sign up for free',
         agentRequiresLogin: 'Login required for Agent mode'
     };
+}
+
+function getNormalLandingMarkup() {
+    const copy = getUiCopy();
+    return `<h2><span class="logo-text"><i class="fa-solid fa-leaf"></i> Ministry of Finance</span><br/>${copy.greeting || 'How can I help you today?'}</h2>`;
 }
 
 function updateGuestLimitBannerCopy() {
@@ -379,7 +385,7 @@ function openFreshNormalChat() {
     logoContainer.style.opacity = '1';
     document.querySelector('.app-container').classList.add('centered-landing');
     isFirstMessage = true;
-    logoContainer.innerHTML = '<h2><span class="logo-text"><i class="fa-solid fa-leaf"></i> PEPPER LABS</span><br/>How can I help you today?</h2>';
+    logoContainer.innerHTML = getNormalLandingMarkup();
     document.querySelectorAll('.nav-menu-btn').forEach(btn => btn.classList.remove('active'));
     document.getElementById('newChatBtn').classList.add('active');
     if (!currentUserId && getGuestQuestionCount() < GUEST_QUESTION_LIMIT) {
@@ -520,6 +526,7 @@ function initGoogleClients() {
                         if (res.status === 401) {
                             localStorage.removeItem('pepperJwt');
                             localStorage.removeItem('pepperUserId');
+                            localStorage.removeItem('pepperDisplayName');
                             showToast("Your session expired during auth. Please log in again.", true);
                             setTimeout(() => window.location.href = '/static/login.html', 1500);
                             return;
@@ -2266,7 +2273,7 @@ async function loadChatPreview(chatId, title, liElement) {
                 ctxTheme: 'Theme',
                 ctxLang: 'Language',
                 ctxFiles: 'Files',
-                ctxHelp: 'Help',
+                ctxAccount: 'Account',
                 ctxLogout: 'Logout'
             },
             zh: {
@@ -2291,7 +2298,7 @@ async function loadChatPreview(chatId, title, liElement) {
                 ctxTheme: '主题',
                 ctxLang: '语言',
                 ctxFiles: '文件',
-                ctxHelp: '帮助',
+                ctxAccount: '账户',
                 ctxLogout: '退出登录'
             },
             ms: {
@@ -2316,7 +2323,7 @@ async function loadChatPreview(chatId, title, liElement) {
                 ctxTheme: 'Tema',
                 ctxLang: 'Bahasa',
                 ctxFiles: 'Fail',
-                ctxHelp: 'Bantuan',
+                ctxAccount: 'Akaun',
                 ctxLogout: 'Log Keluar'
             }
         };
@@ -2350,10 +2357,10 @@ async function loadChatPreview(chatId, title, liElement) {
         // Update User Context Menu
         const ctxSettingsTxt = document.querySelector('#ctxSettingsMenuBtn span');
         if (ctxSettingsTxt) ctxSettingsTxt.textContent = t.ctxSettings;
-        const ctxFilesTxt = document.querySelectorAll('.ctx-menu-item span')[1];
-        if (ctxFilesTxt && !ctxFilesTxt.closest('#ctxSettingsBlock') && !ctxFilesTxt.closest('#ctxLogoutBtn')) ctxFilesTxt.textContent = t.ctxFiles;
-        const ctxHelpTxt = document.querySelectorAll('.ctx-menu-item span')[2];
-        if (ctxHelpTxt && !ctxHelpTxt.closest('#ctxLogoutBtn')) ctxHelpTxt.textContent = t.ctxHelp;
+        const ctxFilesTxt = document.querySelector('#ctxFilesBtn span');
+        if (ctxFilesTxt) ctxFilesTxt.textContent = t.ctxFiles;
+        const ctxAccountTxt = document.querySelector('#ctxAccountBtn span');
+        if (ctxAccountTxt) ctxAccountTxt.textContent = t.ctxAccount;
         const ctxLogoutTxt = document.querySelector('#ctxLogoutBtn span');
         if (ctxLogoutTxt) ctxLogoutTxt.textContent = t.ctxLogout;
         
@@ -2368,6 +2375,10 @@ async function loadChatPreview(chatId, title, liElement) {
             if (ud) ud.innerText = t.login;
         }
         window._pepperLang = t;
+        window.applyPepperLang = applyLang;
+        if (logoContainer && isFirstMessage && !isAgentMode) {
+            logoContainer.innerHTML = getNormalLandingMarkup();
+        }
         updateGuestLimitBannerCopy();
     }
 })();
@@ -2380,6 +2391,7 @@ async function loadChatPreview(chatId, title, liElement) {
     const userDisplayName = document.getElementById('userDisplayName');
     const userEmailDisplay = document.getElementById('userEmailDisplay');
     const logoutBtn = document.getElementById('ctxLogoutBtn');
+    const accountBtn = document.getElementById('ctxAccountBtn');
     const settingsBtn = document.getElementById('ctxSettingsMenuBtn');
     const settingsBlock = document.getElementById('ctxSettingsBlock');
     const settingsIcon = document.getElementById('ctxSettingsIcon');
@@ -2397,6 +2409,7 @@ async function loadChatPreview(chatId, title, liElement) {
     function hydrateUser() {
         const jwt = localStorage.getItem('pepperJwt');
         const username = localStorage.getItem('pepperUsername');
+        const displayName = localStorage.getItem('pepperDisplayName');
         const avatarUrl = localStorage.getItem('pepperAvatar');
         
         // If no valid JWT, clear stale user info and show default state
@@ -2409,31 +2422,33 @@ async function loadChatPreview(chatId, title, liElement) {
             }
             // Clean up stale localStorage entries
             localStorage.removeItem('pepperUsername');
+            localStorage.removeItem('pepperDisplayName');
             localStorage.removeItem('pepperAvatar');
             localStorage.removeItem('pepperUserId');
             return;
         }
-        
+
+        const profileName = displayName || (username && username.includes('@') ? username.split('@')[0] : username);
         if (username && username.includes('@')) {
-            if (userDisplayName) userDisplayName.innerText = username.split('@')[0];
+            if (userDisplayName) userDisplayName.innerText = profileName;
             if (userEmailDisplay) userEmailDisplay.innerText = username;
             
             if (avatarUrl && avatarDisplay) {
                 avatarDisplay.innerHTML = `<img src="${avatarUrl}" alt="Avatar">`;
                 avatarDisplay.style.background = 'transparent';
             } else if (avatarDisplay) {
-                const firstLetter = username.charAt(0).toUpperCase();
-                const bgColor = hashToHSL(username);
+                const firstLetter = (profileName || username).charAt(0).toUpperCase();
+                const bgColor = hashToHSL(profileName || username);
                 avatarDisplay.innerHTML = firstLetter;
                 avatarDisplay.style.background = `linear-gradient(135deg, ${bgColor}, #333333)`;
             }
-        } else if (username) {
-            if (userDisplayName) userDisplayName.innerText = username;
+        } else if (profileName) {
+            if (userDisplayName) userDisplayName.innerText = profileName;
             if (userEmailDisplay) userEmailDisplay.innerText = '';
             
             if (avatarDisplay) {
-                const firstLetter = username.charAt(0).toUpperCase();
-                const bgColor = hashToHSL(username);
+                const firstLetter = profileName.charAt(0).toUpperCase();
+                const bgColor = hashToHSL(profileName);
                 avatarDisplay.innerHTML = firstLetter;
                 avatarDisplay.style.background = `linear-gradient(135deg, ${bgColor}, #333333)`;
             }
@@ -2474,9 +2489,18 @@ async function loadChatPreview(chatId, title, liElement) {
             localStorage.removeItem('pepperJwt');
             localStorage.removeItem('pepperUserId');
             localStorage.removeItem('pepperUsername');
+            localStorage.removeItem('pepperDisplayName');
             localStorage.removeItem('pepperAvatar');
             localStorage.removeItem('pepperGuestQuestionCount');
             window.location.href = '/static/login.html';
+        });
+    }
+
+    if (accountBtn) {
+        accountBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            contextMenu.classList.remove('show');
+            window.dispatchEvent(new CustomEvent('open-mof-account-page'));
         });
     }
 
@@ -2532,4 +2556,121 @@ async function loadChatPreview(chatId, title, liElement) {
             });
         });
     }
+})();
+
+// ============ Fullscreen Account Management ============
+(function initAccountPage() {
+    const overlay = document.getElementById('accountPageOverlay');
+    const backBtn = document.getElementById('accountBackMainBtn');
+    const welcomeName = document.getElementById('accountWelcomeName');
+    const topAvatar = document.getElementById('accountTopAvatar');
+    const langBtn = document.getElementById('accountLangSwitch');
+    const langLabel = document.getElementById('accountLangLabel');
+    const themeBtn = document.getElementById('accountThemeToggle');
+    if (!overlay) return;
+
+    const languageLabels = { en: 'EN', zh: '中文', ms: 'BM' };
+    const languageOrder = ['en', 'zh', 'ms'];
+
+    function getProfileName() {
+        const displayName = localStorage.getItem('pepperDisplayName');
+        const username = localStorage.getItem('pepperUsername');
+        if (displayName) return displayName;
+        if (username && username.includes('@')) return username.split('@')[0];
+        return username || 'A';
+    }
+
+    function colorFromText(text) {
+        let hash = 0;
+        for (let i = 0; i < text.length; i++) {
+            hash = text.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        return `hsl(${Math.abs(hash % 360)}, 62%, 48%)`;
+    }
+
+    function renderAvatar(target) {
+        if (!target) return;
+        const avatarUrl = localStorage.getItem('pepperAvatar');
+        const profileName = getProfileName();
+        if (avatarUrl) {
+            target.innerHTML = `<img src="${avatarUrl}" alt="Avatar">`;
+            target.style.background = 'transparent';
+            return;
+        }
+        const firstLetter = profileName.charAt(0).toUpperCase();
+        const bgColor = colorFromText(profileName);
+        target.innerHTML = firstLetter;
+        target.style.background = `linear-gradient(135deg, ${bgColor}, #111111)`;
+    }
+
+    function syncAccountLanguageLabel() {
+        const lang = localStorage.getItem('pepperLang') || 'en';
+        if (langLabel) langLabel.textContent = languageLabels[lang] || 'EN';
+    }
+
+    function syncAccountThemeIcon() {
+        if (!themeBtn) return;
+        const isDark = (localStorage.getItem('pepperTheme') || 'dark') === 'dark';
+        themeBtn.innerHTML = isDark ? '<i class="fa-regular fa-moon"></i>' : '<i class="fa-regular fa-sun"></i>';
+    }
+
+    function openAccountPage() {
+        if (!localStorage.getItem('pepperUserId')) {
+            window.location.href = '/static/login.html';
+            return;
+        }
+        if (welcomeName) welcomeName.textContent = getProfileName();
+        renderAvatar(topAvatar);
+        syncAccountLanguageLabel();
+        syncAccountThemeIcon();
+        overlay.classList.add('show');
+        overlay.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('account-page-open');
+    }
+
+    function closeAccountPage() {
+        overlay.classList.remove('show');
+        overlay.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('account-page-open');
+    }
+
+    window.addEventListener('open-mof-account-page', openAccountPage);
+
+    if (backBtn) backBtn.addEventListener('click', closeAccountPage);
+
+    if (langBtn) {
+        langBtn.addEventListener('click', () => {
+            const currentLang = localStorage.getItem('pepperLang') || 'en';
+            const nextLang = languageOrder[(languageOrder.indexOf(currentLang) + 1) % languageOrder.length] || 'zh';
+            localStorage.setItem('pepperLang', nextLang);
+            syncAccountLanguageLabel();
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.lang === nextLang);
+            });
+            if (window.applyPepperLang) window.applyPepperLang(nextLang);
+        });
+    }
+
+    if (themeBtn) {
+        themeBtn.addEventListener('click', () => {
+            const currentTheme = localStorage.getItem('pepperTheme') || 'dark';
+            const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            localStorage.setItem('pepperTheme', nextTheme);
+            if (nextTheme === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            } else {
+                document.documentElement.removeAttribute('data-theme');
+            }
+            document.querySelectorAll('.theme-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.theme === nextTheme);
+            });
+            syncAccountThemeIcon();
+        });
+    }
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && overlay.classList.contains('show')) {
+            closeAccountPage();
+        }
+    });
 })();

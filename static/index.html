@@ -7,7 +7,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>Pepper Labs AI</title>
+    <title>Ministry of Finance AI</title>
     <!-- Modern Typography: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -81,8 +81,8 @@
                             </div>
                         </div>
 
-                        <button class="ctx-menu-item"><i class="fa-solid fa-file"></i> <span>文件 / Files</span></button>
-                        <button class="ctx-menu-item"><i class="fa-solid fa-circle-question"></i> <span>帮助 / Help</span></button>
+                        <button class="ctx-menu-item" id="ctxFilesBtn"><i class="fa-solid fa-file"></i> <span>文件 / Files</span></button>
+                        <button class="ctx-menu-item" id="ctxAccountBtn"><i class="fa-solid fa-user"></i> <span>账户 / Account</span></button>
                         <div class="ctx-divider"></div>
                         <button class="ctx-menu-item text-danger" id="ctxLogoutBtn"><i class="fa-solid fa-arrow-right-from-bracket"></i> <span>退出登录 / Logout</span></button>
                     </div>
@@ -98,7 +98,7 @@
                     <i class="fa-solid fa-bars"></i>
                 </button>
                 <div class="mobile-logo-container">
-                    <span class="mobile-logo-text">PEPPER LABS</span>
+                    <span class="mobile-logo-text">Ministry of Finance</span>
                 </div>
                 <div style="width: 32px"></div> <!-- Spacer -->
             </header>
@@ -244,6 +244,91 @@
             </div>
         </div>
     </div>
+
+    <!-- Fullscreen Account Management -->
+    <section class="account-page-overlay" id="accountPageOverlay" aria-hidden="true">
+        <div class="account-brand">
+            <img src="/static/MOF_Logo.png" alt="MOF">
+        </div>
+
+        <div class="account-top-actions">
+            <button class="account-lang-switch" id="accountLangSwitch" title="Language">
+                <i class="fa-solid fa-globe"></i>
+                <span id="accountLangLabel">中文</span>
+            </button>
+            <button class="account-top-icon-btn" id="accountThemeToggle" title="Theme">
+                <i class="fa-regular fa-moon"></i>
+            </button>
+            <div class="account-top-avatar" id="accountTopAvatar"></div>
+        </div>
+
+        <aside class="account-left-panel">
+            <div class="account-welcome">
+                <div>欢迎，<span id="accountWelcomeName">A</span>。</div>
+                <div class="account-welcome-muted">管理您的mof账户。</div>
+            </div>
+
+            <nav class="account-nav-list" aria-label="Account sections">
+                <button class="account-nav-item">
+                    <i class="fa-regular fa-user"></i>
+                    <span>账户</span>
+                </button>
+                <button class="account-nav-item">
+                    <i class="fa-solid fa-lock"></i>
+                    <span>安全</span>
+                </button>
+                <button class="account-nav-item">
+                    <i class="fa-solid fa-earth-americas"></i>
+                    <span>会话</span>
+                </button>
+                <button class="account-nav-item active">
+                    <span class="account-nav-bullet"></span>
+                    <i class="fa-solid fa-database"></i>
+                    <span>数据</span>
+                </button>
+            </nav>
+
+            <div class="account-bottom-actions">
+                <button class="account-back-main" id="accountBackMainBtn">
+                    <i class="fa-solid fa-arrow-left"></i>
+                    <span>返回主页面</span>
+                </button>
+            </div>
+        </aside>
+
+        <main class="account-main-panel">
+            <section class="account-data-section">
+                <header class="account-section-header">
+                    <h1>您的数据</h1>
+                    <p>管理您存储在 MOF 的个人数据。</p>
+                </header>
+
+                <div class="account-data-list">
+                    <div class="account-data-row">
+                        <div class="account-data-copy">
+                            <h2>Cookie 设置</h2>
+                            <p>管理您的分析和广告 Cookie 偏好设置。</p>
+                        </div>
+                        <button class="account-row-btn">管理</button>
+                    </div>
+                    <div class="account-data-row">
+                        <div class="account-data-copy">
+                            <h2>下载账户数据</h2>
+                            <p>您可以在下方下载与您的账户关联的所有数据。此数据包括存储在所有 MOF 产品中的一切。</p>
+                        </div>
+                        <button class="account-row-btn">下载</button>
+                    </div>
+                    <div class="account-data-row">
+                        <div class="account-data-copy">
+                            <h2>删除账户</h2>
+                            <p>删除您的账户以及 MOF 平台上的关联数据。如果您在 30 天内再次登录，可以恢复您的账户。</p>
+                        </div>
+                        <button class="account-row-btn account-row-btn-danger">删除</button>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </section>
 
     <!-- Auth Requirement Modal -->
     <div class="modal-overlay" id="authRequiredModal">

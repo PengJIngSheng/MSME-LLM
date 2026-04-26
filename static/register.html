@@ -518,6 +518,7 @@
                                     localStorage.setItem('pepperJwt', data.access_token);
                                     localStorage.setItem('pepperUserId', data.user_id);
                                     localStorage.setItem('pepperUsername', data.username);
+                                    if(data.display_name) localStorage.setItem('pepperDisplayName', data.display_name);
                                     if(data.avatarUrl) localStorage.setItem('pepperAvatar', data.avatarUrl);
                                     window.location.href = '/';
                                 } else {

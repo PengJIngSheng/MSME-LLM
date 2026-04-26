@@ -125,6 +125,21 @@ def create_jwt_token(data: dict) -> str:
 def generate_otp() -> str:
     return f"{secrets.randbelow(900000) + 100000:06d}"
 
+def generate_display_name(username: str = "") -> str:
+    suffix = secrets.token_hex(2).upper()
+    return f"MOF Member {suffix}"
+
+def _user_display_name(user: dict | None) -> str:
+    if not user:
+        return ""
+    display_name = (user.get("display_name") or user.get("name") or "").strip()
+    if display_name:
+        return display_name
+    username = (user.get("username") or "").strip()
+    if "@" in username:
+        return username.split("@")[0]
+    return username or generate_display_name()
+
 def _client_ip(request: Request) -> str:
     forwarded_for = request.headers.get("x-forwarded-for")
     if forwarded_for:
@@ -333,6 +348,7 @@ def _store_pending_otp(
     pending_otps_col.insert_one({
         "_id": pending_id,
         "username": username,
+        "display_name": generate_display_name(username),
         "password": password_hash,
         "otp": get_password_hash(otp_code),
         "created_at": now,
@@ -418,6 +434,7 @@ async def verify_otp(req: VerifyOTPRequest):
                 {"_id": user_id},
                 {"$set": {
                     "username": username,
+                    "display_name": existing.get("display_name") or pending.get("display_name") or generate_display_name(username),
                     "password": pending["password"],
                     "status": "active",
                     "auth_provider": "local",
@@ -429,6 +446,7 @@ async def verify_otp(req: VerifyOTPRequest):
             users_col.insert_one({
                 "_id": user_id,
                 "username": username,
+                "display_name": pending.get("display_name") or generate_display_name(username),
                 "password": pending["password"],
                 "status": "active",
                 "auth_provider": "local",
@@ -438,10 +456,12 @@ async def verify_otp(req: VerifyOTPRequest):
 
         pending_otps_col.delete_one({"_id": req.user_id})
         token = create_jwt_token({"sub": str(user_id), "username": username})
+        verified_user = users_col.find_one({"_id": user_id})
 
         return {
             "status": "success",
             "username": username,
+            "display_name": _user_display_name(verified_user),
             "user_id": str(user_id),
             "access_token": token
         }
@@ -471,6 +491,7 @@ async def verify_otp(req: VerifyOTPRequest):
     return {
         "status": "success", 
         "username": user.get("username"), 
+        "display_name": _user_display_name(user),
         "user_id": req.user_id,
         "access_token": token
     }
@@ -537,11 +558,17 @@ async def login(req: AuthRequest):
             "user_id": str(user["_id"])
         })
         
+    display_name = _user_display_name(user)
+    if not user.get("display_name"):
+        users_col.update_one({"_id": user["_id"]}, {"$set": {"display_name": display_name}})
+        user["display_name"] = display_name
+
     token = create_jwt_token({"sub": str(user["_id"]), "username": user.get("username")})
         
     return {
         "status": "success", 
         "username": req.username, 
+        "display_name": display_name,
         "user_id": str(user["_id"]),
         "access_token": token
     }
@@ -579,6 +606,7 @@ async def google_auth(req: OAuthRequest):
         users_col.insert_one({
             "_id": user_id,
             "username": email,
+            "display_name": name,
             "status": "active",
             "auth_provider": "google",
             "auth_provider_id": google_sub,
@@ -589,6 +617,7 @@ async def google_auth(req: OAuthRequest):
         return {
             "status": "success", 
             "username": email, 
+            "display_name": name,
             "user_id": user_id,
             "avatarUrl": picture,
             "access_token": token
@@ -601,6 +630,9 @@ async def google_auth(req: OAuthRequest):
         if picture and user.get("picture") != picture:
             updates.update({"picture": picture})
             user["picture"] = picture
+        if name and user.get("display_name") != name:
+            updates.update({"display_name": name})
+            user["display_name"] = name
             
         if updates:
             users_col.update_one({"_id": user["_id"]}, {"$set": updates})
@@ -609,6 +641,7 @@ async def google_auth(req: OAuthRequest):
         return {
             "status": "success", 
             "username": user.get("username"), 
+            "display_name": _user_display_name(user),
             "user_id": str(user["_id"]),
             "avatarUrl": user.get("picture"),
             "access_token": token
