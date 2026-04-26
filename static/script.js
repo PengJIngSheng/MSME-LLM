@@ -18,6 +18,7 @@ let currentAbortController = null;
 let isPaused = false;
 let pausedMsgIndex = null;
 let guestLoginPromptForced = false;
+let lastGuestPromptPulseAt = 0;
 
 const GUEST_QUESTION_LIMIT = 2;
 const agentModeBtn = document.getElementById('agentModeBtn');
@@ -28,6 +29,18 @@ const guestLimitRegisterBtn = document.getElementById('guestLimitRegisterBtn');
 const appContainer = document.querySelector('.app-container');
 const inputWrapper = document.querySelector('.input-wrapper');
 const liquidGlassInput = document.querySelector('.liquid-glass-input');
+const COMPOSER_MAX_HEIGHT = 168;
+
+function resizeComposer() {
+    if (!userInput) return;
+    userInput.style.height = 'auto';
+    const nextHeight = Math.min(userInput.scrollHeight, COMPOSER_MAX_HEIGHT);
+    userInput.style.height = `${nextHeight}px`;
+    userInput.style.overflowY = userInput.scrollHeight > COMPOSER_MAX_HEIGHT ? 'auto' : 'hidden';
+    if (liquidGlassInput) {
+        liquidGlassInput.classList.toggle('composer-expanded', nextHeight > 34);
+    }
+}
 
 function getGuestQuestionCount() {
     return Number(localStorage.getItem('pepperGuestQuestionCount') || '0');
@@ -85,12 +98,25 @@ function updateGuestInputUi() {
 function pulseGuestLoginPrompt() {
     if (currentUserId || !guestLimitBanner) return;
     showGuestLoginPrompt(true);
+    const now = Date.now();
+    if (now - lastGuestPromptPulseAt < 220) return;
+    lastGuestPromptPulseAt = now;
+
+    if (liquidGlassInput) {
+        liquidGlassInput.classList.remove('lock-tap');
+        void liquidGlassInput.offsetWidth;
+        liquidGlassInput.classList.add('lock-tap');
+        liquidGlassInput.addEventListener('animationend', () => {
+            liquidGlassInput.classList.remove('lock-tap');
+        }, { once: true });
+    }
+
     guestLimitBanner.classList.remove('attention');
     void guestLimitBanner.offsetWidth;
     guestLimitBanner.classList.add('attention');
-    setTimeout(() => {
+    guestLimitBanner.addEventListener('animationend', () => {
         guestLimitBanner.classList.remove('attention');
-    }, 1200);
+    }, { once: true });
 }
 
 function showGuestLoginPrompt(force = false) {
@@ -294,7 +320,10 @@ async function loadHistory() {
 async function loadChat(chatId) {
     if (isGenerating) return;
     try {
-        const res = await fetch(`/api/history/${chatId}`);
+        const historyUrl = currentUserId
+            ? `/api/history/${chatId}?user_id=${encodeURIComponent(currentUserId)}`
+            : `/api/history/${chatId}`;
+        const res = await fetch(historyUrl);
         const data = await res.json();
         if(data.chat) {
             currentChatId = chatId;
@@ -407,9 +436,7 @@ if (liquidGlassInput) {
             pulseGuestLoginPrompt();
         }
     };
-    liquidGlassInput.addEventListener('mousedown', lockedGuestAgentHandler, true);
-    liquidGlassInput.addEventListener('click', lockedGuestAgentHandler, true);
-    liquidGlassInput.addEventListener('touchstart', lockedGuestAgentHandler, true);
+    liquidGlassInput.addEventListener('pointerdown', lockedGuestAgentHandler, true);
     liquidGlassInput.addEventListener('focusin', lockedGuestAgentHandler, true);
 }
 
@@ -1139,7 +1166,7 @@ async function handleSend(isResume = false, resumeIndex = null) {
         chatMessages.push(newMsg);
         appendMessage(text, 'user', newMsg, chatMessages.length - 1);
         userInput.value = '';
-        userInput.style.height = 'auto';
+        resizeComposer();
 
         if (!currentUserId && !isAgentMode) {
             const guestCount = incrementGuestQuestionCount();
@@ -1784,9 +1811,14 @@ function closePdfPreview() {
 
 // ============ Event Listeners ============
 submitBtn.addEventListener('click', () => handleSend(false, null));
+userInput.addEventListener('input', resizeComposer);
 userInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); handleSend(false, null); }
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+        e.preventDefault();
+        handleSend(false, null);
+    }
 });
+resizeComposer();
 
 // ============ Auth ============
 // Auth logic moved to index.html and modern scripts.
@@ -1822,57 +1854,82 @@ const previewMessages = document.getElementById('previewMessages');
 let previewHoverTimer = null;
 let currentPreviewChatId = null;
 
-// Open Search Modal
-openSearchModalBtn.addEventListener('click', async () => {
-    searchHistoryModal.classList.add('show');
-    historySearchInput.value = '';
-    
-    // Reset preview
+function resetSearchPreview(message = 'Select a conversation to preview') {
+    clearTimeout(previewHoverTimer);
+    currentPreviewChatId = null;
+    previewEmptyState.textContent = message;
     previewEmptyState.classList.remove('hidden');
     previewContent.classList.add('hidden');
-    currentPreviewChatId = null;
+    previewTitle.textContent = '';
+    previewMessages.innerHTML = '';
     document.querySelectorAll('.history-search-list .history-item').forEach(el => el.classList.remove('active-preview'));
+}
+
+function setSearchPlaceholder(message) {
+    modalHistoryList.innerHTML = `<li class="search-empty-state">${message}</li>`;
+}
+
+function getHistoryGroupName(date) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const chatDate = new Date(date);
+    chatDate.setHours(0, 0, 0, 0);
+
+    if (chatDate.getTime() === today.getTime()) return 'Today';
+    if (chatDate.getTime() === yesterday.getTime()) return 'Yesterday';
+
+    const diffDays = Math.ceil(Math.abs(today - chatDate) / (1000 * 60 * 60 * 24));
+    if (diffDays <= 7) return 'Previous 7 Days';
+    if (diffDays <= 30) return 'Previous 30 Days';
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+// Open Search Modal
+openSearchModalBtn.addEventListener('click', async () => {
+    currentUserId = localStorage.getItem('pepperUserId') || null;
+    searchHistoryModal.classList.add('show');
+    historySearchInput.value = '';
+    resetSearchPreview();
+
+    if (!currentUserId) {
+        historySearchInput.disabled = true;
+        historySearchInput.placeholder = 'Login to search your conversations';
+        setSearchPlaceholder('Please log in to view conversation history.');
+        resetSearchPreview('Your history is private. Log in to search it.');
+        return;
+    }
+
+    historySearchInput.disabled = false;
+    historySearchInput.placeholder = 'Search conversations';
+    setSearchPlaceholder('Loading conversations...');
 
     // Fetch History
     try {
-        const fetchUrl = currentUserId ? `/api/history?user_id=${currentUserId}` : '/api/history';
+        const fetchUrl = `/api/history?user_id=${encodeURIComponent(currentUserId)}`;
         const res = await fetch(fetchUrl);
         const data = await res.json();
-                if (data.chats) {
+        if (res.ok && data.chats) {
             const groups = {};
-            const today = new Date();
-            today.setHours(0,0,0,0);
-            const yesterday = new Date(today);
-            yesterday.setDate(yesterday.getDate() - 1);
-            
+
             data.chats.forEach(chat => {
                 const date = chat.updated_at ? new Date(chat.updated_at) : new Date();
-                const chatDate = new Date(date);
-                chatDate.setHours(0,0,0,0);
-                
-                let groupName = "";
-                if (chatDate.getTime() === today.getTime()) groupName = "Today";
-                else if (chatDate.getTime() === yesterday.getTime()) groupName = "Yesterday";
-                else {
-                    const diffTime = Math.abs(today - chatDate);
-                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                    if (diffDays <= 7) groupName = "Previous 7 Days";
-                    else if (diffDays <= 30) groupName = "Previous 30 Days";
-                    else {
-                        const year = date.getFullYear();
-                        const month = String(date.getMonth() + 1).padStart(2, '0');
-                        groupName = `${year}-${month}`;
-                    }
-                }
+                const groupName = getHistoryGroupName(date);
                 if (!groups[groupName]) groups[groupName] = [];
-                groups[groupName].push({ id: chat._id, title: chat.title || 'New Chat' });
+                groups[groupName].push({
+                    id: chat._id,
+                    title: chat.title || 'New Chat',
+                    updatedAt: date,
+                    agentMode: !!chat.agent_mode
+                });
             });
             renderSearchModalHistory(groups);
         } else {
-            modalHistoryList.innerHTML = `<li class="history-placeholder">Failed to load history</li>`;
+            setSearchPlaceholder('Failed to load history.');
         }
     } catch (e) {
-        modalHistoryList.innerHTML = `<li class="history-placeholder">Failed connecting to server</li>`;
+        setSearchPlaceholder('Failed connecting to server.');
     }
     
     setTimeout(() => historySearchInput.focus(), 100);
@@ -1900,12 +1957,25 @@ historySearchInput.addEventListener('input', (e) => {
         const text = item.querySelector('.history-item-text').innerText.toLowerCase();
         item.style.display = text.includes(q) ? 'flex' : 'none';
     });
+
+    modalHistoryList.querySelectorAll('.history-group-title').forEach(group => {
+        let sibling = group.nextElementSibling;
+        let hasVisibleItem = false;
+        while (sibling && !sibling.classList.contains('history-group-title')) {
+            if (sibling.classList.contains('history-item') && sibling.style.display !== 'none') {
+                hasVisibleItem = true;
+                break;
+            }
+            sibling = sibling.nextElementSibling;
+        }
+        group.style.display = hasVisibleItem ? 'block' : 'none';
+    });
 });
 
 function renderSearchModalHistory(groups) {
     modalHistoryList.innerHTML = '';
     if (Object.keys(groups).length === 0) {
-        modalHistoryList.innerHTML = `<li class="history-placeholder"><span class="nav-text">No conversation history yet.</span></li>`;
+        setSearchPlaceholder('No conversation history yet.');
         return;
     }
     
@@ -1920,13 +1990,23 @@ function renderSearchModalHistory(groups) {
             const li = document.createElement('li');
             li.className = 'history-item';
             if (entry.id === currentChatId) li.classList.add('active');
-            
+
+            const timeLabel = entry.updatedAt.toLocaleString([], {
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
             li.innerHTML = `
-                <div class="history-item-text" title="${entry.title}">${entry.title}</div>
+                <div class="history-item-main">
+                    <div class="history-item-text"></div>
+                    <div class="history-item-meta">${entry.agentMode ? 'Agent' : 'Chat'} · ${timeLabel}</div>
+                </div>
                 <div class="history-item-actions">
-                    <button class="modal-action-btn open-btn" title="Open"><i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 0.8rem;"></i></button>
-                    <button class="modal-action-btn edit-btn" title="Edit"><i class="fa-solid fa-pencil" style="font-size: 0.8rem;"></i></button>
-                    <button class="modal-action-btn delete-btn" title="Delete"><i class="fa-regular fa-trash-can" style="font-size: 0.8rem;"></i></button>
+                    <button class="modal-action-btn open-btn" title="Open"><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
+                    <button class="modal-action-btn edit-btn" title="Edit"><i class="fa-solid fa-pencil"></i></button>
+                    <button class="modal-action-btn delete-btn" title="Delete"><i class="fa-regular fa-trash-can"></i></button>
                 </div>
             `;
             
@@ -1934,6 +2014,8 @@ function renderSearchModalHistory(groups) {
             const editBtn = li.querySelector('.edit-btn');
             const deleteBtn = li.querySelector('.delete-btn');
             const textDiv = li.querySelector('.history-item-text');
+            textDiv.innerText = entry.title;
+            textDiv.title = entry.title;
             
             // Hover logic with 250ms debounce
             li.addEventListener('mouseenter', () => {
@@ -2003,6 +2085,7 @@ function renderSearchModalHistory(groups) {
 }
 
 async function loadChatPreview(chatId, title, liElement) {
+    if (!currentUserId) return;
     if (currentPreviewChatId === chatId) return; // already viewing
     
     // highlight actively previewed item
@@ -2013,44 +2096,49 @@ async function loadChatPreview(chatId, title, liElement) {
     previewEmptyState.classList.add('hidden');
     previewContent.classList.remove('hidden');
     previewTitle.innerText = title;
-    previewMessages.innerHTML = `<div style="color:var(--primary-dim);text-align:center;margin-top:20px;">Fetching logs...</div>`;
+    previewMessages.innerHTML = `<div class="search-status">Fetching logs...</div>`;
     
     try {
-        const res = await fetch(`/api/history/${chatId}`);
+        const res = await fetch(`/api/history/${chatId}?user_id=${encodeURIComponent(currentUserId)}`);
         const data = await res.json();
         if (res.ok && data.chat) {
             const msgs = data.chat.messages || [];
             previewMessages.innerHTML = '';
             
             if (msgs.length === 0) {
-                previewMessages.innerHTML = `<div style="color:var(--primary-dim);">This chat is empty.</div>`;
+                previewMessages.innerHTML = `<div class="search-status">This chat is empty.</div>`;
                 return;
             }
             
             msgs.forEach(m => {
                 const wrapper = document.createElement('div');
-                wrapper.className = `msg-wrapper ${m.role}`;
+                wrapper.className = `preview-msg ${m.role}`;
                 
+                const roleDiv = document.createElement('div');
+                roleDiv.className = 'preview-msg-role';
+                roleDiv.innerText = m.role === 'assistant' ? 'MOF' : 'You';
+
                 const contentDiv = document.createElement('div');
-                contentDiv.className = `msg-content ${m.role}`;
+                contentDiv.className = 'preview-msg-body';
                 
                 if (m.role === 'assistant') {
                     // Strip huge <think> blocks for preview clarity
                     let content = m.content;
-                    content = content.replace(/<think>[\s\S]*?<\/think>/g, '<div style="color:var(--primary-dim); font-size: 0.8rem; font-style: italic; margin-bottom: 8px;">[Thought process completed]</div>');
+                    content = content.replace(/<think>[\s\S]*?<\/think>/g, '<div class="preview-think-note">Thought process completed</div>');
                     contentDiv.innerHTML = marked.parse(content);
                 } else {
                     contentDiv.innerText = m.content;
                 }
                 
+                wrapper.appendChild(roleDiv);
                 wrapper.appendChild(contentDiv);
                 previewMessages.appendChild(wrapper);
             });
         } else {
-            previewMessages.innerHTML = `<div style="color:var(--primary-dim);">Failed to parse chat logs.</div>`;
+            previewMessages.innerHTML = `<div class="search-status">Failed to parse chat logs.</div>`;
         }
     } catch(e) {
-        previewMessages.innerHTML = `<div style="color:var(--primary-dim);">Failed to fetch preview.</div>`;
+        previewMessages.innerHTML = `<div class="search-status">Failed to fetch preview.</div>`;
     }
 }
 

@@ -171,19 +171,17 @@
                         <!-- Attachments preview bar -->
                         <div id="attachmentsPreview" class="attachments-preview"></div>
 
-                        <div class="input-top-row">
-                            <input type="text" id="userInput" placeholder="What do you want to know?"
-                                autocomplete="off" />
-                        </div>
-                        <div class="input-bottom-row">
+                        <div class="input-top-row composer-main-row">
                             <div class="toggles-container">
-                                <button class="toggle-switch" id="thinkToggle" title="Toggle Think Mode">
-                                    <i class="fa-solid fa-brain" style="color:#d8b4e2;"></i> <span>Think Mode</span>
+                                <button class="toggle-switch" id="thinkToggle" title="Think Mode" aria-label="Think Mode">
+                                    <i class="fa-solid fa-brain"></i>
                                 </button>
-                                <button class="toggle-switch" id="webToggle" title="Toggle Search Mode">
-                                    <i class="fa-solid fa-globe" style="color:#72bcd4;"></i> <span>Search Mode</span>
+                                <button class="toggle-switch" id="webToggle" title="Search Mode" aria-label="Search Mode">
+                                    <i class="fa-solid fa-globe"></i>
                                 </button>
                             </div>
+                            <textarea id="userInput" placeholder="What do you want to know?"
+                                autocomplete="off" rows="1"></textarea>
                             <!-- Connectors Dropdown (Agent Mode Only) -->
                             <div class="connectors-container" id="connectorsContainer" style="display: none;">
                                 <button class="connector-trigger" id="connectorBtn" title="Google Workspace Connectors">

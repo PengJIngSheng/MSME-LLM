@@ -14,6 +14,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from pymongo import MongoClient
+from typing import Optional
 import bcrypt
 import jwt
 
@@ -44,6 +45,7 @@ auth_router = APIRouter()
 class AuthRequest(BaseModel):
     username: str
     password: str
+    language: Optional[str] = "en"
 
 class VerifyOTPRequest(BaseModel):
     user_id: str
@@ -139,72 +141,127 @@ def _device_info(request: Request) -> str:
 def _current_time_for_email() -> str:
     return datetime.now().strftime("%Y-%m-%d %H:%M")
 
-def build_otp_email_html(otp_code: str, current_time: str, device_info: str, ip_address: str) -> str:
+OTP_EMAIL_COPY = {
+    "zh": {
+        "subject": "邮箱注册验证码",
+        "title": "邮箱注册验证码",
+        "intro": "我们注意到您于 {current_time} 使用设备 {device_info} 发起 MOF 邮箱注册请求，IP 地址为 {ip_address}。",
+        "validity": "此验证码为邮箱注册验证码。验证码在 10 分钟内有效，请勿泄露。如为您本人操作，则无需其他操作。",
+        "support": "如果这不是您本人发起的请求，您可以通过 support@mof.gov.my 联系客服团队。",
+        "button": "查看官网",
+        "uid": "UID",
+        "footer": "Ministry of Finance 安全通知。请勿回复此邮件。",
+        "plain_code": "验证码",
+        "plain_validity": "此验证码在 10 分钟内有效。",
+    },
+    "en": {
+        "subject": "Email registration verification code",
+        "title": "Email registration verification code",
+        "intro": "We noticed an MOF email registration request at {current_time} from this device: {device_info}. The request IP was {ip_address}.",
+        "validity": "This code verifies your email registration. It is valid for 10 minutes. Please do not share it with anyone. If this was you, no further action is required.",
+        "support": "If this was not you, contact our support team at support@mof.gov.my.",
+        "button": "View Official Website",
+        "uid": "UID",
+        "footer": "Ministry of Finance security notification. Please do not reply to this email.",
+        "plain_code": "Verification code",
+        "plain_validity": "This code is valid for 10 minutes.",
+    },
+    "ms": {
+        "subject": "Kod pengesahan pendaftaran e-mel",
+        "title": "Kod pengesahan pendaftaran e-mel",
+        "intro": "Kami mengesan permintaan pendaftaran e-mel MOF pada {current_time} daripada peranti ini: {device_info}. IP permintaan ialah {ip_address}.",
+        "validity": "Kod ini digunakan untuk mengesahkan pendaftaran e-mel anda. Kod sah selama 10 minit. Jangan kongsikan kod ini dengan sesiapa. Jika ini anda, tiada tindakan lanjut diperlukan.",
+        "support": "Jika ini bukan anda, hubungi pasukan sokongan kami di support@mof.gov.my.",
+        "button": "Lihat Laman Rasmi",
+        "uid": "UID",
+        "footer": "Notifikasi keselamatan Ministry of Finance. Jangan balas e-mel ini.",
+        "plain_code": "Kod pengesahan",
+        "plain_validity": "Kod ini sah selama 10 minit.",
+    },
+}
+
+def _normalize_language(language: Optional[str]) -> str:
+    lang = (language or "en").strip().lower()
+    return lang if lang in OTP_EMAIL_COPY else "en"
+
+def build_otp_email_html(
+    otp_code: str,
+    current_time: str,
+    device_info: str,
+    ip_address: str,
+    language: Optional[str] = "en",
+) -> str:
+    lang = _normalize_language(language)
+    copy = OTP_EMAIL_COPY[lang]
     safe_otp = html.escape(otp_code)
     safe_time = html.escape(current_time)
     safe_device = html.escape(device_info)
     safe_ip = html.escape(ip_address)
+    safe_intro = html.escape(copy["intro"].format(
+        current_time=current_time,
+        device_info=device_info,
+        ip_address=ip_address,
+    ))
+    safe_validity = html.escape(copy["validity"])
+    safe_support = html.escape(copy["support"])
+    safe_title = html.escape(copy["title"])
+    safe_button = html.escape(copy["button"])
+    safe_uid = html.escape(copy["uid"])
+    safe_footer = html.escape(copy["footer"])
     safe_site_url = html.escape(PUBLIC_SITE_URL, quote=True)
+    safe_email_lang = "zh-CN" if lang == "zh" else ("ms" if lang == "ms" else "en")
+    safe_request_id = html.escape(hashlib.sha256(f"{safe_otp}:{safe_time}:{safe_ip}".encode("utf-8")).hexdigest()[:16])
 
     return f"""<!doctype html>
-<html lang="zh-CN">
+<html lang="{safe_email_lang}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>邮箱注册验证码</title>
+    <title>{safe_title}</title>
 </head>
-<body style="margin:0;padding:0;background:#f4f5f8;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#111111;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f5f8;margin:0;padding:32px 16px;">
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,'Helvetica Neue',Helvetica,sans-serif;color:#000000;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f4f4;margin:0;padding:46px 12px;">
         <tr>
             <td align="center">
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;max-width:640px;background:#ffffff;border:1px solid #eceef2;border-radius:12px;overflow:hidden;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;max-width:760px;background:#ffffff;border-radius:0;border-collapse:collapse;">
                     <tr>
-                        <td style="padding:36px 42px 18px;">
-                            <img src="cid:mof-logo" alt="MOF Logo" width="118" style="display:block;width:118px;height:auto;filter:grayscale(100%);-webkit-filter:grayscale(100%);">
+                        <td style="padding:54px 56px 0;">
+                            <img src="cid:mof-logo" alt="MOF" width="42" style="display:block;width:42px;height:auto;filter:grayscale(100%);-webkit-filter:grayscale(100%);">
                         </td>
                     </tr>
                     <tr>
-                        <td style="padding:10px 42px 8px;">
-                            <h1 style="margin:0;font-size:28px;line-height:1.25;font-weight:700;letter-spacing:0;color:#050505;">邮箱注册验证码</h1>
-                            <p style="margin:14px 0 0;font-size:15px;line-height:1.7;color:#555b66;">请使用下方 6 位数字验证码完成邮箱注册验证。</p>
+                        <td style="padding:54px 56px 0;">
+                            <h1 style="margin:0;font-size:30px;line-height:1.22;font-weight:700;letter-spacing:0;color:#000000;">{safe_title}</h1>
                         </td>
                     </tr>
                     <tr>
-                        <td style="padding:18px 42px 8px;">
-                            <div style="display:inline-block;padding:18px 24px;border-radius:12px;background:#f6f7f9;border:1px solid #e9ebef;">
-                                <div style="font-size:40px;line-height:1;font-weight:800;letter-spacing:8px;color:#000000;font-variant-numeric:tabular-nums;">{safe_otp}</div>
-                            </div>
-                            <p style="margin:16px 0 0;font-size:14px;line-height:1.7;color:#333333;">此验证码在 <strong>10 分钟</strong> 内有效。请勿向任何人泄露。</p>
+                        <td style="padding:48px 56px 0;">
+                            <div style="font-size:44px;line-height:1;font-weight:700;letter-spacing:1px;color:#000000;font-variant-numeric:tabular-nums;">{safe_otp}</div>
                         </td>
                     </tr>
                     <tr>
-                        <td style="padding:20px 42px 8px;">
-                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fbfbfc;border:1px solid #eceef2;border-radius:8px;">
-                                <tr>
-                                    <td style="padding:16px 18px;border-bottom:1px solid #eceef2;font-size:13px;color:#6b7280;width:110px;">登录时间</td>
-                                    <td style="padding:16px 18px;border-bottom:1px solid #eceef2;font-size:13px;color:#111111;">{safe_time}</td>
-                                </tr>
-                                <tr>
-                                    <td style="padding:16px 18px;border-bottom:1px solid #eceef2;font-size:13px;color:#6b7280;width:110px;">使用设备</td>
-                                    <td style="padding:16px 18px;border-bottom:1px solid #eceef2;font-size:13px;color:#111111;">{safe_device}</td>
-                                </tr>
-                                <tr>
-                                    <td style="padding:16px 18px;font-size:13px;color:#6b7280;width:110px;">IP 地址</td>
-                                    <td style="padding:16px 18px;font-size:13px;color:#111111;">{safe_ip}</td>
-                                </tr>
-                            </table>
+                        <td style="padding:56px 56px 0;">
+                            <p style="margin:0;font-size:16px;line-height:1.85;color:#111111;">{safe_intro}</p>
+                            <p style="margin:34px 0 0;font-size:16px;line-height:1.85;color:#111111;">{safe_validity}</p>
+                            <p style="margin:34px 0 0;font-size:16px;line-height:1.85;color:#111111;">{safe_support}</p>
                         </td>
                     </tr>
                     <tr>
-                        <td style="padding:24px 42px 38px;">
-                            <p style="margin:0 0 22px;font-size:14px;line-height:1.7;color:#555b66;">如果这不是您本人发起的注册请求，可以忽略此邮件。</p>
-                            <a href="{safe_site_url}" style="display:inline-block;background:#111111;color:#ffffff;text-decoration:none;border-radius:12px;padding:13px 22px;font-size:14px;font-weight:700;">查看官网</a>
+                        <td style="padding:52px 56px 0;">
+                            <a href="{safe_site_url}" style="display:inline-block;background:#000000;color:#ffffff;text-decoration:none;border-radius:28px;padding:17px 34px;font-size:16px;line-height:1;font-weight:700;">{safe_button}</a>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:82px 56px 54px;">
+                            <p style="margin:0;font-size:15px;line-height:1.6;color:#111111;">{safe_uid}: {safe_request_id}</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="border-top:1px solid #000000;padding:34px 56px 38px;">
+                            <p style="margin:0;font-size:12px;line-height:1.7;color:#666666;">{safe_footer}</p>
                         </td>
                     </tr>
                 </table>
-                <div style="max-width:640px;margin:18px auto 0;text-align:center;font-size:12px;line-height:1.6;color:#8a8f98;">
-                    Ministry of Finance 验证邮件。请勿回复此邮件。
-                </div>
             </td>
         </tr>
     </table>
@@ -217,27 +274,28 @@ def send_otp_email(
     current_time: str,
     device_info: str,
     ip_address: str,
+    language: Optional[str] = "en",
 ) -> None:
     if not SMTP_APP_PASSWORD:
         raise RuntimeError("SMTP_APP_PASSWORD is not configured")
 
+    lang = _normalize_language(language)
+    copy = OTP_EMAIL_COPY[lang]
     msg = MIMEMultipart("related")
-    msg["Subject"] = "邮箱注册验证码"
+    msg["Subject"] = copy["subject"]
     msg["From"] = formataddr((SMTP_FROM_NAME, SMTP_USERNAME))
     msg["To"] = to_email
 
     alternative = MIMEMultipart("alternative")
     text_body = (
-        f"邮箱注册验证码: {otp_code}\n"
-        f"此验证码在 10 分钟内有效。\n\n"
-        f"登录时间: {current_time}\n"
-        f"使用设备: {device_info}\n"
-        f"IP 地址: {ip_address}\n\n"
-        f"查看官网: {PUBLIC_SITE_URL}"
+        f"{copy['plain_code']}: {otp_code}\n"
+        f"{copy['plain_validity']}\n\n"
+        f"{copy['intro'].format(current_time=current_time, device_info=device_info, ip_address=ip_address)}\n\n"
+        f"{copy['button']}: {PUBLIC_SITE_URL}"
     )
     alternative.attach(MIMEText(text_body, "plain", "utf-8"))
     alternative.attach(MIMEText(
-        build_otp_email_html(otp_code, current_time, device_info, ip_address),
+        build_otp_email_html(otp_code, current_time, device_info, ip_address, lang),
         "html",
         "utf-8",
     ))
@@ -267,6 +325,7 @@ def _store_pending_otp(
     current_time: str,
     device_info: str,
     ip_address: str,
+    language: Optional[str] = "en",
 ) -> None:
     _ensure_pending_otp_indexes()
     now = datetime.utcnow()
@@ -281,6 +340,7 @@ def _store_pending_otp(
         "current_time": current_time,
         "device_info": device_info,
         "ip_address": ip_address,
+        "language": _normalize_language(language),
     })
 
 def _ensure_pending_otp_indexes() -> None:
@@ -296,6 +356,7 @@ def _ensure_pending_otp_indexes() -> None:
 @auth_router.post("/api/register")
 async def register(req: AuthRequest, request: Request):
     username = req.username.strip()
+    language = _normalize_language(req.language)
     if not username or not req.password:
         raise HTTPException(status_code=400, detail="Username and password required")
 
@@ -320,10 +381,11 @@ async def register(req: AuthRequest, request: Request):
         current_time=current_time,
         device_info=device_info,
         ip_address=ip_address,
+        language=language,
     )
 
     try:
-        send_otp_email(username, otp_code, current_time, device_info, ip_address)
+        send_otp_email(username, otp_code, current_time, device_info, ip_address, language)
     except Exception as exc:
         pending_otps_col.delete_one({"_id": pending_id})
         raise HTTPException(status_code=502, detail=f"Failed to send OTP email: {exc}")
@@ -429,6 +491,7 @@ async def resend_otp(req: ResendOTPRequest, request: Request):
     current_time = _current_time_for_email()
     device_info = _device_info(request)
     ip_address = _client_ip(request)
+    language = _normalize_language(pending.get("language"))
 
     pending_otps_col.update_one(
         {"_id": req.user_id},
@@ -439,11 +502,12 @@ async def resend_otp(req: ResendOTPRequest, request: Request):
             "current_time": current_time,
             "device_info": device_info,
             "ip_address": ip_address,
+            "language": language,
         }}
     )
 
     try:
-        send_otp_email(username, otp_code, current_time, device_info, ip_address)
+        send_otp_email(username, otp_code, current_time, device_info, ip_address, language)
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Failed to send OTP email: {exc}")
 

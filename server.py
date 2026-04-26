@@ -444,7 +444,9 @@ async def get_uploaded_file(filename: str):
 @app.get("/api/history")
 async def get_history(user_id: Optional[str] = None):
     try:
-        q = {"user_id": user_id} if user_id else {}
+        if not user_id:
+            return JSONResponse(content={"chats": []})
+        q = {"user_id": user_id}
         chats = list(chats_col.find(q, {"messages": 0}).sort("updated_at", -1))
         for c in chats:
             c["_id"] = str(c["_id"])
@@ -455,10 +457,10 @@ async def get_history(user_id: Optional[str] = None):
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/api/history/{chat_id}")
-async def get_chat(chat_id: str):
+async def get_chat(chat_id: str, user_id: Optional[str] = None):
     try:
-        
-        chat = chats_col.find_one({"_id": chat_id})
+        q = {"_id": chat_id, "user_id": user_id} if user_id else {"_id": chat_id, "user_id": None}
+        chat = chats_col.find_one(q)
         if chat:
             chat["_id"] = str(chat["_id"])
             if isinstance(chat.get("updated_at"), datetime):
