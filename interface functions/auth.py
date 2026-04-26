@@ -63,6 +63,12 @@ class OAuthRequest(BaseModel):
 class PreferencesRequest(BaseModel):
     language: Optional[str] = None
     theme: Optional[str] = None
+
+class UpdateProfileRequest(BaseModel):
+    display_name: str
+
+class UpdateEmailRequest(BaseModel):
+    new_email: str
     
 # ─── Utility Functions ─────────────────────────────────
 def _bcrypt_prehash(password: str) -> bytes:
@@ -687,7 +693,7 @@ async def google_auth(req: OAuthRequest):
         if picture and user.get("picture") != picture:
             updates.update({"picture": picture})
             user["picture"] = picture
-        if name and user.get("display_name") != name:
+        if not user.get("display_name") and name:
             updates.update({"display_name": name})
             user["display_name"] = name
         if not user.get("preferences"):
@@ -747,6 +753,92 @@ async def delete_account(request: Request):
     pending_otps_col.delete_many({"username": user.get("username")})
     users_col.delete_one({"_id": user_id})
     return {"status": "deleted"}
+
+@auth_router.put("/api/account/profile")
+async def update_profile(req: UpdateProfileRequest, request: Request):
+    user = _auth_user(request)
+    new_name = req.display_name.strip()
+    if not new_name:
+        raise HTTPException(status_code=400, detail="Display name cannot be empty")
+    if len(new_name) > 80:
+        raise HTTPException(status_code=400, detail="Display name too long (max 80 chars)")
+    users_col.update_one(
+        {"_id": user["_id"]},
+        {"$set": {"display_name": new_name, "updated_at": datetime.utcnow()}}
+    )
+    return {"status": "success", "display_name": new_name}
+
+@auth_router.put("/api/account/email")
+async def update_email(req: UpdateEmailRequest, request: Request):
+    user = _auth_user(request)
+    new_email = req.new_email.strip().lower()
+    if "@" not in new_email or "." not in new_email.split("@")[-1]:
+        raise HTTPException(status_code=400, detail="Invalid email address")
+    conflict = users_col.find_one({"username": new_email})
+    if conflict and str(conflict["_id"]) != str(user["_id"]):
+        raise HTTPException(status_code=400, detail="Email already in use by another account")
+    users_col.update_one(
+        {"_id": user["_id"]},
+        {"$set": {"username": new_email, "updated_at": datetime.utcnow()}}
+    )
+    return {"status": "success", "username": new_email}
+
+@auth_router.post("/api/account/download-data")
+async def download_account_data(request: Request):
+    user = _auth_user(request)
+    user_id = str(user["_id"])
+    email = user.get("username", "")
+    if not email:
+        raise HTTPException(status_code=400, detail="No email address on file")
+
+    lines = []
+    lines.append("=== Ministry of Finance — Account Data Export ===")
+    lines.append(f"Export Date: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}")
+    lines.append("")
+    lines.append("--- Personal Information ---")
+    lines.append(f"Display Name : {user.get('display_name', '')}")
+    lines.append(f"Email        : {email}")
+    created = user.get("created_at")
+    lines.append(f"Account Created: {created.strftime('%Y-%m-%d') if isinstance(created, datetime) else str(created or 'Unknown')}")
+    lines.append(f"Auth Provider  : {user.get('auth_provider', 'local')}")
+    lines.append("")
+    lines.append("--- Chat History ---")
+
+    chats = list(db["chats"].find({"user_id": user_id}).sort("updated_at", -1).limit(300))
+    if not chats:
+        lines.append("(No chat history found)")
+    else:
+        for chat in chats:
+            updated = chat.get("updated_at")
+            date_str = updated.strftime("%Y-%m-%d") if isinstance(updated, datetime) else ""
+            lines.append(f"\n[{chat.get('title', 'Untitled')} | {date_str}]")
+            for msg in chat.get("messages", []):
+                role = msg.get("role", "").upper()
+                content = msg.get("content", "")
+                if isinstance(content, list):
+                    content = " ".join(c.get("text", "") if isinstance(c, dict) else str(c) for c in content)
+                content_str = str(content)[:800].replace("\n", " ")
+                lines.append(f"  [{role}]: {content_str}")
+
+    txt_content = "\n".join(lines)
+
+    msg_out = MIMEMultipart()
+    msg_out["Subject"] = "Your MOF Account Data Export"
+    msg_out["From"] = formataddr((SMTP_FROM_NAME, SMTP_USERNAME))
+    msg_out["To"] = email
+    msg_out.attach(MIMEText("Please find your account data export attached.", "plain", "utf-8"))
+    attachment = MIMEText(txt_content, "plain", "utf-8")
+    attachment.add_header("Content-Disposition", "attachment", filename="mof_data_export.txt")
+    msg_out.attach(attachment)
+
+    context = ssl.create_default_context()
+    with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=20) as srv:
+        srv.ehlo()
+        srv.starttls(context=context)
+        srv.login(SMTP_USERNAME, SMTP_APP_PASSWORD)
+        srv.sendmail(SMTP_USERNAME, [email], msg_out.as_string())
+
+    return {"status": "success"}
 
 @auth_router.post("/api/auth/apple")
 async def apple_auth(req: OAuthRequest):

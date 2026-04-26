@@ -4460,14 +4460,16 @@ html:not([data-theme="dark"]) .account-page-overlay {
 }
 
 .account-welcome {
-    font-size: 27px;
+    font-size: 31px;
     line-height: 1.18;
     font-weight: 760;
     color: #ffffff;
+    margin-left: -14px;
 }
 
 .account-welcome-muted {
     color: #9a9a9a;
+    font-weight: 400;
 }
 
 .account-nav-list {
@@ -4493,8 +4495,9 @@ html:not([data-theme="dark"]) .account-page-overlay {
     color: #9a9a9a;
     font-family: inherit;
     font-size: 17px;
-    font-weight: 700;
+    font-weight: 800;
     text-align: left;
+    cursor: pointer;
 }
 
 .account-nav-item i {
@@ -4506,7 +4509,7 @@ html:not([data-theme="dark"]) .account-page-overlay {
 
 .account-nav-item.active {
     color: #ffffff;
-    border: 2px solid #f0f0f0;
+    border: 0;
 }
 
 .account-nav-bullet {
@@ -4542,9 +4545,9 @@ html:not([data-theme="dark"]) .account-page-overlay {
 
 .account-main-panel {
     position: absolute;
-    top: 148px;
-    left: clamp(420px, 42vw, 760px);
-    right: clamp(72px, 15vw, 300px);
+    top: 108px;
+    left: clamp(450px, 46vw, 820px);
+    right: clamp(48px, 10vw, 200px);
     max-width: 760px;
 }
 
@@ -4561,7 +4564,7 @@ html:not([data-theme="dark"]) .account-page-overlay {
     color: #a3a3a3;
     font-size: 15px;
     line-height: 1.45;
-    font-weight: 600;
+    font-weight: 400;
 }
 
 .account-data-list {
@@ -4596,20 +4599,23 @@ html:not([data-theme="dark"]) .account-page-overlay {
     color: #aaa;
     font-size: 14px;
     line-height: 1.5;
-    font-weight: 560;
+    font-weight: 400;
 }
 
 .account-row-btn {
-    min-width: 70px;
+    min-width: 100px;
     height: 38px;
+    padding: 0 16px;
     border-radius: 999px;
     border: 1px solid #2c2c2c;
     background: transparent;
     color: #ffffff;
     font-family: inherit;
-    font-size: 14px;
-    font-weight: 730;
+    font-size: 13px;
+    font-weight: 650;
     cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .account-row-btn-danger {
@@ -4642,7 +4648,7 @@ html:not([data-theme="dark"]) .account-row-btn {
 }
 
 html:not([data-theme="dark"]) .account-nav-item.active {
-    border-color: #111111;
+    border: 0;
 }
 
 html:not([data-theme="dark"]) .account-nav-bullet {
@@ -5073,7 +5079,7 @@ html:not([data-theme="dark"]) .account-profile-info-row {
 .account-profile-label {
     font-size: 13px;
     color: #8a8a8a;
-    font-weight: 500;
+    font-weight: 400;
     margin-bottom: 4px;
 }
 
@@ -5084,7 +5090,7 @@ html:not([data-theme="dark"]) .account-profile-label {
 .account-profile-value {
     font-size: 16px;
     color: #f0f0f0;
-    font-weight: 500;
+    font-weight: 400;
 }
 
 html:not([data-theme="dark"]) .account-profile-value {
@@ -5111,6 +5117,7 @@ html:not([data-theme="dark"]) .account-login-methods-title {
     color: #8a8a8a;
     margin-bottom: 28px;
     line-height: 1.5;
+    font-weight: 400;
 }
 
 .account-login-methods-card {
@@ -5182,21 +5189,23 @@ html:not([data-theme="dark"]) .account-login-method-name {
     font-size: 13px;
     color: #7a7a7a;
     margin-top: 2px;
+    font-weight: 400;
 }
 
 .account-login-method-btn {
     height: 36px;
-    min-width: 60px;
+    min-width: 80px;
     padding: 0 18px;
     border-radius: 999px;
     font-family: inherit;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 650;
     cursor: pointer;
     border: 1px solid #3a3a3a;
     background: transparent;
     color: #ffffff;
     white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .account-login-method-btn--enabled {
@@ -5550,4 +5559,144 @@ html:not([data-theme="dark"]) .cookie-confirm-btn:hover {
     .cookie-prefs-actions {
         grid-template-columns: 1fr;
     }
+}
+
+/* =========================================================================
+   Account Profile — Layout fix & Edit Dialogs
+   ========================================================================= */
+.account-profile-section,
+.account-data-section,
+.account-security-section {
+    padding-right: 24px;
+    max-width: 720px;
+}
+
+.account-profile-info-card,
+.account-login-methods-card {
+    max-width: 100%;
+}
+
+.account-edit-dialog {
+    width: min(460px, calc(100vw - 32px));
+    border-radius: 20px;
+    background: #1c1c1c;
+    border: 1px solid #2e2e2e;
+    padding: 28px 28px 24px;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.55);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+}
+
+html:not([data-theme="dark"]) .account-edit-dialog {
+    background: #ffffff;
+    border-color: #e0e0e0;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.12);
+}
+
+.account-edit-dialog h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: #f0f0f0;
+}
+
+html:not([data-theme="dark"]) .account-edit-dialog h3 {
+    color: #111111;
+}
+
+.account-edit-dialog label {
+    font-size: 13px;
+    color: #888;
+    font-weight: 500;
+}
+
+html:not([data-theme="dark"]) .account-edit-dialog label {
+    color: #555;
+}
+
+.account-edit-dialog input[type="text"],
+.account-edit-dialog input[type="email"] {
+    width: 100%;
+    height: 46px;
+    border-radius: 10px;
+    border: 1.5px solid #3a3a3a;
+    background: #111111;
+    color: #f0f0f0;
+    padding: 0 14px;
+    font-family: inherit;
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.account-edit-dialog input[type="text"]:focus,
+.account-edit-dialog input[type="email"]:focus {
+    border-color: #5a9fff;
+}
+
+html:not([data-theme="dark"]) .account-edit-dialog input[type="text"],
+html:not([data-theme="dark"]) .account-edit-dialog input[type="email"] {
+    background: #f5f5f5;
+    border-color: #d0d0d0;
+    color: #111111;
+}
+
+html:not([data-theme="dark"]) .account-edit-dialog input:focus {
+    border-color: #5a9fff;
+}
+
+.account-edit-dialog .account-edit-error {
+    font-size: 13px;
+    color: #ff6b6b;
+    min-height: 16px;
+    margin: 0;
+}
+
+.account-edit-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 4px;
+}
+
+.account-edit-cancel {
+    height: 46px;
+    border-radius: 999px;
+    border: 1px solid #3a3a3a;
+    background: transparent;
+    color: #d0d0d0;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 650;
+    cursor: pointer;
+}
+
+.account-edit-save {
+    height: 46px;
+    border-radius: 999px;
+    border: 0;
+    background: #ffffff;
+    color: #111111;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.account-edit-save:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+html:not([data-theme="dark"]) .account-edit-cancel {
+    border-color: #d0d0d0;
+    color: #555;
+}
+
+html:not([data-theme="dark"]) .account-edit-save {
+    background: #111111;
+    color: #ffffff;
 }

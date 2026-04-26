@@ -311,14 +311,14 @@
                             <div class="account-profile-label" data-account-i18n="labelName">全名</div>
                             <div class="account-profile-value" id="accountProfileName">A</div>
                         </div>
-                        <button class="account-row-btn" data-account-i18n="editNameBtn">编辑姓名</button>
+                        <button class="account-row-btn" id="editNameBtn" data-account-i18n="editNameBtn">编辑姓名</button>
                     </div>
                     <div class="account-profile-info-row">
                         <div>
                             <div class="account-profile-label" data-account-i18n="labelEmail">邮箱</div>
                             <div class="account-profile-value" id="accountProfileEmail">—</div>
                         </div>
-                        <button class="account-row-btn" data-account-i18n="updateEmailBtn">更新邮箱</button>
+                        <button class="account-row-btn" id="updateEmailBtn" data-account-i18n="updateEmailBtn">更新邮箱</button>
                     </div>
                     <div class="account-profile-info-row">
                         <div>
@@ -349,7 +349,7 @@
                         </div>
                         <button class="account-login-method-btn account-login-method-btn--enabled" data-account-i18n="btnEnabled">启用</button>
                     </div>
-                    <div class="account-login-method-row">
+                    <div class="account-login-method-row account-login-method-row--last">
                         <div class="account-login-method-info">
                             <div class="account-login-method-icon"><i class="fa-brands fa-google"></i></div>
                             <div>
@@ -358,16 +358,6 @@
                             </div>
                         </div>
                         <button class="account-login-method-btn account-login-method-btn--disabled" data-account-i18n="btnDisabled">停用</button>
-                    </div>
-                    <div class="account-login-method-row account-login-method-row--last">
-                        <div class="account-login-method-info">
-                            <div class="account-login-method-icon"><i class="fa-brands fa-apple"></i></div>
-                            <div>
-                                <div class="account-login-method-name">Apple</div>
-                                <div class="account-login-method-sub" data-account-i18n="loginAppleSub">连接您的 Apple 账户</div>
-                            </div>
-                        </div>
-                        <button class="account-login-method-btn account-login-method-btn--connect" data-account-i18n="btnConnect">连接</button>
                     </div>
                 </div>
             </section>
@@ -412,6 +402,38 @@
                 </div>
             </section>
         </main>
+
+        <!-- Edit Name Dialog -->
+        <div class="account-dialog-backdrop" id="editNameDialog" hidden>
+            <div class="account-edit-dialog" role="dialog" aria-modal="true">
+                <h3 data-account-i18n="editNameTitle">编辑姓名</h3>
+                <div>
+                    <label for="editNameInput" data-account-i18n="editNameLabel">显示名称</label>
+                    <input type="text" id="editNameInput" maxlength="80" autocomplete="off">
+                </div>
+                <p class="account-edit-error" id="editNameError"></p>
+                <div class="account-edit-actions">
+                    <button class="account-edit-cancel" id="editNameCancelBtn" data-account-i18n="cancelBtn">取消</button>
+                    <button class="account-edit-save" id="editNameSaveBtn" data-account-i18n="saveBtn">保存</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Edit Email Dialog -->
+        <div class="account-dialog-backdrop" id="editEmailDialog" hidden>
+            <div class="account-edit-dialog" role="dialog" aria-modal="true">
+                <h3 data-account-i18n="updateEmailTitle">更新邮箱</h3>
+                <div>
+                    <label for="editEmailInput" data-account-i18n="updateEmailLabel">新邮箱地址</label>
+                    <input type="email" id="editEmailInput" maxlength="200" autocomplete="off">
+                </div>
+                <p class="account-edit-error" id="editEmailError"></p>
+                <div class="account-edit-actions">
+                    <button class="account-edit-cancel" id="editEmailCancelBtn" data-account-i18n="cancelBtn">取消</button>
+                    <button class="account-edit-save" id="editEmailSaveBtn" data-account-i18n="saveBtn">保存</button>
+                </div>
+            </div>
+        </div>
 
         <div class="account-dialog-backdrop" id="accountDownloadDialog" hidden>
             <div class="account-download-dialog" role="dialog" aria-modal="true" aria-labelledby="accountDownloadDialogTitle">

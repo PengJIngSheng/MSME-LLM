@@ -2689,6 +2689,11 @@ loadUserPreferences();
             deleteEmailPrefix: '输入您的邮箱 ',
             deleteEmailSuffix: ' 以确认',
             cancelBtn: '取消',
+            saveBtn: '保存',
+            editNameTitle: '编辑姓名',
+            editNameLabel: '显示名称',
+            updateEmailTitle: '更新邮箱',
+            updateEmailLabel: '新邮箱地址',
             deleteMismatch: '请输入当前账号邮箱以确认删除。',
             cookiePrefTitle: '隐私偏好中心',
             cookiePrefDesc: '当您访问任何网站时，该网站可能会在您的浏览器中存储或检索信息，主要以 Cookie 的形式。这些信息通常不会直接识别您的身份，但可以为您提供更加个性化的网络体验。',
@@ -2747,6 +2752,11 @@ loadUserPreferences();
             deleteEmailPrefix: 'Enter your email ',
             deleteEmailSuffix: ' to confirm',
             cancelBtn: 'Cancel',
+            saveBtn: 'Save',
+            editNameTitle: 'Edit Name',
+            editNameLabel: 'Display name',
+            updateEmailTitle: 'Update Email',
+            updateEmailLabel: 'New email address',
             deleteMismatch: 'Enter the current account email to confirm deletion.',
             cookiePrefTitle: 'Privacy Preference Centre',
             cookiePrefDesc: 'When you visit any website, it may store or retrieve information on your browser, mostly in the form of cookies. This information does not usually directly identify you, but it can give you a more personalised web experience.',
@@ -2805,6 +2815,11 @@ loadUserPreferences();
             deleteEmailPrefix: 'Masukkan e-mel anda ',
             deleteEmailSuffix: ' untuk mengesahkan',
             cancelBtn: 'Batal',
+            saveBtn: 'Simpan',
+            editNameTitle: 'Edit Nama',
+            editNameLabel: 'Nama paparan',
+            updateEmailTitle: 'Kemaskini E-mel',
+            updateEmailLabel: 'Alamat e-mel baharu',
             deleteMismatch: 'Masukkan e-mel akaun semasa untuk mengesahkan pemadaman.',
             cookiePrefTitle: 'Pusat Keutamaan Privasi',
             cookiePrefDesc: 'Apabila anda melawat mana-mana laman web, ia mungkin menyimpan atau mendapatkan maklumat pada pelayar anda, kebanyakannya dalam bentuk kuki.',
@@ -3009,9 +3024,26 @@ loadUserPreferences();
     }
 
     if (downloadBtn && downloadDialog) {
-        downloadBtn.addEventListener('click', () => {
-            renderAccountLanguage();
-            downloadDialog.hidden = false;
+        downloadBtn.addEventListener('click', async () => {
+            const token = localStorage.getItem('pepperJwt');
+            if (!token) return;
+            downloadBtn.disabled = true;
+            try {
+                const res = await fetch('/api/account/download-data', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) {
+                    const d = await res.json().catch(() => ({}));
+                    throw new Error(d.detail || 'Failed');
+                }
+                renderAccountLanguage();
+                downloadDialog.hidden = false;
+            } catch (err) {
+                alert(err.message || 'Failed to send data export');
+            } finally {
+                downloadBtn.disabled = false;
+            }
         });
     }
 
@@ -3087,6 +3119,101 @@ loadUserPreferences();
             closeAccountPage();
         }
     });
+
+    // ---- Edit Name Dialog ----
+    const editNameBtn = document.getElementById('editNameBtn');
+    const editNameDialog = document.getElementById('editNameDialog');
+    const editNameInput = document.getElementById('editNameInput');
+    const editNameError = document.getElementById('editNameError');
+    const editNameCancelBtn = document.getElementById('editNameCancelBtn');
+    const editNameSaveBtn = document.getElementById('editNameSaveBtn');
+
+    if (editNameBtn && editNameDialog) {
+        editNameBtn.addEventListener('click', () => {
+            if (editNameInput) editNameInput.value = getProfileName();
+            if (editNameError) editNameError.textContent = '';
+            editNameDialog.hidden = false;
+            setTimeout(() => editNameInput && editNameInput.focus(), 0);
+        });
+    }
+    if (editNameCancelBtn) editNameCancelBtn.addEventListener('click', () => { if (editNameDialog) editNameDialog.hidden = true; });
+    if (editNameDialog) editNameDialog.addEventListener('click', e => { if (e.target === editNameDialog) editNameDialog.hidden = true; });
+
+    if (editNameSaveBtn && editNameInput) {
+        editNameSaveBtn.addEventListener('click', async () => {
+            const newName = editNameInput.value.trim();
+            if (!newName) { if (editNameError) editNameError.textContent = '名称不能为空'; return; }
+            const token = localStorage.getItem('pepperJwt');
+            if (!token) return;
+            editNameSaveBtn.disabled = true;
+            try {
+                const res = await fetch('/api/account/profile', {
+                    method: 'PUT',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ display_name: newName })
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(data.detail || 'Failed');
+                localStorage.setItem('pepperDisplayName', data.display_name);
+                if (editNameDialog) editNameDialog.hidden = true;
+                renderProfileSection();
+                const nameEl = document.getElementById('userDisplayName');
+                if (nameEl) nameEl.textContent = data.display_name;
+                if (welcomeName) welcomeName.textContent = data.display_name;
+            } catch (err) {
+                if (editNameError) editNameError.textContent = err.message || 'Failed to update name';
+            } finally {
+                editNameSaveBtn.disabled = false;
+            }
+        });
+    }
+
+    // ---- Edit Email Dialog ----
+    const updateEmailBtn = document.getElementById('updateEmailBtn');
+    const editEmailDialog = document.getElementById('editEmailDialog');
+    const editEmailInput = document.getElementById('editEmailInput');
+    const editEmailError = document.getElementById('editEmailError');
+    const editEmailCancelBtn = document.getElementById('editEmailCancelBtn');
+    const editEmailSaveBtn = document.getElementById('editEmailSaveBtn');
+
+    if (updateEmailBtn && editEmailDialog) {
+        updateEmailBtn.addEventListener('click', () => {
+            if (editEmailInput) editEmailInput.value = '';
+            if (editEmailError) editEmailError.textContent = '';
+            editEmailDialog.hidden = false;
+            setTimeout(() => editEmailInput && editEmailInput.focus(), 0);
+        });
+    }
+    if (editEmailCancelBtn) editEmailCancelBtn.addEventListener('click', () => { if (editEmailDialog) editEmailDialog.hidden = true; });
+    if (editEmailDialog) editEmailDialog.addEventListener('click', e => { if (e.target === editEmailDialog) editEmailDialog.hidden = true; });
+
+    if (editEmailSaveBtn && editEmailInput) {
+        editEmailSaveBtn.addEventListener('click', async () => {
+            const newEmail = editEmailInput.value.trim();
+            if (!newEmail || !newEmail.includes('@')) { if (editEmailError) editEmailError.textContent = '请输入有效的邮箱地址'; return; }
+            const token = localStorage.getItem('pepperJwt');
+            if (!token) return;
+            editEmailSaveBtn.disabled = true;
+            try {
+                const res = await fetch('/api/account/email', {
+                    method: 'PUT',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ new_email: newEmail })
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(data.detail || 'Failed');
+                localStorage.setItem('pepperUsername', data.username);
+                if (editEmailDialog) editEmailDialog.hidden = true;
+                renderProfileSection();
+                const emailEl = document.getElementById('userEmailDisplay');
+                if (emailEl) emailEl.textContent = data.username;
+            } catch (err) {
+                if (editEmailError) editEmailError.textContent = err.message || 'Failed to update email';
+            } finally {
+                editEmailSaveBtn.disabled = false;
+            }
+        });
+    }
 
     // ---- Cookie Preference Dialog ----
     const cookieManageBtn = document.getElementById('accountCookieManageBtn');
