@@ -240,6 +240,37 @@
             }
         });
 
+        document.getElementById('resendBtn').addEventListener('click', async () => {
+            const btn = document.getElementById('resendBtn');
+            const t = authTranslations[currentLang] || authTranslations.en;
+            if (!pendingUserId) return;
+
+            try {
+                btn.disabled = true;
+                btn.textContent = 'Sending...';
+
+                const res = await fetch('/api/resend-otp', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({user_id: pendingUserId})
+                });
+                const data = await res.json();
+
+                if (res.ok && data.status === 'resent') {
+                    inputs.forEach(input => input.value = '');
+                    inputs[0].focus();
+                    showToast('A new code has been sent.');
+                } else {
+                    showToast(data.detail || t.error, true);
+                }
+            } catch(error) {
+                showToast('Network error.', true);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = t.resendBtn;
+            }
+        });
+
         // Canvas Engine from register.html mapped here:
         const canvas = document.getElementById('techCanvas');
         const ctx = canvas.getContext('2d');

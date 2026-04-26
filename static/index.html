@@ -106,36 +106,38 @@
             <div class="app-container centered-landing">
 
                 <!-- Guest Navigation Bar (top-right, visible when not logged in) -->
-                <nav class="guest-nav" id="guestNav">
-                    <button class="guest-nav-gear" id="settingsGearBtn" title="Settings">
-                        <i class="fa-solid fa-gear"></i>
-                    </button>
-                    <button class="guest-nav-login" id="guestLoginBtn">登录</button>
-                    <button class="guest-nav-register" id="guestRegisterBtn">注册</button>
+                <header class="guest-header" id="guestHeader">
+                    <nav class="guest-nav" id="guestNav">
+                        <button class="guest-nav-gear" id="settingsGearBtn" title="Settings">
+                            <i class="fa-solid fa-gear"></i>
+                        </button>
+                        <button class="guest-nav-login" id="guestLoginBtn">登录</button>
+                        <button class="guest-nav-register" id="guestRegisterBtn">注册</button>
 
-                    <!-- Settings Dropdown Panel -->
-                    <div class="settings-dropdown" id="settingsDropdown">
-                        <div class="settings-section">
-                            <div class="theme-toggle-group" id="themeToggleGroup">
-                                <button class="theme-btn active" data-theme="light" title="Light">
-                                    <i class="fa-solid fa-sun"></i>
-                                </button>
-                                <button class="theme-btn" data-theme="dark" title="Dark">
-                                    <i class="fa-solid fa-moon"></i>
-                                </button>
+                        <!-- Settings Dropdown Panel -->
+                        <div class="settings-dropdown" id="settingsDropdown">
+                            <div class="settings-section">
+                                <div class="theme-toggle-group" id="themeToggleGroup">
+                                    <button class="theme-btn active" data-theme="light" title="Light">
+                                        <i class="fa-solid fa-sun"></i>
+                                    </button>
+                                    <button class="theme-btn" data-theme="dark" title="Dark">
+                                        <i class="fa-solid fa-moon"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="settings-divider"></div>
+                            <div class="settings-section">
+                                <span class="settings-label">语言</span>
+                                <div class="lang-selector" id="langSelector">
+                                    <button class="lang-btn active" data-lang="en">EN</button>
+                                    <button class="lang-btn" data-lang="zh">中文</button>
+                                    <button class="lang-btn" data-lang="ms">BM</button>
+                                </div>
                             </div>
                         </div>
-                        <div class="settings-divider"></div>
-                        <div class="settings-section">
-                            <span class="settings-label">语言</span>
-                            <div class="lang-selector" id="langSelector">
-                                <button class="lang-btn active" data-lang="en">EN</button>
-                                <button class="lang-btn" data-lang="zh">中文</button>
-                                <button class="lang-btn" data-lang="ms">BM</button>
-                            </div>
-                        </div>
-                    </div>
-                </nav>
+                    </nav>
+                </header>
 
                 <main class="chat-area" id="chatArea">
                     <div class="greeting-container" id="logoContainer">

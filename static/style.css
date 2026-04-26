@@ -589,14 +589,27 @@ h1,h2,h3,h4,h5,h6 {
 /* ============================
    Guest Navigation Bar (top-right)
    ============================ */
-.guest-nav {
+.guest-header {
     position: fixed;
-    top: 24px;
-    right: 48px;
+    top: 0;
+    right: 0;
+    left: 0;
+    z-index: 999;
+    display: flex;
+    justify-content: flex-end;
+    padding: 24px 48px 0;
+    background: transparent;
+    pointer-events: none;
+}
+
+.guest-nav {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 10px;
     z-index: 1000;
+    max-width: min(100%, 420px);
+    pointer-events: auto;
 }
 
 .guest-nav-gear {
@@ -1209,6 +1222,7 @@ h1,h2,h3,h4,h5,h6 {
     height: 100%;
     max-width: 880px;
     margin: 0 auto;
+    padding-top: 92px;
     position: relative;
     width: 100%;
 }
@@ -1217,6 +1231,7 @@ h1,h2,h3,h4,h5,h6 {
 .app-container.centered-landing {
     justify-content: center;
     align-items: center;
+    padding-top: clamp(96px, 14vh, 148px);
 }
 
 .app-container.centered-landing .chat-area {
@@ -1229,6 +1244,7 @@ h1,h2,h3,h4,h5,h6 {
     align-items: center;
     justify-content: center;
     margin-bottom: 2rem;
+    max-width: 100%;
 }
 
 .app-container.centered-landing .greeting-container {
@@ -3971,6 +3987,37 @@ html[data-theme="light"] .user-context-menu {
 }
 
 @media (max-width: 600px) {
+    .guest-header {
+        padding: 12px 14px 0;
+    }
+    .guest-nav {
+        width: 100%;
+        max-width: none;
+        justify-content: flex-end;
+        gap: 8px;
+    }
+    .guest-nav-gear {
+        width: 36px;
+        height: 36px;
+        flex: 0 0 36px;
+    }
+    .guest-nav-login,
+    .guest-nav-register {
+        min-height: 38px;
+        padding: 8px 16px;
+        font-size: 0.84rem;
+        white-space: nowrap;
+    }
+    .settings-dropdown {
+        max-width: calc(100vw - 28px);
+    }
+    .app-container {
+        padding-top: 96px;
+    }
+    .app-container.centered-landing {
+        justify-content: flex-start;
+        padding-top: 112px;
+    }
     .guest-limit-banner {
         flex-direction: column;
         align-items: stretch;
