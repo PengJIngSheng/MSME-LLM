@@ -4460,7 +4460,7 @@ html:not([data-theme="dark"]) .account-page-overlay {
 }
 
 .account-welcome {
-    font-size: 31px;
+    font-size: 29px;
     line-height: 1.18;
     font-weight: 760;
     color: #ffffff;
@@ -4473,9 +4473,9 @@ html:not([data-theme="dark"]) .account-page-overlay {
 }
 
 .account-nav-list {
-    margin-top: 72px;
+    margin-top: 45px;
     width: 222px;
-    margin-left: -28px;
+    margin-left: -33px;
     display: flex;
     flex-direction: column;
     gap: 13px;
@@ -4543,10 +4543,10 @@ html:not([data-theme="dark"]) .account-page-overlay {
     cursor: pointer;
 }
 
-.account-main-panel {
+.account-main-panel {   
     position: absolute;
-    top: 108px;
-    left: clamp(450px, 46vw, 820px);
+    top: 148px;
+    left: clamp(210px, 42.5vw, 820px);
     right: clamp(48px, 10vw, 200px);
     max-width: 760px;
 }
