@@ -226,6 +226,10 @@
                     localStorage.setItem('pepperUserId', data.user_id);
                     localStorage.setItem('pepperUsername', data.username);
                     if(data.display_name) localStorage.setItem('pepperDisplayName', data.display_name);
+                    if(data.preferences) {
+                        if(data.preferences.language) localStorage.setItem('pepperLang', data.preferences.language);
+                        if(data.preferences.theme) localStorage.setItem('pepperTheme', data.preferences.theme);
+                    }
                     localStorage.removeItem('pendingUserId');
                     
                     setTimeout(() => { window.location.href = '/'; }, 1000);

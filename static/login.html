@@ -511,7 +511,11 @@
                                 const res = await fetch('/api/auth/google', {
                                     method: 'POST',
                                     headers: {'Content-Type': 'application/json'},
-                                    body: JSON.stringify({token: tokenResponse.access_token})
+                                    body: JSON.stringify({
+                                        token: tokenResponse.access_token,
+                                        language: currentLang,
+                                        theme: localStorage.getItem('pepperTheme') || 'dark'
+                                    })
                                 });
                                 const data = await res.json();
                                 if(res.ok && data.status === "success") {
@@ -519,6 +523,10 @@
                                     localStorage.setItem('pepperUserId', data.user_id);
                                     localStorage.setItem('pepperUsername', data.username);
                                     if(data.display_name) localStorage.setItem('pepperDisplayName', data.display_name);
+                                    if(data.preferences) {
+                                        if(data.preferences.language) localStorage.setItem('pepperLang', data.preferences.language);
+                                        if(data.preferences.theme) localStorage.setItem('pepperTheme', data.preferences.theme);
+                                    }
                                     if(data.avatarUrl) localStorage.setItem('pepperAvatar', data.avatarUrl);
                                     window.location.href = '/';
                                 } else {
@@ -562,7 +570,12 @@
                 const res = await fetch('/api/login', { 
                     method: 'POST', 
                     headers: {'Content-Type': 'application/json'}, 
-                    body: JSON.stringify({username: u, password: p}) 
+                    body: JSON.stringify({
+                        username: u,
+                        password: p,
+                        language: currentLang,
+                        theme: localStorage.getItem('pepperTheme') || 'dark'
+                    }) 
                 });
                 
                 const data = await res.json();
@@ -572,6 +585,10 @@
                     localStorage.setItem('pepperUserId', data.user_id);
                     localStorage.setItem('pepperUsername', data.username);
                     if(data.display_name) localStorage.setItem('pepperDisplayName', data.display_name);
+                    if(data.preferences) {
+                        if(data.preferences.language) localStorage.setItem('pepperLang', data.preferences.language);
+                        if(data.preferences.theme) localStorage.setItem('pepperTheme', data.preferences.theme);
+                    }
                     window.location.href = '/';
                 } else if (!res.ok && data.status === "unverified") {
                     // Forward to verifier

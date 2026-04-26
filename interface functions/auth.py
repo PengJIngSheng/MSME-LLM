@@ -46,6 +46,7 @@ class AuthRequest(BaseModel):
     username: str
     password: str
     language: Optional[str] = "en"
+    theme: Optional[str] = "dark"
 
 class VerifyOTPRequest(BaseModel):
     user_id: str
@@ -56,6 +57,12 @@ class ResendOTPRequest(BaseModel):
 
 class OAuthRequest(BaseModel):
     token: str
+    language: Optional[str] = "en"
+    theme: Optional[str] = "dark"
+
+class PreferencesRequest(BaseModel):
+    language: Optional[str] = None
+    theme: Optional[str] = None
     
 # ─── Utility Functions ─────────────────────────────────
 def _bcrypt_prehash(password: str) -> bytes:
@@ -139,6 +146,38 @@ def _user_display_name(user: dict | None) -> str:
     if "@" in username:
         return username.split("@")[0]
     return username or generate_display_name()
+
+def _normalize_theme(theme: Optional[str]) -> str:
+    normalized = (theme or "dark").strip().lower()
+    return normalized if normalized in {"dark", "light"} else "dark"
+
+def _user_preferences(user: dict | None) -> dict:
+    prefs = (user or {}).get("preferences") or {}
+    return {
+        "language": _normalize_language(prefs.get("language") or (user or {}).get("language") or "en"),
+        "theme": _normalize_theme(prefs.get("theme") or (user or {}).get("theme") or "dark"),
+    }
+
+def _auth_user(request: Request) -> dict:
+    auth_header = request.headers.get("authorization", "")
+    scheme, _, token = auth_header.partition(" ")
+    if scheme.lower() != "bearer" or not token:
+        raise HTTPException(status_code=401, detail="Missing authorization token")
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Session expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid authorization token")
+
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid authorization token")
+
+    user = users_col.find_one({"_id": str(user_id)})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
 
 def _client_ip(request: Request) -> str:
     forwarded_for = request.headers.get("x-forwarded-for")
@@ -290,6 +329,7 @@ def send_otp_email(
     device_info: str,
     ip_address: str,
     language: Optional[str] = "en",
+    theme: Optional[str] = "dark",
 ) -> None:
     if not SMTP_APP_PASSWORD:
         raise RuntimeError("SMTP_APP_PASSWORD is not configured")
@@ -349,6 +389,10 @@ def _store_pending_otp(
         "_id": pending_id,
         "username": username,
         "display_name": generate_display_name(username),
+        "preferences": {
+            "language": _normalize_language(language),
+            "theme": _normalize_theme(theme),
+        },
         "password": password_hash,
         "otp": get_password_hash(otp_code),
         "created_at": now,
@@ -373,6 +417,7 @@ def _ensure_pending_otp_indexes() -> None:
 async def register(req: AuthRequest, request: Request):
     username = req.username.strip()
     language = _normalize_language(req.language)
+    theme = _normalize_theme(req.theme)
     if not username or not req.password:
         raise HTTPException(status_code=400, detail="Username and password required")
 
@@ -398,6 +443,7 @@ async def register(req: AuthRequest, request: Request):
         device_info=device_info,
         ip_address=ip_address,
         language=language,
+        theme=theme,
     )
 
     try:
@@ -436,6 +482,7 @@ async def verify_otp(req: VerifyOTPRequest):
                     "username": username,
                     "display_name": existing.get("display_name") or pending.get("display_name") or generate_display_name(username),
                     "password": pending["password"],
+                    "preferences": pending.get("preferences") or _user_preferences(existing),
                     "status": "active",
                     "auth_provider": "local",
                     "verified_at": datetime.utcnow(),
@@ -447,6 +494,7 @@ async def verify_otp(req: VerifyOTPRequest):
                 "_id": user_id,
                 "username": username,
                 "display_name": pending.get("display_name") or generate_display_name(username),
+                "preferences": pending.get("preferences") or {"language": "en", "theme": "dark"},
                 "password": pending["password"],
                 "status": "active",
                 "auth_provider": "local",
@@ -462,6 +510,7 @@ async def verify_otp(req: VerifyOTPRequest):
             "status": "success",
             "username": username,
             "display_name": _user_display_name(verified_user),
+            "preferences": _user_preferences(verified_user),
             "user_id": str(user_id),
             "access_token": token
         }
@@ -492,6 +541,7 @@ async def verify_otp(req: VerifyOTPRequest):
         "status": "success", 
         "username": user.get("username"), 
         "display_name": _user_display_name(user),
+        "preferences": _user_preferences(user),
         "user_id": req.user_id,
         "access_token": token
     }
@@ -569,6 +619,7 @@ async def login(req: AuthRequest):
         "status": "success", 
         "username": req.username, 
         "display_name": display_name,
+        "preferences": _user_preferences(user),
         "user_id": str(user["_id"]),
         "access_token": token
     }
@@ -593,6 +644,10 @@ async def google_auth(req: OAuthRequest):
     email = user_info.get("email")
     name = user_info.get("name") or email.split('@')[0]
     picture = user_info.get("picture")
+    preferences = {
+        "language": _normalize_language(req.language),
+        "theme": _normalize_theme(req.theme),
+    }
     
     if not google_sub or not email:
         raise HTTPException(status_code=400, detail="Incomplete Google profile")
@@ -607,6 +662,7 @@ async def google_auth(req: OAuthRequest):
             "_id": user_id,
             "username": email,
             "display_name": name,
+            "preferences": preferences,
             "status": "active",
             "auth_provider": "google",
             "auth_provider_id": google_sub,
@@ -618,6 +674,7 @@ async def google_auth(req: OAuthRequest):
             "status": "success", 
             "username": email, 
             "display_name": name,
+            "preferences": preferences,
             "user_id": user_id,
             "avatarUrl": picture,
             "access_token": token
@@ -633,6 +690,9 @@ async def google_auth(req: OAuthRequest):
         if name and user.get("display_name") != name:
             updates.update({"display_name": name})
             user["display_name"] = name
+        if not user.get("preferences"):
+            updates.update({"preferences": preferences})
+            user["preferences"] = preferences
             
         if updates:
             users_col.update_one({"_id": user["_id"]}, {"$set": updates})
@@ -642,10 +702,51 @@ async def google_auth(req: OAuthRequest):
             "status": "success", 
             "username": user.get("username"), 
             "display_name": _user_display_name(user),
+            "preferences": _user_preferences(user),
             "user_id": str(user["_id"]),
             "avatarUrl": user.get("picture"),
             "access_token": token
         }
+
+@auth_router.get("/api/account/preferences")
+async def get_account_preferences(request: Request):
+    user = _auth_user(request)
+    return {
+        "status": "success",
+        "username": user.get("username"),
+        "display_name": _user_display_name(user),
+        "avatarUrl": user.get("picture"),
+        "preferences": _user_preferences(user),
+    }
+
+@auth_router.put("/api/account/preferences")
+async def update_account_preferences(req: PreferencesRequest, request: Request):
+    user = _auth_user(request)
+    current = _user_preferences(user)
+    if req.language is not None:
+        current["language"] = _normalize_language(req.language)
+    if req.theme is not None:
+        current["theme"] = _normalize_theme(req.theme)
+
+    users_col.update_one(
+        {"_id": user["_id"]},
+        {"$set": {"preferences": current, "updated_at": datetime.utcnow()}}
+    )
+    return {"status": "success", "preferences": current}
+
+@auth_router.delete("/api/account")
+async def delete_account(request: Request):
+    user = _auth_user(request)
+    user_id = str(user["_id"])
+    db["feedbacks"].delete_many({"user_id": user_id})
+    user_chats = list(db["chats"].find({"user_id": user_id}, {"_id": 1}))
+    chat_ids = [chat["_id"] for chat in user_chats]
+    if chat_ids:
+        db["feedbacks"].delete_many({"chat_id": {"$in": chat_ids}})
+    db["chats"].delete_many({"user_id": user_id})
+    pending_otps_col.delete_many({"username": user.get("username")})
+    users_col.delete_one({"_id": user_id})
+    return {"status": "deleted"}
 
 @auth_router.post("/api/auth/apple")
 async def apple_auth(req: OAuthRequest):

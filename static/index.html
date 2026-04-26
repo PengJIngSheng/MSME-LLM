@@ -264,34 +264,34 @@
 
         <aside class="account-left-panel">
             <div class="account-welcome">
-                <div>欢迎，<span id="accountWelcomeName">A</span>。</div>
-                <div class="account-welcome-muted">管理您的mof账户。</div>
+                <div><span data-account-i18n="welcomePrefix">欢迎，</span><span id="accountWelcomeName">A</span><span data-account-i18n="sentenceEnd">。</span></div>
+                <div class="account-welcome-muted" data-account-i18n="manageAccount">管理您的mof账户。</div>
             </div>
 
             <nav class="account-nav-list" aria-label="Account sections">
                 <button class="account-nav-item">
                     <i class="fa-regular fa-user"></i>
-                    <span>账户</span>
+                    <span data-account-i18n="navAccount">账户</span>
                 </button>
                 <button class="account-nav-item">
                     <i class="fa-solid fa-lock"></i>
-                    <span>安全</span>
+                    <span data-account-i18n="navSecurity">安全</span>
                 </button>
                 <button class="account-nav-item">
                     <i class="fa-solid fa-earth-americas"></i>
-                    <span>会话</span>
+                    <span data-account-i18n="navSessions">会话</span>
                 </button>
                 <button class="account-nav-item active">
                     <span class="account-nav-bullet"></span>
                     <i class="fa-solid fa-database"></i>
-                    <span>数据</span>
+                    <span data-account-i18n="navData">数据</span>
                 </button>
             </nav>
 
             <div class="account-bottom-actions">
                 <button class="account-back-main" id="accountBackMainBtn">
                     <i class="fa-solid fa-arrow-left"></i>
-                    <span>返回主页面</span>
+                    <span data-account-i18n="backHome">返回主页面</span>
                 </button>
             </div>
         </aside>
@@ -299,35 +299,44 @@
         <main class="account-main-panel">
             <section class="account-data-section">
                 <header class="account-section-header">
-                    <h1>您的数据</h1>
-                    <p>管理您存储在 MOF 的个人数据。</p>
+                    <h1 data-account-i18n="dataTitle">您的数据</h1>
+                    <p data-account-i18n="dataSubtitle">管理您存储在 MOF 的个人数据。</p>
                 </header>
 
                 <div class="account-data-list">
                     <div class="account-data-row">
                         <div class="account-data-copy">
-                            <h2>Cookie 设置</h2>
-                            <p>管理您的分析和广告 Cookie 偏好设置。</p>
+                            <h2 data-account-i18n="cookieTitle">Cookie 设置</h2>
+                            <p data-account-i18n="cookieDesc">管理您的分析和广告 Cookie 偏好设置。</p>
                         </div>
-                        <button class="account-row-btn">管理</button>
+                        <button class="account-row-btn" id="accountCookieManageBtn" data-account-i18n="manageBtn">管理</button>
                     </div>
                     <div class="account-data-row">
                         <div class="account-data-copy">
-                            <h2>下载账户数据</h2>
-                            <p>您可以在下方下载与您的账户关联的所有数据。此数据包括存储在所有 MOF 产品中的一切。</p>
+                            <h2 data-account-i18n="downloadTitle">下载账户数据</h2>
+                            <p data-account-i18n="downloadDesc">您可以在下方下载与您的账户关联的所有数据。此数据包括存储在所有 MOF 产品中的一切。</p>
                         </div>
-                        <button class="account-row-btn">下载</button>
+                        <button class="account-row-btn" id="accountDownloadBtn" data-account-i18n="downloadBtn">下载</button>
                     </div>
                     <div class="account-data-row">
                         <div class="account-data-copy">
-                            <h2>删除账户</h2>
-                            <p>删除您的账户以及 MOF 平台上的关联数据。如果您在 30 天内再次登录，可以恢复您的账户。</p>
+                            <h2 data-account-i18n="deleteTitle">删除账户</h2>
+                            <p data-account-i18n="deleteDesc">删除您的账户以及 MOF 平台上的关联数据。如果您在 30 天内再次登录，可以恢复您的账户。</p>
                         </div>
-                        <button class="account-row-btn account-row-btn-danger">删除</button>
+                        <button class="account-row-btn account-row-btn-danger" id="accountDeleteBtn" data-account-i18n="deleteBtn">删除</button>
                     </div>
                 </div>
             </section>
         </main>
+
+        <div class="account-dialog-backdrop" id="accountDownloadDialog" hidden>
+            <div class="account-download-dialog" role="dialog" aria-modal="true" aria-labelledby="accountDownloadDialogTitle">
+                <div class="account-dialog-check"><i class="fa-solid fa-check"></i></div>
+                <h2 id="accountDownloadDialogTitle" data-account-i18n="downloadSentTitle">邮件已发送!</h2>
+                <p data-account-i18n="downloadSentDesc">我们将很快向您发送一封包含数据下载链接的邮件。</p>
+                <button class="account-dialog-close" id="accountDownloadDialogClose" data-account-i18n="closeBtn">关闭</button>
+            </div>
+        </div>
     </section>
 
     <!-- Auth Requirement Modal -->

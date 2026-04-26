@@ -80,6 +80,81 @@ function updateGuestLimitBannerCopy() {
     if (agentModeBtn) agentModeBtn.title = currentUserId ? 'AI Agent' : (t.agentRequiresLogin || 'Login required for Agent mode');
 }
 
+function syncPreferenceControls() {
+    const theme = localStorage.getItem('pepperTheme') || 'dark';
+    const lang = localStorage.getItem('pepperLang') || 'en';
+    document.querySelectorAll('.theme-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.theme === theme);
+    });
+    document.querySelectorAll('.lang-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.lang === lang);
+    });
+    window.dispatchEvent(new CustomEvent('mof-preferences-changed', {
+        detail: { theme, language: lang }
+    }));
+}
+
+function applyStoredPreferences(preferences = {}) {
+    if (preferences.language) localStorage.setItem('pepperLang', preferences.language);
+    if (preferences.theme) localStorage.setItem('pepperTheme', preferences.theme);
+    const theme = localStorage.getItem('pepperTheme') || 'dark';
+    const lang = localStorage.getItem('pepperLang') || 'en';
+    if (window.applyPepperTheme) {
+        window.applyPepperTheme(theme);
+    } else if (theme === 'dark') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+    } else {
+        document.documentElement.removeAttribute('data-theme');
+    }
+    if (window.applyPepperLang) window.applyPepperLang(lang);
+    syncPreferenceControls();
+}
+
+async function saveUserPreferences(partial = {}) {
+    const token = localStorage.getItem('pepperJwt');
+    if (!token) return;
+    const body = {
+        language: localStorage.getItem('pepperLang') || 'en',
+        theme: localStorage.getItem('pepperTheme') || 'dark',
+        ...partial
+    };
+    try {
+        const res = await fetch('/api/account/preferences', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(body)
+        });
+        if (res.ok) {
+            const data = await res.json();
+            if (data.preferences) applyStoredPreferences(data.preferences);
+        }
+    } catch (err) {
+        console.warn('Failed to save user preferences', err);
+    }
+}
+
+async function loadUserPreferences() {
+    const token = localStorage.getItem('pepperJwt');
+    if (!token) return;
+    try {
+        const res = await fetch('/api/account/preferences', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.display_name) localStorage.setItem('pepperDisplayName', data.display_name);
+        if (data.avatarUrl) localStorage.setItem('pepperAvatar', data.avatarUrl);
+        if (data.preferences) applyStoredPreferences(data.preferences);
+        const sidebarName = document.getElementById('userDisplayName');
+        if (sidebarName && data.display_name) sidebarName.textContent = data.display_name;
+    } catch (err) {
+        console.warn('Failed to load user preferences', err);
+    }
+}
+
 function updateGuestInputUi() {
     const shouldHideNormalInput = !currentUserId && !isAgentMode && getGuestQuestionCount() >= GUEST_QUESTION_LIMIT;
     const shouldLockGuestAgent = !currentUserId && isAgentMode;
@@ -2216,10 +2291,10 @@ async function loadChatPreview(chatId, title, liElement) {
         else btn.classList.remove('active');
 
         btn.addEventListener('click', () => {
-            nav.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
             applyTheme(btn.dataset.theme);
             localStorage.setItem('pepperTheme', btn.dataset.theme);
+            syncPreferenceControls();
+            saveUserPreferences({ theme: btn.dataset.theme });
         });
     });
 
@@ -2232,6 +2307,7 @@ async function loadChatPreview(chatId, title, liElement) {
             
         }
     }
+    window.applyPepperTheme = applyTheme;
 
     // ── Language Selector ──
     const savedLang = localStorage.getItem('pepperLang') || 'en';
@@ -2242,10 +2318,10 @@ async function loadChatPreview(chatId, title, liElement) {
         else btn.classList.remove('active');
 
         btn.addEventListener('click', () => {
-            nav.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
             applyLang(btn.dataset.lang);
             localStorage.setItem('pepperLang', btn.dataset.lang);
+            syncPreferenceControls();
+            saveUserPreferences({ language: btn.dataset.lang });
         });
     });
 
@@ -2382,6 +2458,7 @@ async function loadChatPreview(chatId, title, liElement) {
         updateGuestLimitBannerCopy();
     }
 })();
+loadUserPreferences();
 
 // ============ Sidebar User Context Menu & Avatar Sync ============
 (function initUserContextMenu() {
@@ -2520,24 +2597,10 @@ async function loadChatPreview(chatId, title, liElement) {
             const savedTheme = localStorage.getItem('pepperTheme') || 'dark';
             btn.classList.toggle('active', btn.dataset.theme === savedTheme);
             btn.addEventListener('click', () => {
-                ctxThemeGroup.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                if (btn.dataset.theme === 'dark') {
-                    document.documentElement.setAttribute('data-theme', 'dark');
-                    
-                } else {
-                    document.documentElement.removeAttribute('data-theme');
-                    
-                }
                 localStorage.setItem('pepperTheme', btn.dataset.theme);
-                
-                // Update top guest nav as well to keep sync if visible
-                const guestThemeGroup = document.getElementById('themeToggleGroup');
-                if(guestThemeGroup) {
-                    guestThemeGroup.querySelectorAll('.theme-btn').forEach(b => {
-                        b.classList.toggle('active', b.dataset.theme === btn.dataset.theme);
-                    });
-                }
+                if (window.applyPepperTheme) window.applyPepperTheme(btn.dataset.theme);
+                syncPreferenceControls();
+                saveUserPreferences({ theme: btn.dataset.theme });
             });
         });
     }
@@ -2548,11 +2611,10 @@ async function loadChatPreview(chatId, title, liElement) {
             const currentLang = localStorage.getItem('pepperLang') || 'en';
             btn.classList.toggle('active', btn.dataset.lang === currentLang);
             btn.addEventListener('click', () => {
-                ctxLangSel.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
                 localStorage.setItem('pepperLang', btn.dataset.lang);
-                // Call global reload for language change!
-                window.location.reload();
+                if (window.applyPepperLang) window.applyPepperLang(btn.dataset.lang);
+                syncPreferenceControls();
+                saveUserPreferences({ language: btn.dataset.lang });
             });
         });
     }
@@ -2567,10 +2629,91 @@ async function loadChatPreview(chatId, title, liElement) {
     const langBtn = document.getElementById('accountLangSwitch');
     const langLabel = document.getElementById('accountLangLabel');
     const themeBtn = document.getElementById('accountThemeToggle');
+    const downloadBtn = document.getElementById('accountDownloadBtn');
+    const deleteBtn = document.getElementById('accountDeleteBtn');
+    const downloadDialog = document.getElementById('accountDownloadDialog');
+    const downloadDialogClose = document.getElementById('accountDownloadDialogClose');
     if (!overlay) return;
 
     const languageLabels = { en: 'EN', zh: '中文', ms: 'BM' };
     const languageOrder = ['en', 'zh', 'ms'];
+    const accountCopy = {
+        zh: {
+            welcomePrefix: '欢迎，',
+            sentenceEnd: '。',
+            manageAccount: '管理您的mof账户。',
+            navAccount: '账户',
+            navSecurity: '安全',
+            navSessions: '会话',
+            navData: '数据',
+            backHome: '返回主页面',
+            dataTitle: '您的数据',
+            dataSubtitle: '管理您存储在 MOF 的个人数据。',
+            cookieTitle: 'Cookie 设置',
+            cookieDesc: '管理您的分析和广告 Cookie 偏好设置。',
+            downloadTitle: '下载账户数据',
+            downloadDesc: '您可以在下方下载与您的账户关联的所有数据。此数据包括存储在所有 MOF 产品中的一切。',
+            deleteTitle: '删除账户',
+            deleteDesc: '删除您的账户以及 MOF 平台上的关联数据。如果您在 30 天内再次登录，可以恢复您的账户。',
+            manageBtn: '管理',
+            downloadBtn: '下载',
+            deleteBtn: '删除',
+            downloadSentTitle: '邮件已发送!',
+            downloadSentDesc: '我们将很快向您发送一封包含数据下载链接的邮件。',
+            closeBtn: '关闭',
+            deleteConfirm: '确定要删除这个账户吗？此操作会删除账户和相关对话数据。'
+        },
+        en: {
+            welcomePrefix: 'Welcome, ',
+            sentenceEnd: '.',
+            manageAccount: 'Manage your mof account.',
+            navAccount: 'Account',
+            navSecurity: 'Security',
+            navSessions: 'Sessions',
+            navData: 'Data',
+            backHome: 'Back to home',
+            dataTitle: 'Your data',
+            dataSubtitle: 'Manage the personal data you store with MOF.',
+            cookieTitle: 'Cookie settings',
+            cookieDesc: 'Manage your analytics and advertising cookie preferences.',
+            downloadTitle: 'Download account data',
+            downloadDesc: 'You can download all data associated with your account below. This includes everything stored across MOF products.',
+            deleteTitle: 'Delete account',
+            deleteDesc: 'Delete your account and associated MOF platform data. If you log in again within 30 days, your account can be restored.',
+            manageBtn: 'Manage',
+            downloadBtn: 'Download',
+            deleteBtn: 'Delete',
+            downloadSentTitle: 'Email sent!',
+            downloadSentDesc: 'We will soon send you an email containing a data download link.',
+            closeBtn: 'Close',
+            deleteConfirm: 'Are you sure you want to delete this account? This will remove the account and related conversation data.'
+        },
+        ms: {
+            welcomePrefix: 'Selamat datang, ',
+            sentenceEnd: '.',
+            manageAccount: 'Urus akaun mof anda.',
+            navAccount: 'Akaun',
+            navSecurity: 'Keselamatan',
+            navSessions: 'Sesi',
+            navData: 'Data',
+            backHome: 'Kembali ke halaman utama',
+            dataTitle: 'Data anda',
+            dataSubtitle: 'Urus data peribadi yang anda simpan di MOF.',
+            cookieTitle: 'Tetapan Cookie',
+            cookieDesc: 'Urus pilihan cookie analitik dan pengiklanan anda.',
+            downloadTitle: 'Muat turun data akaun',
+            downloadDesc: 'Anda boleh memuat turun semua data yang berkaitan dengan akaun anda. Data ini termasuk semua yang disimpan merentas produk MOF.',
+            deleteTitle: 'Padam akaun',
+            deleteDesc: 'Padam akaun anda dan data berkaitan pada platform MOF. Jika anda log masuk semula dalam 30 hari, akaun anda boleh dipulihkan.',
+            manageBtn: 'Urus',
+            downloadBtn: 'Muat turun',
+            deleteBtn: 'Padam',
+            downloadSentTitle: 'E-mel dihantar!',
+            downloadSentDesc: 'Kami akan menghantar e-mel yang mengandungi pautan muat turun data tidak lama lagi.',
+            closeBtn: 'Tutup',
+            deleteConfirm: 'Anda pasti mahu memadam akaun ini? Ini akan membuang akaun dan data perbualan berkaitan.'
+        }
+    };
 
     function getProfileName() {
         const displayName = localStorage.getItem('pepperDisplayName');
@@ -2608,10 +2751,21 @@ async function loadChatPreview(chatId, title, liElement) {
         if (langLabel) langLabel.textContent = languageLabels[lang] || 'EN';
     }
 
+    function renderAccountLanguage() {
+        const lang = localStorage.getItem('pepperLang') || 'en';
+        const copy = accountCopy[lang] || accountCopy.en;
+        overlay.querySelectorAll('[data-account-i18n]').forEach(el => {
+            const key = el.dataset.accountI18n;
+            if (copy[key]) el.textContent = copy[key];
+        });
+        syncAccountLanguageLabel();
+    }
+
     function syncAccountThemeIcon() {
         if (!themeBtn) return;
         const isDark = (localStorage.getItem('pepperTheme') || 'dark') === 'dark';
         themeBtn.innerHTML = isDark ? '<i class="fa-regular fa-moon"></i>' : '<i class="fa-regular fa-sun"></i>';
+        themeBtn.setAttribute('aria-label', isDark ? 'Dark mode' : 'Light mode');
     }
 
     function openAccountPage() {
@@ -2621,7 +2775,7 @@ async function loadChatPreview(chatId, title, liElement) {
         }
         if (welcomeName) welcomeName.textContent = getProfileName();
         renderAvatar(topAvatar);
-        syncAccountLanguageLabel();
+        renderAccountLanguage();
         syncAccountThemeIcon();
         overlay.classList.add('show');
         overlay.setAttribute('aria-hidden', 'false');
@@ -2643,11 +2797,10 @@ async function loadChatPreview(chatId, title, liElement) {
             const currentLang = localStorage.getItem('pepperLang') || 'en';
             const nextLang = languageOrder[(languageOrder.indexOf(currentLang) + 1) % languageOrder.length] || 'zh';
             localStorage.setItem('pepperLang', nextLang);
-            syncAccountLanguageLabel();
-            document.querySelectorAll('.lang-btn').forEach(btn => {
-                btn.classList.toggle('active', btn.dataset.lang === nextLang);
-            });
             if (window.applyPepperLang) window.applyPepperLang(nextLang);
+            renderAccountLanguage();
+            syncPreferenceControls();
+            saveUserPreferences({ language: nextLang });
         });
     }
 
@@ -2656,17 +2809,63 @@ async function loadChatPreview(chatId, title, liElement) {
             const currentTheme = localStorage.getItem('pepperTheme') || 'dark';
             const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
             localStorage.setItem('pepperTheme', nextTheme);
-            if (nextTheme === 'dark') {
-                document.documentElement.setAttribute('data-theme', 'dark');
-            } else {
-                document.documentElement.removeAttribute('data-theme');
-            }
-            document.querySelectorAll('.theme-btn').forEach(btn => {
-                btn.classList.toggle('active', btn.dataset.theme === nextTheme);
-            });
+            if (window.applyPepperTheme) window.applyPepperTheme(nextTheme);
+            syncPreferenceControls();
             syncAccountThemeIcon();
+            saveUserPreferences({ theme: nextTheme });
         });
     }
+
+    if (downloadBtn && downloadDialog) {
+        downloadBtn.addEventListener('click', () => {
+            renderAccountLanguage();
+            downloadDialog.hidden = false;
+        });
+    }
+
+    if (downloadDialogClose && downloadDialog) {
+        downloadDialogClose.addEventListener('click', () => {
+            downloadDialog.hidden = true;
+        });
+    }
+
+    if (downloadDialog) {
+        downloadDialog.addEventListener('click', (e) => {
+            if (e.target === downloadDialog) downloadDialog.hidden = true;
+        });
+    }
+
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', async () => {
+            const lang = localStorage.getItem('pepperLang') || 'en';
+            const copy = accountCopy[lang] || accountCopy.en;
+            if (!window.confirm(copy.deleteConfirm)) return;
+            const token = localStorage.getItem('pepperJwt');
+            if (!token) {
+                window.location.href = '/static/login.html';
+                return;
+            }
+            try {
+                const res = await fetch('/api/account', {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) {
+                    const data = await res.json().catch(() => ({}));
+                    throw new Error(data.detail || 'Delete failed');
+                }
+                ['pepperJwt', 'pepperUserId', 'pepperUsername', 'pepperDisplayName', 'pepperAvatar', 'pepperGuestQuestionCount'].forEach(key => localStorage.removeItem(key));
+                window.location.href = '/static/login.html';
+            } catch (err) {
+                alert(err.message || 'Delete failed');
+            }
+        });
+    }
+
+    window.addEventListener('mof-preferences-changed', () => {
+        renderAccountLanguage();
+        syncAccountThemeIcon();
+    });
 
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && overlay.classList.contains('show')) {
