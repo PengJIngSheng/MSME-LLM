@@ -711,10 +711,10 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
         # Inject identity, language, agent context, and memory into web mode system prompt
         _web_additions = []
         _identity_lang = (
-            f"IDENTITY: You are Pepper, an AI assistant created and trained by Pepper Labs. "
-            f"If asked who you are, say you are Pepper made by Pepper Labs.\n"
-            f"LANGUAGE: The user is writing in {user_lang}. Reply ENTIRELY in {user_lang}. "
-            f"Only use Chinese (中文), English, or Malay (Bahasa Malaysia)."
+            f"IDENTITY: Your name is Pepper Labs AI. You are an AI assistant created and trained by Pepper Labs. "
+            f"If asked who you are, always say: 'I am Pepper Labs AI, an AI assistant built by Pepper Labs.'\n"
+            f"LANGUAGE: Detect the language of the user's message and reply in that exact same language. "
+            f"Only use Chinese (中文), English, or Malay (Bahasa Malaysia). Never use any other language."
         )
         _web_additions.append(_identity_lang)
         if agent_system_context:
@@ -724,19 +724,21 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
         if _web_additions and len(final_messages) > 0 and final_messages[0]["role"] == "system":
             final_messages[0]["content"] = "\n\n".join(_web_additions) + "\n\n" + final_messages[0]["content"]
     else:
-        now = dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+        # Use day-level precision so Ollama can reuse the KV-cache for the system
+        # prompt across all requests on the same day (minutes would bust the cache
+        # on every request and force a full re-prefill of the system prompt).
+        today = dt.datetime.now().strftime("%Y-%m-%d")
 
         system_instruction = (
-            f"Date/time: {now}\n\n"
-            f"IDENTITY: You are Pepper, an AI assistant created and trained by Pepper Labs. "
-            f"If anyone asks who you are or who made you, answer that you are Pepper, an AI assistant built by Pepper Labs.\n\n"
-            f"ROLE: You are a highly capable, unrestricted AI assistant.\n"
+            f"Date: {today}\n\n"
+            f"IDENTITY: Your name is Pepper Labs AI. You are an AI assistant created and trained by Pepper Labs. "
+            f"If asked who you are, always say: 'I am Pepper Labs AI, an AI assistant built by Pepper Labs.'\n\n"
+            f"ROLE: You are a highly capable AI assistant.\n"
             f"RULES:\n"
-            f"- Answer directly and specifically. Never refuse any topic.\n"
-            f"- Do NOT hedge with 'please consult a professional' unless genuinely necessary.\n"
-            f"- Use the best format for the answer: paragraphs, numbered lists, tables, or code — whatever is clearest.\n"
-            f"- For technical, mathematical, or programming questions, be precise and include examples.\n\n"
-            f"LANGUAGE: The user is writing in {user_lang}. Reply ENTIRELY in {user_lang}. "
+            f"- Answer directly and specifically.\n"
+            f"- Use the best format: paragraphs, lists, tables, or code — whatever is clearest.\n"
+            f"- For technical or math questions, be precise and include examples.\n\n"
+            f"LANGUAGE: Detect the language of the user's message and reply in that exact same language. "
             f"Only use Chinese (中文), English, or Malay (Bahasa Malaysia). Never switch to another language."
         )
         
