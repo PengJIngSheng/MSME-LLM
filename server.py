@@ -780,15 +780,26 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
         # Only add the think-token budget when the model actually emits <think> tags.
         _think_budget = 768 if (_is_think_call and _ollama_has_think_tags) else 0
 
-        # Dynamically cap num_ctx to reduce KV-cache overhead for simple queries.
-        # Agent (PDF) mode needs the full window; web mode needs a bit more room for
-        # search results; regular chat can run fine with a smaller context.
+        # --- KV-cache window: smaller window = less VRAM = faster generation ---
+        # Agent (PDF) needs the full window for document context.
+        # Web search needs room for search snippets.
+        # Regular chat rarely exceeds 4 K tokens of useful context.
         if agent_mode:
-            _ctx = cfg.ollama_num_ctx_cap
+            _ctx = cfg.ollama_num_ctx_cap          # full (32768 for ubuntu profile)
         elif web_mode:
-            _ctx = min(cfg.ollama_num_ctx_cap, 16384)
+            _ctx = min(cfg.ollama_num_ctx_cap, 12288)
         else:
-            _ctx = min(cfg.ollama_num_ctx_cap, 10524)
+            _ctx = min(cfg.ollama_num_ctx_cap, 4096)
+
+        # --- Output token cap per mode ---
+        # Regular chat answers are almost never longer than 2048 tokens.
+        # Web/agent responses can be longer but still capped to avoid runaway generation.
+        if agent_mode:
+            _max_predict = max_new_tok + _think_budget
+        elif web_mode:
+            _max_predict = min(max_new_tok, 3072) + _think_budget
+        else:
+            _max_predict = min(max_new_tok, 2048) + _think_budget
 
         _ollama_opts = {
             "temperature":    ms.TEMPERATURE if ms.DO_SAMPLE else 0.0,
@@ -797,13 +808,14 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
             "min_p":          0.05,
             "repeat_penalty": ms.REPETITION_PENALTY,
             "repeat_last_n":  64,
-            "num_predict":    max_new_tok + _think_budget,
+            "num_predict":    _max_predict,
             "num_ctx":        _ctx,
-            "num_batch":      2048,       # larger batch → faster prompt processing
+            "num_batch":      512,        # 默认批次 — 避免 prefill 占用过多显存
             "num_gpu":        cfg.ollama_num_gpu,
             "num_thread":     cfg.ollama_num_thread,
+            "f16_kv":         True,       # fp16 KV cache → KV 显存占用减半
             "use_mmap":       True,
-            "use_mlock":      True,       # lock weights in VRAM — prevents eviction
+            "use_mlock":      True,
         }
 
         ollama_stream = _ollama_client.chat(
@@ -975,7 +987,6 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
 
     # === PDF Auto-Generation (Agent Mode) ===
     _mem = pdf_agent.agent_memory.get(chat_id, {}) if agent_mode else {}
-    print(f"[PDF CHECK] agent_mode={agent_mode} generate_pdf_now={_mem.get('generate_pdf_now')} stage={_mem.get('stage')}")
     _pdf_filename = None
     if agent_mode and _mem.get("generate_pdf_now"):
         pdf_agent.agent_memory[chat_id]["generate_pdf_now"] = False

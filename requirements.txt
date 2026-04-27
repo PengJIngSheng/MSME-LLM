@@ -8,6 +8,8 @@ ollama
 langchain
 langchain-core
 langchain-ollama
+langgraph
+ddgs
 
 # Memory & Database
 langchain-postgres
