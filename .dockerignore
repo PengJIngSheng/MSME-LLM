@@ -1,0 +1,34 @@
+.git
+.gitignore
+.venv
+env
+venv
+ENV
+__pycache__
+*.pyc
+
+# Local/runtime data
+models
+user_uploads
+*.log
+.cache
+
+# Model weights
+*.gguf
+*.bin
+*.pt
+*.pth
+*.safetensors
+*.onnx
+
+# Node dependencies
+node_modules
+ts-server/node_modules
+
+# Secrets
+.env
+secrets
+config/secrets*.env
+*client_secret.json
+*.pem
+*.key
