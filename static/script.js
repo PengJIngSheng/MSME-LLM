@@ -19,6 +19,7 @@ let isPaused = false;
 let pausedMsgIndex = null;
 let guestLoginPromptForced = false;
 let lastGuestPromptPulseAt = 0;
+let supportsThinkMode = true;
 
 const GUEST_QUESTION_LIMIT = 2;
 const agentModeBtn = document.getElementById('agentModeBtn');
@@ -63,11 +64,29 @@ async function loadPublicConfig() {
         if (data.google_oauth_client_id) {
             googleOAuthClientId = data.google_oauth_client_id;
         }
+        if (typeof data.supports_think_mode === 'boolean') {
+            supportsThinkMode = data.supports_think_mode;
+            if (!supportsThinkMode) {
+                isThinkMode = false;
+            }
+            applyThinkModeAvailability();
+            updateTogglesUI();
+        }
     } catch (err) {
         console.warn('Failed to load public config', err);
     }
 }
 const publicConfigReady = loadPublicConfig();
+
+function applyThinkModeAvailability() {
+    if (!thinkToggle) return;
+    thinkToggle.hidden = !supportsThinkMode;
+    thinkToggle.disabled = !supportsThinkMode;
+    thinkToggle.setAttribute('aria-hidden', supportsThinkMode ? 'false' : 'true');
+    if (!supportsThinkMode) {
+        thinkToggle.classList.remove('active');
+    }
+}
 
 function resizeComposer() {
     if (!userInput) return;
@@ -590,11 +609,16 @@ if (liquidGlassInput) {
 
 // ============ Toggles ============
 function updateTogglesUI() {
-    thinkToggle.classList.toggle('active', isThinkMode);
-    webToggle.classList.toggle('active', isWebMode);
+    if (thinkToggle) thinkToggle.classList.toggle('active', supportsThinkMode && isThinkMode);
+    if (webToggle) webToggle.classList.toggle('active', isWebMode);
 }
 updateTogglesUI();
-thinkToggle.addEventListener('click', () => { isThinkMode = !isThinkMode; updateTogglesUI(); });
+applyThinkModeAvailability();
+thinkToggle.addEventListener('click', () => {
+    if (!supportsThinkMode) return;
+    isThinkMode = !isThinkMode;
+    updateTogglesUI();
+});
 webToggle.addEventListener('click', () => { isWebMode = !isWebMode; updateTogglesUI(); });
 
 // ============ Connectors ============
@@ -1388,7 +1412,7 @@ async function handleSend(isResume = false, resumeIndex = null) {
     isGenerating = true;
     currentAbortController = new AbortController();
     // In agent mode, thinking is always on, web is always off
-    const effectiveThinkMode = isAgentMode ? true : isThinkMode;
+    const effectiveThinkMode = supportsThinkMode && (isAgentMode ? true : isThinkMode);
     const effectiveWebMode = isAgentMode ? false : isWebMode;
     submitBtn.className = 'submit-btn ' + ((effectiveThinkMode || effectiveWebMode && !frontendAnswerAccum) ? 'thinking-state' : 'answering-state');
     submitBtn.innerHTML = '<i class="fa-solid fa-pause"></i>';
@@ -1464,7 +1488,7 @@ async function handleSend(isResume = false, resumeIndex = null) {
                 message: isResume ? '' : chatMessages[chatMessages.length - 1]?.content || '',
                 messages: chatMessages,
                 attachments: attachmentsPayload,
-                think_mode: isAgentMode ? true : isThinkMode,
+                think_mode: supportsThinkMode && (isAgentMode ? true : isThinkMode),
                 web_mode: isAgentMode ? false : isWebMode,
                 is_resume: isResume,
                 agent_mode: isAgentMode,

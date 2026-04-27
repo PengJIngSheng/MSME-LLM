@@ -102,6 +102,11 @@ def _detect_language(text):
     return "Chinese" if cn / total > 0.15 else "English"
 
 
+def _model_supports_thinking(model_name: str) -> bool:
+    name = (model_name or "").lower()
+    return any(marker in name for marker in ("deepseek", "qwq", "qwen3", "qwen-3", "reasoning"))
+
+
 # =========================================================================
 #  PhaseStreamer: Based on Model_StartUp.ThinkingAwareStreamer's proven
 #  pattern. Uses skip_special_tokens=False + accumulated text detection
@@ -427,6 +432,8 @@ async def public_config():
         "profile": cfg.profile,
         "google_oauth_client_id": cfg.google_oauth_client_id,
         "public_site_url": cfg.public_site_url,
+        "think_model": cfg.think_model,
+        "supports_think_mode": _model_supports_thinking(cfg.think_model),
     }
 
 
@@ -734,11 +741,7 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
         _use_fast      = _agent_mem.get("use_fast_model", False) if agent_mode else False
         _ollama_model  = cfg.fast_model if _use_fast else (cfg.think_model if think_mode else cfg.fast_model)
         _is_think_call = (not _use_fast) and think_mode
-        _ollama_model_lower = (_ollama_model or "").lower()
-        _ollama_has_think_tags = any(
-            marker in _ollama_model_lower
-            for marker in ("deepseek", "qwq", "qwen3", "qwen-3", "reasoning")
-        )
+        _ollama_has_think_tags = _model_supports_thinking(_ollama_model)
 
         if agent_mode and _use_fast:
             print(f"[AGENT SPEED] Analysis stage → fast_model (skip think tokens)")
