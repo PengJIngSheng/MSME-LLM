@@ -4474,7 +4474,7 @@ html:not([data-theme="dark"]) .account-page-overlay {
 }
 
 .account-nav-list {
-    margin-top: 49px;
+    margin-top: 50px;
     width: 222px;
     margin-left: -34px;
     display: flex;
@@ -4485,7 +4485,7 @@ html:not([data-theme="dark"]) .account-page-overlay {
 .account-nav-item {
     position: relative;
     width: 222px;
-    height: 50px;
+    height: 51px;
     border: 0;
     border-radius: 4px;
     padding: 0 16px 0 22px;

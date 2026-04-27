@@ -25,6 +25,11 @@ os.environ['OAUTHLIB_RELAX_TOKEN_SCOPE'] = '1'
 
 JWT_SECRET = os.getenv("JWT_SECRET", "super-secret-pepper-key-2026")
 JWT_ALGORITHM = "HS256"
+GOOGLE_OAUTH_CLIENT_ID = os.getenv(
+    "GOOGLE_OAUTH_CLIENT_ID",
+    "685645444928-ivt7lgsjiatv0ff0r68ckmbln1rdrrm4.apps.googleusercontent.com"
+)
+GOOGLE_OAUTH_CLIENT_SECRET = os.getenv("GOOGLE_OAUTH_CLIENT_SECRET", "").strip()
 
 # -- Note: This file path will need to be downloaded from Google Cloud Console.
 CLIENT_SECRETS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "client_secret.json")
@@ -40,6 +45,48 @@ SCOPES = [
     'https://www.googleapis.com/auth/documents',
     'https://www.googleapis.com/auth/calendar.events'
 ]
+
+def _google_oauth_client_config() -> dict:
+    """Return the OAuth web-client config that must match GIS initCodeClient."""
+    if GOOGLE_OAUTH_CLIENT_SECRET:
+        return {
+            "web": {
+                "client_id": GOOGLE_OAUTH_CLIENT_ID,
+                "client_secret": GOOGLE_OAUTH_CLIENT_SECRET,
+                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                "token_uri": "https://oauth2.googleapis.com/token",
+                "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+                "redirect_uris": ["postmessage", "http://localhost"],
+                "javascript_origins": ["http://localhost", "http://127.0.0.1"],
+            }
+        }
+
+    with open(CLIENT_SECRETS_FILE, "r", encoding="utf-8") as f:
+        config = json.load(f)
+
+    section_name = "web" if "web" in config else "installed"
+    section = config.get(section_name) or {}
+    configured_client_id = section.get("client_id")
+
+    if configured_client_id != GOOGLE_OAUTH_CLIENT_ID:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Google OAuth client mismatch. Frontend uses "
+                f"{GOOGLE_OAUTH_CLIENT_ID}, but backend client_secret.json uses "
+                f"{configured_client_id or 'none'}. Replace AI agent/client_secret.json "
+                "with the matching Web OAuth client JSON, or set GOOGLE_OAUTH_CLIENT_SECRET "
+                "for that client id."
+            )
+        )
+
+    if not section.get("client_secret"):
+        raise HTTPException(
+            status_code=400,
+            detail="Missing Google OAuth client secret for Workspace connector authorization."
+        )
+
+    return config
 
 class AuthCodeRequest(BaseModel):
     auth_code: str
@@ -71,8 +118,8 @@ def get_current_user(authorization: str = Header(None)):
 async def exchange_auth_code(req: AuthCodeRequest, user_id: str = Depends(get_current_user)):
     """Exchange offline auth code for a refresh token and access token"""
     try:
-        flow = Flow.from_client_secrets_file(
-            CLIENT_SECRETS_FILE, scopes=SCOPES, redirect_uri=req.redirect_uri
+        flow = Flow.from_client_config(
+            _google_oauth_client_config(), scopes=SCOPES, redirect_uri=req.redirect_uri
         )
         flow.fetch_token(code=req.auth_code)
         credentials = flow.credentials
@@ -95,6 +142,8 @@ async def exchange_auth_code(req: AuthCodeRequest, user_id: str = Depends(get_cu
             {"$set": {f"google_creds_{service_id}": creds_data}}
         )
         return {"status": "success", "message": "Google Workspace connected with offline access."}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 

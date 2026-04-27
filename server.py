@@ -499,7 +499,7 @@ async def rename_chat(chat_id: str, req: RenameChatRequest):
 
 
 
-async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=False, max_tokens_override=None, agent_mode=False, attachments=None):
+async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=False, max_tokens_override=None, agent_mode=False, attachments=None, user_timezone=""):
     # --- Language detection ---
     latest_user_msg = ""
     for msg in reversed(messages):
@@ -610,7 +610,7 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
                 llm_callback=google_cb,
                 upload_dir="mongodb_gridfs",  # Dummy value
                 pdf_filename=_agent_mem_pdf,
-                user_timezone=req.user_timezone or "",
+                user_timezone=user_timezone or "",
             )
             
             if _out == "__NORMAL_CHAT_FALLBACK__":
@@ -1008,6 +1008,7 @@ async def chat_endpoint(req: ChatRequest):
             max_tokens_override=req.max_tokens,
             agent_mode=req.agent_mode,
             attachments=req.attachments,
+            user_timezone=req.user_timezone or "",
         ):
             yield chunk
 
