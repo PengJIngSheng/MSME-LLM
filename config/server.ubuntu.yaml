@@ -3,8 +3,8 @@ runtime:
   platform: "Ubuntu 24.04 + RTX 4090 (48GB VRAM)"
 
 model:
-  think_model: "gemma4:31b"
-  fast_model: "gemma4:31b"
+  think_model: "gemma4:31b-it-q8_0"
+  fast_model: "gemma4:31b-it-q8_0"
   gguf_path: ""
   context_length: 32768
 

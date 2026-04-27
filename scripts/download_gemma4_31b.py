@@ -2,7 +2,7 @@
 """
 Download Gemma 4 31B in a way that is safe for Ollama.
 
-Recommended:
+Recommended after configuring Ollama's storage directory:
   python scripts/download_gemma4_31b.py --mode ollama
 
 Raw Hugging Face Safetensors from google/gemma-4-31B are not directly usable by
@@ -17,7 +17,7 @@ import subprocess
 from pathlib import Path
 
 
-DEFAULT_OLLAMA_MODEL = "gemma4:31b"
+DEFAULT_OLLAMA_MODEL = "gemma4:31b-it-q8_0"
 DEFAULT_HF_REPO = "google/gemma-4-31B"
 
 
@@ -37,6 +37,7 @@ def pull_ollama(model: str, dry_run: bool) -> None:
         require_ollama()
     run(["ollama", "pull", model], dry_run=dry_run)
     print(f"\nDone. Use this model name in config/server.ubuntu.yaml: {model}")
+    print("To keep Ollama model files inside the project, run scripts/configure_ollama_project_models.sh first.")
 
 
 def download_hf_snapshot(repo_id: str, out_dir: Path, dry_run: bool) -> None:
