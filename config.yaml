@@ -12,11 +12,11 @@
 model:
   # Ollama model name for THINK MODE (has <think>...</think> template)
   # This is the model registered via: ollama create <name> -f Modelfile
-  think_model: "deepseek-r1-distill-qwen-14b"
+  think_model: "gemma4:31b-it-q8_0"
 
   # Ollama model name for STANDARD MODE (no <think> template, answers directly)
   # Registered via: ollama create <name> -f Modelfile_fast
-  fast_model: "deepseek-r1-14b-fast"
+  fast_model: "gemma4:31b-it-q8_0"
 
   # Path to GGUF file (relative to project root, used only if NOT using Ollama)
   # Example: "./models/DeepSeek-R1-Distill-Qwen-14B-Q5_K_M.gguf"

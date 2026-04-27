@@ -19,7 +19,7 @@ let isPaused = false;
 let pausedMsgIndex = null;
 let guestLoginPromptForced = false;
 let lastGuestPromptPulseAt = 0;
-let supportsThinkMode = true;
+let supportsThinkMode = false;
 
 const GUEST_QUESTION_LIMIT = 2;
 const agentModeBtn = document.getElementById('agentModeBtn');

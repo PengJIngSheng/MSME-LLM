@@ -104,6 +104,9 @@ def _detect_language(text):
 
 def _model_supports_thinking(model_name: str) -> bool:
     name = (model_name or "").lower()
+    _non_thinking = ("gemma",)
+    if any(m in name for m in _non_thinking):
+        return False
     return any(marker in name for marker in ("deepseek", "qwq", "qwen3", "qwen-3", "reasoning"))
 
 
