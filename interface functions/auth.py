@@ -12,12 +12,13 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formataddr
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 from pymongo import MongoClient
 from typing import Optional
 import bcrypt
 import jwt
+from urllib.parse import unquote, urlparse
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config_loader import cfg
@@ -44,6 +45,29 @@ OTP_TTL_MINUTES = 10
 _pending_otp_indexes_ready = False
 
 auth_router = APIRouter()
+
+_ALLOWED_AVATAR_HOSTS = {"lh3.googleusercontent.com", "googleusercontent.com"}
+
+
+@auth_router.get("/api/avatar/google")
+async def google_avatar_proxy(url: str):
+    parsed = urlparse(unquote(url))
+    host = parsed.hostname or ""
+    if parsed.scheme != "https" or not any(host == h or host.endswith(f".{h}") for h in _ALLOWED_AVATAR_HOSTS):
+        raise HTTPException(status_code=400, detail="Unsupported avatar URL")
+    try:
+        req = urllib.request.Request(
+            parsed.geturl(),
+            headers={"User-Agent": "Mozilla/5.0"},
+        )
+        with urllib.request.urlopen(req, timeout=8) as response:
+            content = response.read(2 * 1024 * 1024)
+            content_type = response.headers.get("Content-Type", "image/jpeg")
+    except Exception:
+        raise HTTPException(status_code=502, detail="Unable to load avatar")
+    if not content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Avatar URL did not return an image")
+    return Response(content=content, media_type=content_type, headers={"Cache-Control": "public, max-age=86400"})
 
 # ─── Pydantic Models ───────────────────────────────────
 class AuthRequest(BaseModel):

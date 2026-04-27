@@ -32,6 +32,29 @@ const liquidGlassInput = document.querySelector('.liquid-glass-input');
 const COMPOSER_MAX_HEIGHT = 168;
 let googleOAuthClientId = '685645444928-ivt7lgsjiatv0ff0r68ckmbln1rdrrm4.apps.googleusercontent.com';
 
+function resolveAvatarSrc(url) {
+    if (!url) return '';
+    try {
+        const parsed = new URL(url);
+        if (parsed.hostname === 'lh3.googleusercontent.com' || parsed.hostname.endsWith('.googleusercontent.com')) {
+            return `/api/avatar/google?url=${encodeURIComponent(url)}`;
+        }
+    } catch {
+        return url;
+    }
+    return url;
+}
+
+function escapeAttr(value) {
+    return String(value || '').replace(/[&<>"']/g, ch => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    }[ch]));
+}
+
 async function loadPublicConfig() {
     try {
         const res = await fetch('/api/public-config', { cache: 'no-store' });
@@ -2581,7 +2604,7 @@ loadUserPreferences();
             if (userEmailDisplay) userEmailDisplay.innerText = username;
             
             if (avatarUrl && avatarDisplay) {
-                avatarDisplay.innerHTML = `<img src="${avatarUrl}" alt="Avatar">`;
+                avatarDisplay.innerHTML = `<img src="${escapeAttr(resolveAvatarSrc(avatarUrl))}" alt="Avatar" referrerpolicy="no-referrer">`;
                 avatarDisplay.style.background = 'transparent';
             } else if (avatarDisplay) {
                 const firstLetter = (profileName || username).charAt(0).toUpperCase();
@@ -2994,7 +3017,7 @@ loadUserPreferences();
         const avatarUrl = localStorage.getItem('pepperAvatar');
         const profileName = getProfileName();
         if (avatarUrl) {
-            target.innerHTML = `<img src="${avatarUrl}" alt="Avatar">`;
+            target.innerHTML = `<img src="${escapeAttr(resolveAvatarSrc(avatarUrl))}" alt="Avatar" referrerpolicy="no-referrer">`;
             target.style.background = 'transparent';
             return;
         }

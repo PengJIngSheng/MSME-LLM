@@ -32,3 +32,4 @@ huggingface_hub
 
 # Utilities
 PyYAML
+PyJWT
