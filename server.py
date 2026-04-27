@@ -721,8 +721,8 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
 
     answer_text = ""
 
-    # === GGUF Model (via Ollama) ===
-    if model_type == "gguf":
+    # === GGUF/Ollama Model (served by Ollama) ===
+    if model_type in ("gguf", "ollama") or tokenizer == "ollama":
         if is_resume and final_messages and isinstance(final_messages[-1], dict) and final_messages[-1].get("role") == "assistant":
             last_msg = final_messages[-1]
             prompt_trick = f"Please continue your previous response EXACTLY from where you left off without repeating. Here is what you generated so far:\n{last_msg.get('content', '')}"
@@ -734,6 +734,11 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
         _use_fast      = _agent_mem.get("use_fast_model", False) if agent_mode else False
         _ollama_model  = cfg.fast_model if _use_fast else (cfg.think_model if think_mode else cfg.fast_model)
         _is_think_call = (not _use_fast) and think_mode
+        _ollama_model_lower = (_ollama_model or "").lower()
+        _ollama_has_think_tags = any(
+            marker in _ollama_model_lower
+            for marker in ("deepseek", "qwq", "qwen3", "qwen-3", "reasoning")
+        )
 
         if agent_mode and _use_fast:
             print(f"[AGENT SPEED] Analysis stage → fast_model (skip think tokens)")
@@ -771,11 +776,11 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
 
 
 
-        # Ollama 模板始终注入 <think>，所以模型总是先输出思考，再输出回答
-        # 为了兼容不同的 fast_model（有的强制输出 <think>，有的不输出），我们动态探测
-        gguf_phase      = initial_phase if initial_phase else "thinking"
+        # Only reasoning models such as DeepSeek/QwQ are expected to emit <think>.
+        # Gemma and other standard instruct models should stream directly as answers.
+        gguf_phase      = initial_phase if initial_phase else ("thinking" if _ollama_has_think_tags else "answering")
         gguf_sent_start = (gguf_phase == "answering")
-        detected_think_tag = None
+        detected_think_tag = True if _ollama_has_think_tags else False
 
         for chunk in ollama_stream:
             piece = chunk['message']['content']
