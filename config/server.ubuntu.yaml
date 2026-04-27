@@ -1,5 +1,10 @@
+# MSME-LLM Server Configuration
+# Generated for: Ubuntu Cyberjaya RTX 4090 48GB
+# Date: 2026-04-27
+
 runtime:
-  name: "Ubuntu cloud RTX 4090 48GB"
+  name: "MSME AI Copilot - Cyberjaya MYS1a"
+  platform: "Ubuntu 24.04 + RTX 4090 (48GB VRAM)"
 
 model:
   context_length: 32768
@@ -10,30 +15,30 @@ generation:
 server:
   host: "0.0.0.0"
   port: 8000
-  public_site_url: "https://your-domain.example"
-  timezone: "Asia/Shanghai"
+  public_site_url: "http://103.209.158.127:8000"
+  timezone: "Asia/Kuala_Lumpur"
 
 database:
   mongodb:
-    uri: "mongodb://mongo:27017/"
+    uri: "mongodb://localhost:27017/"
     database: "pepper_chat_db"
   pgvector:
-    connection_uri: "postgresql+psycopg://postgres:postgres@pgvector:5432/pepper_memory"
+    connection_uri: "postgresql+psycopg://postgres:postgres@localhost:5432/pepper_memory"
     collection: "users_memory"
 
 services:
   ollama:
-    base_url: "http://ollama:11434"
+    base_url: "http://127.0.0.1:11434"
     num_ctx_cap: 32768
-    num_gpu: 99
+    num_gpu: 1
     num_thread: 8
 
 deployment:
   ssh:
-    host: "your.server.ip"
+    host: "103.209.158.127"
     port: 22
     user: "ubuntu"
-    identity_file: "~/.ssh/mof_server"
+    identity_file: "C:/Users/mier3/.ssh/MSMEAI.pem"
   docker:
     mongo_port: 27017
     pgvector_port: 5432
