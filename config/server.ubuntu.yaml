@@ -1,7 +1,3 @@
-# MSME-LLM Server Configuration
-# Generated for: Ubuntu Cyberjaya RTX 4090 48GB
-# Date: 2026-04-27
-
 runtime:
   name: "MSME AI Copilot - Cyberjaya MYS1a"
   platform: "Ubuntu 24.04 + RTX 4090 (48GB VRAM)"
