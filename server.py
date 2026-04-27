@@ -42,6 +42,8 @@ sys.path.append(os.path.join(_BASE, "Model Networking"))
 
 # ── Load central config ──────────────────────────────────
 from config_loader import cfg
+os.environ.setdefault("OLLAMA_HOST", cfg.ollama_base_url)
+_ollama_client = _ol.Client(host=cfg.ollama_base_url)
 
 import Model_StartUp as ms
 
@@ -81,8 +83,8 @@ _mem_spec = _ilu.spec_from_file_location("memory_agent", _mem_path)
 memory_agent = _ilu.module_from_spec(_mem_spec)
 _mem_spec.loader.exec_module(memory_agent)
 
-mongo_client = MongoClient("mongodb://localhost:27017/")
-db = mongo_client["pepper_chat_db"]
+mongo_client = MongoClient(cfg.mongo_uri)
+db = mongo_client[cfg.mongo_database]
 chats_col = db["chats"]
 feedbacks_col = db["feedbacks"]
 fs = gridfs.GridFS(db)
@@ -264,8 +266,13 @@ async def startup_event():
     print("⏳ Scanning for models...")
     available = []
     base = os.path.dirname(os.path.abspath(__file__))
+    configured_model_path = cfg.gguf_path
+    if configured_model_path and os.path.exists(configured_model_path):
+        available.append((configured_model_path, os.path.basename(configured_model_path), "gguf"))
     for item in os.listdir(base):
         p = os.path.join(base, item)
+        if configured_model_path and os.path.abspath(p) == os.path.abspath(configured_model_path):
+            continue
         if os.path.isfile(p) and item.lower().endswith('.gguf'):
             available.append((p, item, "gguf"))
         elif os.path.isdir(p) and os.path.exists(os.path.join(p, "config.json")):
@@ -399,6 +406,14 @@ async def get_index():
         "Cache-Control": "no-cache, no-store, must-revalidate",
         "Pragma": "no-cache", "Expires": "0"
     })
+
+@app.get("/api/public-config")
+async def public_config():
+    return {
+        "profile": cfg.profile,
+        "google_oauth_client_id": cfg.google_oauth_client_id,
+        "public_site_url": cfg.public_site_url,
+    }
 
 
 @app.post("/api/upload_files")
@@ -721,15 +736,15 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
             "repeat_last_n":  64,        # smaller window → faster sampling
             "num_predict":    max_new_tok + (768 if _is_think_call else 0),
             "num_ctx":        cfg.context_length,
-            "num_gpu":        99,         # offload ALL layers to GPU
-            "num_thread":     4,          # CPU threads for non-GPU ops
+            "num_gpu":        cfg.ollama_num_gpu,
+            "num_thread":     cfg.ollama_num_thread,
             "use_mmap":       True,       # memory-map weights → faster cold load
             "use_mlock":      False,      # don't lock — let OS manage
         }
-        # Context cap: 8192 tokens max for RTX 4080 12GB stability
-        _ollama_opts["num_ctx"] = min(cfg.context_length, 8192)
+        # Context cap comes from the active profile.
+        _ollama_opts["num_ctx"] = min(cfg.context_length, cfg.ollama_num_ctx_cap)
 
-        ollama_stream = _ol.chat(
+        ollama_stream = _ollama_client.chat(
             model=_ollama_model,
             messages=final_messages,
             stream=True,

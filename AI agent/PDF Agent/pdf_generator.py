@@ -9,7 +9,7 @@ Architecture:
 Result: browser-quality PDF with full CSS3, system CJK fonts,
         colored sections, financial tables, gradients, shadows.
 """
-import os, re, uuid, subprocess, markdown as _md_lib
+import os, re, sys, uuid, subprocess, markdown as _md_lib
 from datetime import datetime
 
 # Process isolation solves Event Loop bugs under Uvicorn/Windows.
@@ -19,8 +19,11 @@ import tempfile
 import gridfs
 from pymongo import MongoClient
 
-mongo_client = MongoClient("mongodb://localhost:27017/")
-db = mongo_client["pepper_chat_db"]
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+from config_loader import cfg
+
+mongo_client = MongoClient(cfg.mongo_uri)
+db = mongo_client[cfg.mongo_database]
 fs = gridfs.GridFS(db)
 
 PDF_DIR = tempfile.gettempdir()

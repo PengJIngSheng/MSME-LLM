@@ -14,12 +14,16 @@ generate      → model outputs full structured report → generate_pdf_now = Tr
 refine        → user requests changes               → generate_pdf_now = True
 """
 import os
+import sys
 import re
 import tempfile
 import hashlib
 import importlib.util as _ilu
 import gridfs
 from pymongo import MongoClient
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+from config_loader import cfg
 
 # ─── PDF Parser ───────────────────────────────────────────────────────────────
 # Fast path via PyMuPDF (fitz) to remove the heavy 15-30s CPU delay.
@@ -30,8 +34,8 @@ except ImportError:
 _USE_MARKITDOWN = False
 
 # ─── GridFS Connection (for file retrieval) ───────────────────────────────────
-_mongo_client = MongoClient("mongodb://localhost:27017/")
-_db = _mongo_client["pepper_chat_db"]
+_mongo_client = MongoClient(cfg.mongo_uri)
+_db = _mongo_client[cfg.mongo_database]
 _fs = gridfs.GridFS(_db)
 
 _prompts_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pdf_agent_prompts.py")

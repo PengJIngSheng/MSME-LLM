@@ -498,11 +498,22 @@
         }
 
         // Form Submit Logic
+        let googleOAuthClientId = '685645444928-ivt7lgsjiatv0ff0r68ckmbln1rdrrm4.apps.googleusercontent.com';
+        async function loadPublicConfig() {
+            try {
+                const res = await fetch('/api/public-config', { cache: 'no-store' });
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data.google_oauth_client_id) googleOAuthClientId = data.google_oauth_client_id;
+            } catch (err) {
+                console.warn('Failed to load public config', err);
+            }
+        }
         let googleTokenClient;
         function initGoogleClient() {
             if(typeof google !== 'undefined') {
                 googleTokenClient = google.accounts.oauth2.initTokenClient({
-                    client_id: '685645444928-ivt7lgsjiatv0ff0r68ckmbln1rdrrm4.apps.googleusercontent.com',
+                    client_id: googleOAuthClientId,
                     scope: 'email profile openid',
                     callback: async (tokenResponse) => {
                         if (tokenResponse && tokenResponse.access_token) {
@@ -542,7 +553,7 @@
                 setTimeout(initGoogleClient, 100);
             }
         }
-        initGoogleClient();
+        loadPublicConfig().then(initGoogleClient);
 
         document.getElementById('googleAuthBtn').addEventListener('click', () => {
             if(googleTokenClient) {

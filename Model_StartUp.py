@@ -20,6 +20,8 @@ sys.path.insert(0, BASE_DIR)
 
 try:
     from config_loader import cfg as _cfg
+    if _cfg and _cfg.ollama_base_url:
+        os.environ.setdefault("OLLAMA_HOST", _cfg.ollama_base_url)
 except Exception as _e:
     print(f"  ⚠️  config_loader 加载失败: {_e}，使用内置默认值")
     _cfg = None

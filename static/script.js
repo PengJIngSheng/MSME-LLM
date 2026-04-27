@@ -30,6 +30,21 @@ const appContainer = document.querySelector('.app-container');
 const inputWrapper = document.querySelector('.input-wrapper');
 const liquidGlassInput = document.querySelector('.liquid-glass-input');
 const COMPOSER_MAX_HEIGHT = 168;
+let googleOAuthClientId = '685645444928-ivt7lgsjiatv0ff0r68ckmbln1rdrrm4.apps.googleusercontent.com';
+
+async function loadPublicConfig() {
+    try {
+        const res = await fetch('/api/public-config', { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.google_oauth_client_id) {
+            googleOAuthClientId = data.google_oauth_client_id;
+        }
+    } catch (err) {
+        console.warn('Failed to load public config', err);
+    }
+}
+const publicConfigReady = loadPublicConfig();
 
 function resizeComposer() {
     if (!userInput) return;
@@ -625,7 +640,7 @@ function initGoogleClients() {
     
     Object.keys(SCOPE_MAP).forEach(service => {
         let config = {
-            client_id: '685645444928-ivt7lgsjiatv0ff0r68ckmbln1rdrrm4.apps.googleusercontent.com',
+            client_id: googleOAuthClientId,
             scope: SCOPE_MAP[service],
             include_granted_scopes: false,  // CRITICAL: Force strictly separate scope prompts
             ux_mode: 'popup',
@@ -760,7 +775,8 @@ document.querySelectorAll('.liquid-glass-switch').forEach(switchLabel => {
 });
 
 // Init Connectors UI data and build background OAuth clients
-setTimeout(() => {
+setTimeout(async () => {
+    await publicConfigReady;
     initGoogleClients();
     fetchConnectorsStatus();
 }, 1200);
@@ -3610,10 +3626,11 @@ loadUserPreferences();
     // ---- Google Link / Unlink ----
     let googleLinkTokenClient = null;
 
-    function initGoogleLinkClient(callback) {
+    async function initGoogleLinkClient(callback) {
+        await publicConfigReady;
         if (typeof google === 'undefined') { callback && callback(null, 'Google client not available'); return; }
         googleLinkTokenClient = google.accounts.oauth2.initTokenClient({
-            client_id: '685645444928-ivt7lgsjiatv0ff0r68ckmbln1rdrrm4.apps.googleusercontent.com',
+            client_id: googleOAuthClientId,
             scope: 'email profile',
             callback: async (tokenResponse) => {
                 if (tokenResponse.error) { callback && callback(null, tokenResponse.error); return; }

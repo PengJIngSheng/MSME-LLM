@@ -1,0 +1,95 @@
+runtime:
+  name: "MOF shared defaults"
+
+model:
+  think_model: "deepseek-r1-distill-qwen-14b"
+  fast_model: "deepseek-r1-14b-fast"
+  gguf_path: "./DeepSeek-R1-Distill-Qwen-14B-Q5_K_M.gguf"
+  quant_mode: "4bit"
+  context_length: 12288
+
+generation:
+  max_new_tokens: 6144
+  temperature: 0.6
+  top_p: 0.95
+  repetition_penalty: 1.05
+  do_sample: true
+  default_think_mode: false
+
+server:
+  host: "0.0.0.0"
+  port: 8000
+  timezone: "Asia/Shanghai"
+  public_site_url: "http://localhost:8000"
+  max_history_turns: 20
+
+database:
+  mongodb:
+    uri: "mongodb://localhost:27017/"
+    database: "pepper_chat_db"
+  pgvector:
+    connection_uri: "postgresql+psycopg://postgres:postgres@localhost:5432/pepper_memory"
+    collection: "users_memory"
+
+services:
+  ollama:
+    base_url: "http://localhost:11434"
+    embedding_model: "nomic-embed-text"
+    num_ctx_cap: 8192
+    num_gpu: 99
+    num_thread: 4
+  smtp:
+    host: "smtp.gmail.com"
+    port: 587
+    username: "yynarrator@gmail.com"
+    app_password: ""
+    from_name: "Ministry of Finance"
+  google:
+    oauth_client_id: "685645444928-ivt7lgsjiatv0ff0r68ckmbln1rdrrm4.apps.googleusercontent.com"
+    oauth_client_secret: ""
+    client_secret_file: "secrets/google_client_secret.json"
+
+security:
+  jwt_secret: "super-secret-pepper-key-2026"
+  jwt_algorithm: "HS256"
+  jwt_expiration_hours: 24
+
+deployment:
+  ssh:
+    host: ""
+    port: 22
+    user: ""
+    identity_file: ""
+  docker:
+    mongo_port: 27017
+    pgvector_port: 5432
+    ollama_port: 11434
+    app_port: 8000
+
+search:
+  max_queries: 2
+  max_results_per_query: 5
+  max_results_total: 6
+  snippet_length: 500
+  blacklist_domains:
+    - "kimi.ai"
+    - "gemini.google.com"
+    - "claude.ai"
+    - "openai.com"
+    - "anthropic.com"
+    - "copilot.microsoft.com"
+    - "chat.openai.com"
+    - "github.com"
+    - "stackoverflow.com"
+    - "youtube.com"
+    - "youtu.be"
+    - "twitter.com"
+    - "x.com"
+    - "facebook.com"
+    - "instagram.com"
+    - "linkedin.com"
+    - "tiktok.com"
+    - "pinterest.com"
+    - "google.com"
+    - "bing.com"
+    - "yahoo.com"

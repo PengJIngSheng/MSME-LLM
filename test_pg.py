@@ -2,11 +2,12 @@ import asyncio
 from langchain_postgres.vectorstores import PGVector
 from langchain_ollama import OllamaEmbeddings
 from langchain_core.documents import Document
+from config_loader import cfg
 
-CONNECTION_URI = "postgresql+psycopg://postgres:postgres@localhost:5432/pepper_memory"
-COLLECTION_NAME = "users_memory"
+CONNECTION_URI = cfg.pgvector_connection_uri
+COLLECTION_NAME = cfg.pgvector_collection
 
-embedder = OllamaEmbeddings(model="nomic-embed-text")
+embedder = OllamaEmbeddings(model=cfg.ollama_embedding_model, base_url=cfg.ollama_base_url)
 vectorstore = PGVector(
     embeddings=embedder,
     collection_name=COLLECTION_NAME,

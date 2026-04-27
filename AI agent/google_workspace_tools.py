@@ -1,4 +1,5 @@
 import os
+import sys
 import datetime
 import json
 import base64
@@ -13,31 +14,26 @@ from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from email.message import EmailMessage
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config_loader import cfg
+
 connectors_router = APIRouter()
 
 # MongoDB setup
-mongo_client = MongoClient("mongodb://localhost:27017/")
-db = mongo_client["pepper_chat_db"]
+mongo_client = MongoClient(cfg.mongo_uri)
+db = mongo_client[cfg.mongo_database]
 users_col = db["users"]
 
 os.environ['OAUTHLIB_RELAX_TOKEN_SCOPE'] = '1'
 # Relax scope requirements for granular Google token exchange
 
-JWT_SECRET = os.getenv("JWT_SECRET", "super-secret-pepper-key-2026")
-JWT_ALGORITHM = "HS256"
-GOOGLE_OAUTH_CLIENT_ID = os.getenv(
-    "GOOGLE_OAUTH_CLIENT_ID",
-    "685645444928-ivt7lgsjiatv0ff0r68ckmbln1rdrrm4.apps.googleusercontent.com"
-)
-GOOGLE_OAUTH_CLIENT_SECRET = os.getenv("GOOGLE_OAUTH_CLIENT_SECRET", "").strip()
+JWT_SECRET = cfg.jwt_secret
+JWT_ALGORITHM = cfg.jwt_algorithm
+GOOGLE_OAUTH_CLIENT_ID = cfg.google_oauth_client_id
+GOOGLE_OAUTH_CLIENT_SECRET = cfg.google_oauth_client_secret.strip()
 
 # -- Note: This file path will need to be downloaded from Google Cloud Console.
-CLIENT_SECRETS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "client_secret.json")
-
-# Add dummy secret if it doesn't exist for build purposes
-if not os.path.exists(CLIENT_SECRETS_FILE):
-    with open(CLIENT_SECRETS_FILE, 'w') as f:
-        json.dump({"web": {"client_id":"d","project_id":"p","auth_uri":"a","token_uri":"t","auth_provider_x509_cert_url":"c","client_secret":"s","redirect_uris":["r"],"javascript_origins":["o"]}}, f)
+CLIENT_SECRETS_FILE = cfg.google_client_secret_file or os.path.join(os.path.dirname(os.path.abspath(__file__)), "client_secret.json")
 
 SCOPES = [
     'https://www.googleapis.com/auth/drive.file',
@@ -60,6 +56,15 @@ def _google_oauth_client_config() -> dict:
                 "javascript_origins": ["http://localhost", "http://127.0.0.1"],
             }
         }
+
+    if not CLIENT_SECRETS_FILE or not os.path.exists(CLIENT_SECRETS_FILE):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Missing Google OAuth client secret. Set GOOGLE_OAUTH_CLIENT_SECRET "
+                "or GOOGLE_CLIENT_SECRET_FILE for the active APP_PROFILE."
+            )
+        )
 
     with open(CLIENT_SECRETS_FILE, "r", encoding="utf-8") as f:
         config = json.load(f)

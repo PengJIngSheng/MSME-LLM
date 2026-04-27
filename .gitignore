@@ -41,3 +41,7 @@ Thumbs.db
 
 # Secrets
 *client_secret.json
+secrets/
+config/secrets*.env
+*.pem
+*.key

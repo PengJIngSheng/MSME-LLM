@@ -1,14 +1,18 @@
 import os
+import sys
 import json
 import re
 from langchain_postgres.vectorstores import PGVector
 from langchain_ollama import OllamaEmbeddings
 from langchain_core.documents import Document
 
-CONNECTION_URI = "postgresql+psycopg://postgres:postgres@localhost:5432/pepper_memory"
-COLLECTION_NAME = "users_memory"
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config_loader import cfg
 
-embedder = OllamaEmbeddings(model="nomic-embed-text")
+CONNECTION_URI = cfg.pgvector_connection_uri
+COLLECTION_NAME = cfg.pgvector_collection
+
+embedder = OllamaEmbeddings(model=cfg.ollama_embedding_model, base_url=cfg.ollama_base_url)
 
 # Initialize the PGVector store (this will automatically create tables if they don't exist)
 vectorstore = PGVector(

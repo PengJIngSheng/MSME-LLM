@@ -1,4 +1,5 @@
 import os
+import sys
 import uuid
 import html
 import hashlib
@@ -18,24 +19,27 @@ from typing import Optional
 import bcrypt
 import jwt
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config_loader import cfg
+
 # JWT Configuration
-JWT_SECRET = os.getenv("JWT_SECRET", "super-secret-pepper-key-2026")
-JWT_ALGORITHM = "HS256"
-JWT_EXPIRATION_HOURS = 24
+JWT_SECRET = cfg.jwt_secret
+JWT_ALGORITHM = cfg.jwt_algorithm
+JWT_EXPIRATION_HOURS = cfg.jwt_expiration_hours
 
 # Connect to MongoDB
-mongo_client = MongoClient("mongodb://localhost:27017/")
-db = mongo_client["pepper_chat_db"]
+mongo_client = MongoClient(cfg.mongo_uri)
+db = mongo_client[cfg.mongo_database]
 users_col = db["users"]
 pending_otps_col = db["pending_otps"]
 
 # SMTP Configuration
-SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
-SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
-SMTP_USERNAME = os.getenv("SMTP_USERNAME", "yynarrator@gmail.com")
-SMTP_APP_PASSWORD = os.getenv("SMTP_APP_PASSWORD", "frmw kwci hgjc bhey")
-SMTP_FROM_NAME = os.getenv("SMTP_FROM_NAME", "Ministry of Finance")
-PUBLIC_SITE_URL = os.getenv("PUBLIC_SITE_URL", "http://localhost:8000")
+SMTP_HOST = cfg.smtp_host
+SMTP_PORT = cfg.smtp_port
+SMTP_USERNAME = cfg.smtp_username
+SMTP_APP_PASSWORD = cfg.smtp_app_password
+SMTP_FROM_NAME = cfg.smtp_from_name
+PUBLIC_SITE_URL = cfg.public_site_url
 OTP_TTL_MINUTES = 10
 _pending_otp_indexes_ready = False
 
