@@ -1,12 +1,12 @@
 services:
   mongo:
     ports:
-      - "${MONGO_PORT:-27017}:27017"
+      - "127.0.0.1:${MONGO_PORT:-27017}:27017"
 
   pgvector:
     ports:
-      - "${PGVECTOR_PORT:-5432}:5432"
+      - "127.0.0.1:${PGVECTOR_PORT:-5432}:5432"
 
   ollama:
     ports:
-      - "${OLLAMA_PORT:-11434}:11434"
+      - "127.0.0.1:${OLLAMA_PORT:-11434}:11434"

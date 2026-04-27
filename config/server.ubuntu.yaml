@@ -2,6 +2,9 @@ runtime:
   name: "Ubuntu cloud RTX 4090 48GB"
 
 model:
+  think_model: "gemma4:31b"
+  fast_model: "gemma4:31b"
+  gguf_path: ""
   context_length: 32768
 
 generation:

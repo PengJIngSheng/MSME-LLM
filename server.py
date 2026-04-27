@@ -263,7 +263,7 @@ class PhaseStreamer:
 @app.on_event("startup")
 async def startup_event():
     global model, tokenizer, model_type
-    print("⏳ Scanning for models...")
+    print("⏳ Scanning for local models...")
     available = []
     base = os.path.dirname(os.path.abspath(__file__))
     configured_model_path = cfg.gguf_path
@@ -284,9 +284,23 @@ async def startup_event():
         print(f"✅ Auto-selected: {name} [{model_type}]")
         ms.apply_speed_optimizations()
         model, tokenizer = ms.load_model_and_tokenizer(path, model_type)
-        print("✅ Ready on http://127.0.0.1:8000")
+        print(f"✅ Ready on http://127.0.0.1:{cfg.port}")
     else:
-        print("❌ No models found!")
+        model_type = "ollama"
+        model = cfg.think_model
+        tokenizer = "ollama"
+        print(f"ℹ️ No local GGUF/HF model found. Using configured Ollama model: {cfg.think_model}")
+        try:
+            models_resp = _ollama_client.list()
+            registered = {getattr(m, "model", "").split(":")[0] for m in getattr(models_resp, "models", [])}
+            registered.update({getattr(m, "model", "") for m in getattr(models_resp, "models", [])})
+            if cfg.think_model not in registered and cfg.think_model.split(":")[0] not in registered:
+                print(f"⚠️ Ollama is reachable, but '{cfg.think_model}' is not pulled yet.")
+                print(f"   Run: ollama pull {cfg.think_model}")
+        except Exception as e:
+            print(f"⚠️ Could not verify Ollama at {cfg.ollama_base_url}: {e}")
+            print("   The first chat request will fail until Ollama is reachable.")
+        print(f"✅ Ready on http://127.0.0.1:{cfg.port}")
 
 class ChatRequest(BaseModel):
     chat_id: Optional[str] = None
