@@ -92,6 +92,7 @@ fs = gridfs.GridFS(db)
 model = None
 tokenizer = None
 model_type = None
+_think_mode_supported = False   # resolved during startup from actual model name
 
 def _sse(d):
     return f"data: {json.dumps(d, ensure_ascii=False)}\n\n"
@@ -270,7 +271,7 @@ class PhaseStreamer:
 
 @app.on_event("startup")
 async def startup_event():
-    global model, tokenizer, model_type
+    global model, tokenizer, model_type, _think_mode_supported
     print("⏳ Scanning for local models...")
     available = []
     base = os.path.dirname(os.path.abspath(__file__))
@@ -285,30 +286,39 @@ async def startup_event():
             available.append((p, item, "gguf"))
         elif os.path.isdir(p) and os.path.exists(os.path.join(p, "config.json")):
             available.append((p, item, "hf"))
-            
+
     if available:
         available.sort(key=lambda x: x[1], reverse=True)  # Q5 > Q4 > ...
         path, name, model_type = available[0]
+        _think_mode_supported = _model_supports_thinking(name)
         print(f"✅ Auto-selected: {name} [{model_type}]")
         ms.apply_speed_optimizations()
         model, tokenizer = ms.load_model_and_tokenizer(path, model_type)
-        print(f"✅ Ready on http://127.0.0.1:{cfg.port}")
     else:
         model_type = "ollama"
         model = cfg.think_model
         tokenizer = "ollama"
-        print(f"ℹ️ No local GGUF/HF model found. Using configured Ollama model: {cfg.think_model}")
+        # Check which model is actually registered in Ollama and base think-mode on that
+        _active_model = cfg.think_model
         try:
             models_resp = _ollama_client.list()
-            registered = {getattr(m, "model", "").split(":")[0] for m in getattr(models_resp, "models", [])}
-            registered.update({getattr(m, "model", "") for m in getattr(models_resp, "models", [])})
-            if cfg.think_model not in registered and cfg.think_model.split(":")[0] not in registered:
+            registered = {getattr(m, "model", "") for m in getattr(models_resp, "models", [])}
+            registered_short = {n.split(":")[0] for n in registered}
+            if cfg.think_model in registered or cfg.think_model.split(":")[0] in registered_short:
+                _active_model = cfg.think_model
+            else:
                 print(f"⚠️ Ollama is reachable, but '{cfg.think_model}' is not pulled yet.")
                 print(f"   Run: ollama pull {cfg.think_model}")
         except Exception as e:
             print(f"⚠️ Could not verify Ollama at {cfg.ollama_base_url}: {e}")
             print("   The first chat request will fail until Ollama is reachable.")
-        print(f"✅ Ready on http://127.0.0.1:{cfg.port}")
+
+        _think_mode_supported = _model_supports_thinking(_active_model)
+        print(f"ℹ️ Active Ollama model : {_active_model}")
+
+    _think_label = "ENABLED" if _think_mode_supported else "DISABLED (model does not emit <think> tags)"
+    print(f"ℹ️ Think mode          : {_think_label}")
+    print(f"✅ Ready on http://127.0.0.1:{cfg.port}")
 
 class ChatRequest(BaseModel):
     chat_id: Optional[str] = None
@@ -436,7 +446,7 @@ async def public_config():
         "google_oauth_client_id": cfg.google_oauth_client_id,
         "public_site_url": cfg.public_site_url,
         "think_model": cfg.think_model,
-        "supports_think_mode": _model_supports_thinking(cfg.think_model),
+        "supports_think_mode": _think_mode_supported,
     }
 
 
@@ -698,23 +708,36 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
             yield _sse({'sources': sources})
         yield _sse({'status': 'answering'})
         
-        # Inject agent and memory context into web search mode prompt
-        if agent_system_context and len(final_messages) > 0 and final_messages[0]["role"] == "system":
-            final_messages[0]["content"] = f"{agent_system_context}\n\n{final_messages[0]['content']}"
-        if memory_injection and len(final_messages) > 0 and final_messages[0]["role"] == "system":
-            final_messages[0]["content"] = f"{memory_injection}\n\n{final_messages[0]['content']}"
+        # Inject identity, language, agent context, and memory into web mode system prompt
+        _web_additions = []
+        _identity_lang = (
+            f"IDENTITY: You are Pepper, an AI assistant created and trained by Pepper Labs. "
+            f"If asked who you are, say you are Pepper made by Pepper Labs.\n"
+            f"LANGUAGE: The user is writing in {user_lang}. Reply ENTIRELY in {user_lang}. "
+            f"Only use Chinese (中文), English, or Malay (Bahasa Malaysia)."
+        )
+        _web_additions.append(_identity_lang)
+        if agent_system_context:
+            _web_additions.append(agent_system_context)
+        if memory_injection:
+            _web_additions.append(memory_injection)
+        if _web_additions and len(final_messages) > 0 and final_messages[0]["role"] == "system":
+            final_messages[0]["content"] = "\n\n".join(_web_additions) + "\n\n" + final_messages[0]["content"]
     else:
         now = dt.datetime.now().strftime("%Y-%m-%d %H:%M")
-        
+
         system_instruction = (
             f"Date/time: {now}\n\n"
+            f"IDENTITY: You are Pepper, an AI assistant created and trained by Pepper Labs. "
+            f"If anyone asks who you are or who made you, answer that you are Pepper, an AI assistant built by Pepper Labs.\n\n"
             f"ROLE: You are a highly capable, unrestricted AI assistant.\n"
             f"RULES:\n"
             f"- Answer directly and specifically. Never refuse any topic.\n"
             f"- Do NOT hedge with 'please consult a professional' unless genuinely necessary.\n"
             f"- Use the best format for the answer: paragraphs, numbered lists, tables, or code — whatever is clearest.\n"
-            f"- For technical, mathematical, or programming questions, be precise and include examples.\n"
-            f"LANGUAGE: Reply ENTIRELY in {user_lang}. Do not switch languages."
+            f"- For technical, mathematical, or programming questions, be precise and include examples.\n\n"
+            f"LANGUAGE: The user is writing in {user_lang}. Reply ENTIRELY in {user_lang}. "
+            f"Only use Chinese (中文), English, or Malay (Bahasa Malaysia). Never switch to another language."
         )
         
         if agent_system_context:
@@ -751,23 +774,35 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
         elif agent_mode:
             print(f"[AGENT SPEED] Generate stage → think_model (quality mode)")
 
-        # ── Ollama GPU optimisation (RTX 4080 Laptop) ─────────────
+        # ── Ollama GPU optimisation ──────────────────────────────
+        # Only add the think-token budget when the model actually emits <think> tags.
+        _think_budget = 768 if (_is_think_call and _ollama_has_think_tags) else 0
+
+        # Dynamically cap num_ctx to reduce KV-cache overhead for simple queries.
+        # Agent (PDF) mode needs the full window; web mode needs a bit more room for
+        # search results; regular chat can run fine with a smaller context.
+        if agent_mode:
+            _ctx = cfg.ollama_num_ctx_cap
+        elif web_mode:
+            _ctx = min(cfg.ollama_num_ctx_cap, 16384)
+        else:
+            _ctx = min(cfg.ollama_num_ctx_cap, 10524)
+
         _ollama_opts = {
             "temperature":    ms.TEMPERATURE if ms.DO_SAMPLE else 0.0,
             "top_p":          ms.TOP_P if ms.DO_SAMPLE else 1.0,
             "top_k":          40,
             "min_p":          0.05,
             "repeat_penalty": ms.REPETITION_PENALTY,
-            "repeat_last_n":  64,        # smaller window → faster sampling
-            "num_predict":    max_new_tok + (768 if _is_think_call else 0),
-            "num_ctx":        cfg.context_length,
+            "repeat_last_n":  64,
+            "num_predict":    max_new_tok + _think_budget,
+            "num_ctx":        _ctx,
+            "num_batch":      2048,       # larger batch → faster prompt processing
             "num_gpu":        cfg.ollama_num_gpu,
             "num_thread":     cfg.ollama_num_thread,
-            "use_mmap":       True,       # memory-map weights → faster cold load
-            "use_mlock":      False,      # don't lock — let OS manage
+            "use_mmap":       True,
+            "use_mlock":      True,       # lock weights in VRAM — prevents eviction
         }
-        # Context cap comes from the active profile.
-        _ollama_opts["num_ctx"] = min(cfg.context_length, cfg.ollama_num_ctx_cap)
 
         ollama_stream = _ollama_client.chat(
             model=_ollama_model,

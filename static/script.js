@@ -80,7 +80,8 @@ const publicConfigReady = loadPublicConfig();
 
 function applyThinkModeAvailability() {
     if (!thinkToggle) return;
-    thinkToggle.hidden = !supportsThinkMode;
+    // Use style.display directly — CSS `display:flex` on .toggle-switch overrides [hidden]
+    thinkToggle.style.display = supportsThinkMode ? '' : 'none';
     thinkToggle.disabled = !supportsThinkMode;
     thinkToggle.setAttribute('aria-hidden', supportsThinkMode ? 'false' : 'true');
     if (!supportsThinkMode) {

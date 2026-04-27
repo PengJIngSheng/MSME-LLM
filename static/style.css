@@ -2,6 +2,9 @@
    "Platinum Liquid Glass" Design System
    ========================================================================= */
 
+/* Ensure [hidden] always wins over component-level display rules */
+[hidden] { display: none !important; }
+
 :root {
     /* Colors - Pure Monochrome & Platinum */
     --surface: #f4f5f8;
