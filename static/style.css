@@ -6346,20 +6346,20 @@ html:not([data-theme="dark"]) .account-edit-save {
 .main-logo-img {
     display: block;
     width: auto;
-    max-width: 146px;
-    height: 48px;
+    max-width: 170px;
+    height: 58px;
     object-fit: contain;
 }
 
 .sidebar-top .home-link {
-    width: 128px;
-    height: 42px;
+    width: 152px;
+    height: 52px;
 }
 
 .account-brand img {
     width: auto;
-    height: 48px;
-    max-width: 156px;
+    height: 58px;
+    max-width: 180px;
     object-fit: contain;
 }
 
@@ -6465,8 +6465,8 @@ html:not([data-theme="dark"]) .account-edit-save {
 
 @media (max-width: 760px) {
     .main-logo-img {
-        height: 40px;
-        max-width: 126px;
+        height: 48px;
+        max-width: 148px;
     }
 
     .mobile-header {

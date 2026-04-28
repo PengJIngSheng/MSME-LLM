@@ -260,8 +260,11 @@ class WebSearchAgent:
 
     def _normalize_queries(self, queries: List[str], user_question: str, task_type: str) -> List[str]:
         """Keep web searches current and locally relevant without over-constraining results."""
-        year = datetime.datetime.now().strftime("%Y")
+        _now = datetime.datetime.now()
+        year = _now.strftime("%Y")
+        month_year = _now.strftime("%B %Y")   # e.g. "April 2026"
         needs_malaysia = self._needs_malaysia_context(user_question)
+        needs_fresh = self._needs_fresh_window(user_question)
         is_ssm = "ssm" in user_question.lower() or "suruhanjaya syarikat" in user_question.lower()
         max_queries = _cfg.max_queries if _cfg else 5
         max_queries = max(1, min(max_queries, 8))
@@ -273,7 +276,8 @@ class WebSearchAgent:
                 continue
             q_lower = q.lower()
             if not re.search(r"\b20\d{2}\b", q):
-                q = f"{q} {year}"
+                # Fresh or factual → use full month+year for stronger recency signal
+                q = f"{q} {month_year}" if (needs_fresh or task_type == "factual") else f"{q} {year}"
             if needs_malaysia and "malaysia" not in q_lower:
                 q = f"{q} Malaysia"
             if task_type == "factual" and "official" not in q.lower():
@@ -340,34 +344,32 @@ class WebSearchAgent:
     def _model_generate_queries(self, user_question: str, task_type: str = "factual") -> List[str]:
         """
         Generate targeted search queries based on task type.
-        - Factual: 2-3 queries, focused on authoritative/official sources with recency
-        - Analytical: 4-5 queries, diverse perspectives (news, expert, market, background)
+        - Factual: 1 query per topic, authoritative sources with today's date
+        - Analytical: 2 queries per topic, diverse perspectives
         """
+        _now = datetime.datetime.now()
+        today_str = _now.strftime("%Y-%m-%d")          # e.g. "2026-04-28"
+        month_year = _now.strftime("%B %Y")             # e.g. "April 2026"
+
         if task_type == "factual":
             instructions = (
-                "You are an expert search query generator.\n"
-                "CRITICAL: If the user asks MULTIPLE unrelated questions, you MUST generate queries for EVERY SINGLE QUESTION.\n\n"
+                f"You are a search query generator. TODAY: {today_str}.\n"
                 "RULES:\n"
-                "1. Generate exactly 1 query **FOR EACH DISTINCT TOPIC** asked by the user.\n"
-                "2. LOCALIZATION: If the user's question relates to finance, business, startups, markets, or economics, you MUST append 'Malaysia' to the search query.\n"
-                "3. FACTUAL FOCUS: Target official/authoritative sources (e.g., official sites, reuters) with recency signals ('2026', 'today', 'latest').\n"
-                "4. ENGLISH: Translate product names, currencies, and entities to English.\n"
-                "5. Output ONLY a raw JSON array of strings. No markdown, no explanations.\n\n"
-                "Example for 'USD to MYR today and who is the CEO of Apple':\n"
-                '["USD MYR exchange rate today latest Malaysia", "current CEO of Apple 2026 latest"]'
+                "1. 1 query per distinct topic. Use 'today' or the current month/year for recency.\n"
+                "2. Add 'Malaysia' if question is about finance, business, or local markets.\n"
+                "3. All queries in English.\n"
+                "4. Output ONLY a raw JSON array of strings.\n"
+                f'Example: ["USD MYR exchange rate {month_year} Malaysia official", "CEO of Apple {month_year}"]'
             )
         else:  # analytical
             instructions = (
-                "You are an expert search query generator.\n"
-                "CRITICAL: If the user asks MULTIPLE unrelated questions, you MUST generate queries for EVERY SINGLE QUESTION.\n\n"
+                f"You are a search query generator. TODAY: {today_str}.\n"
                 "RULES:\n"
-                "1. Generate 2 queries **FOR EACH DISTINCT TOPIC** asked by the user.\n"
-                "2. LOCALIZATION: If the user's question relates to finance, business, startups, markets, or economics, you MUST append 'Malaysia' to the search queries.\n"
-                "3. DIVERSITY: For each topic, target different angles (e.g., 'latest news', 'background causes').\n"
-                "4. ENGLISH: Translate product names, currencies, and entities to English.\n"
-                "5. Output ONLY a raw JSON array of strings. No markdown, no explanations.\n\n"
-                "Example for 'Coffee startup trends and AI impact':\n"
-                '["coffee startup market trends 2026 Malaysia", "coffee shop business growth factors Malaysia", "AI technology impact on industries latest", "artificial intelligence economic consequences"]'
+                "1. 2 queries per distinct topic: one for latest news, one for background/analysis.\n"
+                "2. Add 'Malaysia' if question is about finance, business, or local markets.\n"
+                "3. All queries in English.\n"
+                "4. Output ONLY a raw JSON array of strings.\n"
+                f'Example: ["coffee startup {month_year} Malaysia trends", "coffee shop growth factors analysis", "AI economic impact {month_year} latest", "artificial intelligence industries analysis"]'
             )
 
         router_prompt = [
