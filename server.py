@@ -134,7 +134,7 @@ def _response_profile(text: str, agent_mode: bool = False, web_mode: bool = Fals
     if web_mode:
         return {
             "depth": "web_deep" if score >= 2 else "web_standard",
-            "max_predict": 3072 if score >= 2 else 2048,
+            "max_predict": 4096 if score >= 2 else 2560,
             "ctx": min(cfg.ollama_num_ctx_cap, 8192),
             "instruction": (
                 "ANSWER DEPTH: Use the live sources to produce a grounded answer. "
@@ -900,7 +900,7 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
         if agent_mode:
             _max_predict = min(max_new_tok, response_profile["max_predict"]) + _think_budget
         elif web_mode:
-            _max_predict = min(max_new_tok, response_profile["max_predict"], 1536 if _web_factual else 3072) + _think_budget
+            _max_predict = min(max_new_tok, response_profile["max_predict"], 2560 if _web_factual else 4096) + _think_budget
         else:
             _max_predict = min(max_new_tok, response_profile["max_predict"]) + _think_budget
 
@@ -1220,7 +1220,17 @@ async def chat_endpoint(req: ChatRequest):
         ):
             yield chunk
 
-    return StreamingResponse(wrapped(), media_type="text/event-stream")
+    return StreamingResponse(
+        wrapped(),
+        media_type="text/event-stream",
+        headers={
+            # Disable nginx/proxy buffering so chunks reach the client immediately,
+            # otherwise long Q8 generations look "frozen" and may time out at the proxy.
+            "X-Accel-Buffering": "no",
+            "Cache-Control": "no-cache, no-transform",
+            "Connection": "keep-alive",
+        },
+    )
 
 
 @app.get("/api/download_pdf/{filename}")

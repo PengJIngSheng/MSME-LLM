@@ -127,6 +127,10 @@ class AgentState(TypedDict):
 # 2. WebSearchAgent
 # ============================================================
 class WebSearchAgent:
+    # Process-wide cache for DDG results, keyed by (query, timelimit). Bounded by replace-on-overflow.
+    _SEARCH_CACHE: Dict[Tuple[str, Optional[str]], List[Dict]] = {}
+    _SEARCH_CACHE_MAX = 256
+
     # Patterns that clearly don't need a web search
     _NO_SEARCH_PATTERNS = [
         "hello", "hi ", "hey ", "你好", "嗨",
@@ -488,32 +492,57 @@ class WebSearchAgent:
 
         _max_per_q = _cfg.max_results_per_query if _cfg else 12
         _max_total_cfg = _cfg.max_results_total if _cfg else 10
-        _max_total = min(_max_total_cfg, 8) if task_type == "factual" else _max_total_cfg
+        # More pages for both modes; LLM context kept manageable via tighter snippets below.
+        _max_total = min(_max_total_cfg, 12) if task_type == "factual" else max(_max_total_cfg, 14)
 
         _snip_len_cfg = _cfg.snippet_length if _cfg else 250
-        _snip_len = min(_snip_len_cfg, 260) if task_type == "factual" else _snip_len_cfg
+        # Tighter snippets — more pages × shorter blurbs ≈ same/less total tokens for the LLM.
+        _snip_len = min(_snip_len_cfg, 200) if task_type == "factual" else min(_snip_len_cfg, 240)
         _blacklist = self._BLACKLIST_DOMAINS
         print(f"  ⏱️  timelimit={timelimit} | max_per_query={_max_per_q} | max_total={_max_total}")
 
-        def _search_one(query: str) -> List[Dict]:
+        def _ddg_call(query: str, with_timelimit: bool) -> List[Dict]:
+            """Single DDG call. Treats 'no results' as empty list (not an error)."""
             try:
-                ddgs = DDGS()
+                ddgs = DDGS(timeout=8)
                 kwargs = {"max_results": _max_per_q}
-                if timelimit:
+                if with_timelimit and timelimit:
                     kwargs["timelimit"] = timelimit
-                raw_results = ddgs.text(query, **kwargs) or []
-                # Timelimits are useful for current news, but DDG can be sparse; fall back once.
-                if len(raw_results) < max(3, min(_max_per_q // 2, 5)):
-                    raw_results = ddgs.text(query, max_results=_max_per_q) or []
-                if len(raw_results) < 2:
-                    raw_results = self._duckduckgo_html_search(query, _max_per_q)
-                return list(raw_results)
+                return list(ddgs.text(query, **kwargs) or [])
             except Exception as e:
+                msg = str(e).lower()
+                # ddgs raises an exception for legitimately empty result sets — not an error.
+                if "no results" in msg or "no result" in msg:
+                    return []
+                # Real failure (timeout, ratelimit, network) — log and let caller fall back.
                 print(f"  ⚠️ DDG 搜索出错 [{query}]: {e}")
+                raise
+
+        def _search_one(query: str) -> List[Dict]:
+            # Per-call cache: skip the network round-trip for repeat queries within the run.
+            cached = WebSearchAgent._SEARCH_CACHE.get((query, timelimit))
+            if cached is not None:
+                return cached
+            try:
+                raw_results = _ddg_call(query, with_timelimit=True)
+                # Only retry without timelimit if we got essentially nothing.
+                if timelimit and len(raw_results) < 2:
+                    raw_results = _ddg_call(query, with_timelimit=False)
+                # HTML fallback only if DDG API returned zero — slow path.
+                if len(raw_results) == 0:
+                    raw_results = self._duckduckgo_html_search(query, _max_per_q)
+                results_list = list(raw_results)
+                # Bounded cache — drop oldest entry if we hit the cap.
+                if len(WebSearchAgent._SEARCH_CACHE) >= WebSearchAgent._SEARCH_CACHE_MAX:
+                    WebSearchAgent._SEARCH_CACHE.pop(next(iter(WebSearchAgent._SEARCH_CACHE)))
+                WebSearchAgent._SEARCH_CACHE[(query, timelimit)] = results_list
+                return results_list
+            except Exception:
                 return self._duckduckgo_html_search(query, _max_per_q)
 
         all_raw_results: List[Dict] = []
-        max_workers = max(1, min(len(queries), 4))
+        # Bump parallelism: DDG handles 8 concurrent fine, and previous cap of 4 serialized 5+ queries.
+        max_workers = max(1, min(len(queries), 8))
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = [executor.submit(_search_one, query) for query in queries]
             for future in as_completed(futures):
@@ -645,51 +674,31 @@ class WebSearchAgent:
 
             if task_type == "factual":
                 mode_instructions = (
-                    f"MODE: 事实检索模式 (Factual / Deterministic)\n"
-                    f"GOAL: Provide definitive, authoritative, and structured answers to EVERY question the user asked.\n\n"
-                    f"OUTPUT RULES:\n"
-                    f"0. RECENCY: Prioritize {current_year} official/current sources. If a source has no visible date, treat it as background only.\n"
-                    f"1. STRUCTURE: Use bold numbered headers for each distinct topic the user asked about.\n"
-                    f"2. VISUALS: Use bullet points under each header to organize data (e.g. '• Current Rate:', '• Fluctuation Range:', '• Trend:').\n"
-                    f"3. EXACT DATA: Give the exact numbers/prices immediately.\n"
-                    f"4. CITATIONS: Cite the source inline using markdown links: [Source Name](url).\n"
-                    f"5. CONTEXT: Add 1-2 sentences of context (e.g., changes from yesterday, why it changed).\n"
-                    f"6. NO REFUSALS: If data exists in the search results, synthesize and state it directly."
+                    "MODE: Factual. Goal: definitive, authoritative answer to EVERY question asked.\n"
+                    f"- Recency: prefer {current_year} sources; if no date visible, treat as background.\n"
+                    "- Structure: bold numbered header per topic; bullets under each for data points.\n"
+                    "- Give exact numbers/prices upfront, then 1-2 sentences of context.\n"
+                    "- Synthesize directly from the results — never refuse if data is present."
                 )
             else:  # analytical
                 mode_instructions = (
-                    f"MODE: 深度挖掘模式 (Analytical / Multi-Dimensional)\n"
-                    f"GOAL: Produce a comprehensive, multi-perspective analysis — matching a professional research brief.\n\n"
-                    f"OUTPUT RULES:\n"
-                    f"0. RECENCY: Prioritize {current_year} sources and clearly separate current facts from background context.\n"
-                    f"1. STRUCTURE: Use bold numbered sections for each major aspect (Background, Current Status, Impact, Outlook).\n"
-                    f"2. VISUALS: Liberally use bullet points and **bold text** to highlight key names, dates, and concepts.\n"
-                    f"3. MULTI-SOURCE: Reference multiple different viewpoints (e.g., US side vs Iran side).\n"
-                    f"4. DEPTH: Add YOUR OWN synthesis and analysis sentences beyond just quoting the facts.\n"
-                    f"5. DATA: Include specific numbers, dates, names, and percentages from the sources.\n"
-                    f"6. CITATIONS: Always use inline links [Source Name](url).\n"
-                    f"7. NO REFUSALS: Synthesize all available information without hesitation."
+                    "MODE: Analytical. Goal: multi-perspective research brief.\n"
+                    f"- Recency: prefer {current_year}; clearly separate current facts from background.\n"
+                    "- Structure: bold numbered sections (Background, Current Status, Impact, Outlook).\n"
+                    "- Reference multiple viewpoints; add your own synthesis beyond quoting.\n"
+                    "- Include specific numbers, dates, names, percentages.\n"
+                    "- Synthesize without hedging or refusing."
                 )
 
             system_content = (
-                f"Date/time: {current_time}\n"
-                f"Current year: {current_year}\n"
-                f"User Location: {user_loc} (Auto-convert currencies, units, and contexts to this region proactively)\n\n"
-                f"══ WEB SEARCH RESULTS ══\n"
-                f"{state['search_results']}\n"
-                f"══ END RESULTS ══\n\n"
+                f"Date: {current_time} | Year: {current_year} | Location: {user_loc}\n"
+                f"Auto-convert currencies/units to user's region.\n\n"
+                f"══ WEB SEARCH RESULTS ══\n{state['search_results']}\n══ END RESULTS ══\n\n"
                 f"{think_block}"
-                f"ROLE: You are a professional research journalist and analyst.\n"
-                f"QUALITY BENCHMARK: Match or exceed Google Gemini 2.0 depth and clarity.\n\n"
+                f"Role: professional research journalist. Match Gemini 2.0 depth.\n\n"
                 f"{mode_instructions}\n\n"
-                f"CITATION FORMAT (CRITICAL WARNING):\n"
-                f"You MUST use inline markdown links with the actual title and URL. NO EXCEPTIONS.\n"
-                f"✅ CORRECT (EN): 'According to [Reuters News](https://reuters.com/...), the rate is 4.225'\n"
-                f"✅ CORRECT (ZH): '根据 [Reuters News](https://reuters.com/...), 汇率为 4.225'\n"
-                f"❌ FORBIDDEN: 'According to [1]'\n"
-                f"❌ FORBIDDEN: '... rate is 4.225 [1][2]'\n"
-                f"NEVER use standalone bracketed numbers like [1] or [2] for citations. ALWAYS use the full markdown link.\n\n"
-                f"LANGUAGE: Reply ENTIRELY in {user_lang}. Do not mix languages."
+                f"CITATIONS: Use inline markdown links [Source Name](url) — NEVER bare [1][2].\n"
+                f"LANGUAGE: Reply ENTIRELY in {user_lang}."
             )
 
         elif state.get("needs_search"):
