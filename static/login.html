@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Ministry of Finance</title>
+    <title>Login - MSME.AI</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -59,9 +59,11 @@
 
         let currentLang = 'en';
         (function() {
-            const savedTheme = localStorage.getItem('pepperTheme') || 'dark';
+            const browserLang = (navigator.language || navigator.userLanguage || 'en').toLowerCase();
+            const defaultLang = browserLang.startsWith('zh') ? 'zh' : (browserLang.startsWith('ms') || browserLang.includes('my') ? 'ms' : 'en');
+            const savedTheme = localStorage.getItem('pepperTheme') || 'light';
             document.documentElement.setAttribute('data-theme', savedTheme);
-            currentLang = localStorage.getItem('pepperLang') || 'en';
+            currentLang = localStorage.getItem('pepperLang') || defaultLang;
         })();
     </script>
     <style>
@@ -525,7 +527,7 @@
                                     body: JSON.stringify({
                                         token: tokenResponse.access_token,
                                         language: currentLang,
-                                        theme: localStorage.getItem('pepperTheme') || 'dark'
+                                        theme: localStorage.getItem('pepperTheme') || 'light'
                                     })
                                 });
                                 const data = await res.json();
@@ -585,7 +587,7 @@
                         username: u,
                         password: p,
                         language: currentLang,
-                        theme: localStorage.getItem('pepperTheme') || 'dark'
+                        theme: localStorage.getItem('pepperTheme') || 'light'
                     }) 
                 });
                 
