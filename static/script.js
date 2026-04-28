@@ -1577,11 +1577,14 @@ async function handleSend(isResume = false, resumeIndex = null) {
                         currentSources = data.sources;
                         thinkSourcesBar.style.display = 'block';
                         const srcs = data.sources;
+                        thinkSourcesBar.innerHTML = '';
 
                         // Header
                         const headerDiv = document.createElement('div');
                         headerDiv.className = 'sources-header';
-                        headerDiv.innerHTML = `<i class="fa-solid fa-magnifying-glass"></i> Read ${srcs.length} sources`;
+                        headerDiv.innerHTML = srcs.length
+                            ? `<i class="fa-solid fa-magnifying-glass"></i> Read ${srcs.length} sources`
+                            : `<i class="fa-solid fa-circle-exclamation"></i> No live sources found`;
                         thinkSourcesBar.appendChild(headerDiv);
 
                         // Scrollable cards container

@@ -741,8 +741,7 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
             yield _sse({'text': f'Web Search Error: {e}'})
             yield "data: [DONE]\n\n"
             return
-        if sources:
-            yield _sse({'sources': sources})
+        yield _sse({'sources': sources})
         yield _sse({'status': 'answering'})
         
         # Inject identity, language, agent context, and memory into web mode system prompt
