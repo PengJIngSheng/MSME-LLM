@@ -18,6 +18,10 @@ model:
   # Registered via: ollama create <name> -f Modelfile_fast
   fast_model: "gemma4:31b-it-q8_0"
 
+  # Lightweight model for web-search query planning only.
+  # Leave empty to use fast_model.
+  search_query_model: ""
+
   # Path to GGUF file (relative to project root, used only if NOT using Ollama)
   # Example: "./models/DeepSeek-R1-Distill-Qwen-14B-Q5_K_M.gguf"
   gguf_path: "./DeepSeek-R1-Distill-Qwen-14B-Q5_K_M.gguf"
@@ -88,16 +92,16 @@ api_keys:
 # -----------------------------------------------------------------------------
 search:
   # Maximum number of search queries to generate per user question
-  max_queries: 2
+  max_queries: 4
 
   # Maximum results to fetch per query (from DuckDuckGo or Bing)
-  max_results_per_query: 5
+  max_results_per_query: 8
 
   # Maximum number of final results passed to the model (after filtering & ranking)
-  max_results_total: 6
+  max_results_total: 12
 
   # How many characters of each result's body text to include
-  snippet_length: 500
+  snippet_length: 360
 
   # Domains to always exclude from search results (AI assistants, social media, etc.)
   blacklist_domains:

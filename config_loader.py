@@ -83,6 +83,7 @@ _DEFAULTS = {
     "model": {
         "think_model": "deepseek-r1-distill-qwen-14b",
         "fast_model": "deepseek-r1-14b-fast",
+        "search_query_model": "",
         "gguf_path": "./DeepSeek-R1-Distill-Qwen-14B-Q5_K_M.gguf",
         "quant_mode": "4bit",
         "context_length": 8192,
@@ -243,6 +244,11 @@ class _Config:
     @property
     def fast_model(self) -> str:
         return str(self._env("FAST_MODEL", "model.fast_model"))
+
+    @property
+    def search_query_model(self) -> str:
+        configured = str(self._env("SEARCH_QUERY_MODEL", "model.search_query_model", "") or "").strip()
+        return configured or self.fast_model
 
     @property
     def gguf_path(self) -> str:
@@ -428,6 +434,7 @@ class _Config:
   │  Ollama        : {self.ollama_base_url}
   │  Think model   : {self.think_model}
   │  Fast model    : {self.fast_model}
+  │  Search planner: {self.search_query_model}
   │  Context length: {self.context_length} tokens
   │  SMTP password : {secret_state}
   │  Google secret : {google_secret}

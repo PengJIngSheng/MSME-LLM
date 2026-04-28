@@ -6,6 +6,7 @@ import json
 import asyncio
 import re
 import uuid
+import time
 import datetime as dt
 import queue as queue_module
 from datetime import datetime
@@ -109,6 +110,43 @@ def _model_supports_thinking(model_name: str) -> bool:
     if any(m in name for m in _non_thinking):
         return False
     return any(marker in name for marker in ("deepseek", "qwq", "qwen3", "qwen-3", "reasoning"))
+
+
+def _generate_search_query_response(messages) -> str:
+    """Use a tiny utility model for web-search query planning when available."""
+    if tokenizer == "ollama" or model_type in ("gguf", "ollama"):
+        tried = set()
+        for query_model in (cfg.search_query_model, cfg.fast_model):
+            if not query_model or query_model in tried:
+                continue
+            tried.add(query_model)
+            try:
+                resp = _ollama_client.chat(
+                    model=query_model,
+                    messages=messages,
+                    stream=False,
+                    options={
+                        "temperature": 0.1,
+                        "top_p": 0.9,
+                        "num_predict": 256,
+                        "num_ctx": 2048,
+                        "num_gpu": cfg.ollama_num_gpu,
+                        "num_thread": cfg.ollama_num_thread,
+                        "use_mmap": True,
+                        "use_mlock": False,
+                    },
+                )
+                msg = resp.get("message") if isinstance(resp, dict) else getattr(resp, "message", None)
+                content = msg.get("content") if isinstance(msg, dict) else getattr(msg, "content", "")
+                if content:
+                    return content
+            except Exception as exc:
+                print(f"  ⚠️ Search query model '{query_model}' unavailable: {exc}")
+
+    return ms.generate_response(
+        cfg.fast_model, tokenizer, messages,
+        think_mode=False, show_thinking=False, stream=False
+    )
 
 
 # =========================================================================
@@ -694,9 +732,8 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
             return
         yield _sse({'status': 'searching'})
         def agent_cb(msgs):
-            # 使用 fast 模型（无 <think> 模板）生成搜索查询词，避免 JSON 被思考内容污染
-            return ms.generate_response(cfg.fast_model, tokenizer, msgs,
-                                        think_mode=False, show_thinking=False, stream=False)
+            # Query planning is a tiny JSON task; keep it off the 31B model when possible.
+            return _generate_search_query_response(msgs)
         wa = WebSearchAgent(agent_cb, think_mode=think_mode)
         try:
             final_messages, sources = await asyncio.to_thread(wa.prepare, inference_messages)
@@ -779,6 +816,10 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
         # ── Ollama GPU optimisation ──────────────────────────────
         # Only add the think-token budget when the model actually emits <think> tags.
         _think_budget = 768 if (_is_think_call and _ollama_has_think_tags) else 0
+        _system_text = ""
+        if final_messages and isinstance(final_messages[0], dict):
+            _system_text = final_messages[0].get("content", "")
+        _web_factual = web_mode and "MODE: 事实检索模式" in _system_text
 
         # --- KV-cache window: smaller window = less VRAM = faster generation ---
         # Agent (PDF) needs the full window for document context.
@@ -787,7 +828,7 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
         if agent_mode:
             _ctx = cfg.ollama_num_ctx_cap          # full (32768 for ubuntu profile)
         elif web_mode:
-            _ctx = min(cfg.ollama_num_ctx_cap, 12288)
+            _ctx = min(cfg.ollama_num_ctx_cap, 6144 if _web_factual else 8192)
         else:
             _ctx = min(cfg.ollama_num_ctx_cap, 4096)
 
@@ -797,7 +838,7 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
         if agent_mode:
             _max_predict = max_new_tok + _think_budget
         elif web_mode:
-            _max_predict = min(max_new_tok, 3072) + _think_budget
+            _max_predict = min(max_new_tok, 1536 if _web_factual else 2560) + _think_budget
         else:
             _max_predict = min(max_new_tok, 2048) + _think_budget
 
@@ -815,9 +856,10 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
             "num_thread":     cfg.ollama_num_thread,
             "f16_kv":         True,       # fp16 KV cache → KV 显存占用减半
             "use_mmap":       True,
-            "use_mlock":      True,
+            "use_mlock":      False,
         }
 
+        _gen_started = time.perf_counter()
         ollama_stream = _ollama_client.chat(
             model=_ollama_model,
             messages=final_messages,
@@ -838,6 +880,22 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
         detected_think_tag = True if _ollama_has_think_tags else False
 
         for chunk in ollama_stream:
+            if chunk.get("done"):
+                elapsed = time.perf_counter() - _gen_started
+                prompt_tokens = chunk.get("prompt_eval_count") or 0
+                output_tokens = chunk.get("eval_count") or 0
+                prompt_duration = (chunk.get("prompt_eval_duration") or 0) / 1_000_000_000
+                output_duration = (chunk.get("eval_duration") or 0) / 1_000_000_000
+                prompt_rate = prompt_tokens / prompt_duration if prompt_duration > 0 else 0
+                output_rate = output_tokens / output_duration if output_duration > 0 else 0
+                print(
+                    f"[OLLAMA PERF] model={_ollama_model} web={web_mode} factual={_web_factual} "
+                    f"ctx={_ctx} predict={_max_predict} elapsed={elapsed:.1f}s "
+                    f"prompt={prompt_tokens} tok @ {prompt_rate:.1f} tok/s | "
+                    f"output={output_tokens} tok @ {output_rate:.1f} tok/s"
+                )
+                continue
+
             piece = chunk['message']['content']
             if not piece:
                 continue

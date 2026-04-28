@@ -2,7 +2,9 @@ import os
 import re
 import json
 import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import TypedDict, List, Dict, Optional, Tuple
+from urllib.parse import urlparse
 
 # LangGraph 组件
 import requests
@@ -263,9 +265,7 @@ class WebSearchAgent:
                 search_queries = []
 
             if not search_queries:
-                primary   = user_question[:120]
-                secondary = user_question[:80] + " detailed explanation"
-                search_queries = [primary, secondary]
+                search_queries = self._fallback_queries(user_question, task_type)
 
             print(f"  🌐 路由: 联网搜索 [{task_type}] → {search_queries}")
         else:
@@ -326,10 +326,36 @@ class WebSearchAgent:
         try:
             queries = json.loads(cleaned)
             if isinstance(queries, list):
-                return [str(q).strip() for q in queries if str(q).strip()][:8]
+                max_queries = _cfg.max_queries if _cfg else 5
+                return [str(q).strip() for q in queries if str(q).strip()][:max(1, min(max_queries, 8))]
         except Exception:
             pass
         return []
+
+    def _fallback_queries(self, user_question: str, task_type: str) -> List[str]:
+        """Fast deterministic fallback when the lightweight query model is unavailable."""
+        base = re.sub(r"\s+", " ", user_question).strip()[:140]
+        if not base:
+            return []
+        year = datetime.datetime.now().strftime("%Y")
+        suffixes = (
+            [f"{year} latest", "official source", "Malaysia"]
+            if task_type == "factual"
+            else [f"{year} latest news", "analysis background", "Malaysia"]
+        )
+        max_queries = _cfg.max_queries if _cfg else 5
+        queries = [base]
+        queries.extend(f"{base} {suffix}" for suffix in suffixes)
+
+        deduped = []
+        seen = set()
+        for query in queries:
+            key = query.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append(query)
+        return deduped[:max(1, min(max_queries, 8))]
 
     def _bing_search(self, query: str, max_results: int = 8) -> List[Dict]:
         """Bing search is disabled — only DuckDuckGo is used."""
@@ -366,55 +392,83 @@ class WebSearchAgent:
         _blacklist = self._BLACKLIST_DOMAINS
         print(f"  ⏱️  timelimit={timelimit} | max_per_query={_max_per_q} | max_total={_max_total}")
 
-        for query in queries:
+        def _search_one(query: str) -> List[Dict]:
             try:
                 ddgs = DDGS()
                 raw_results = ddgs.text(query, timelimit=timelimit, max_results=_max_per_q) or []
-                # For factual mode: also try without timelimit if results are sparse
-                if task_type == "factual" and len(raw_results) < 3:
+                # Timelimits are useful for current news, but DDG can be sparse; fall back once.
+                if len(raw_results) < max(3, min(_max_per_q // 2, 5)):
                     raw_results = ddgs.text(query, max_results=_max_per_q) or []
+                return list(raw_results)
             except Exception as e:
-                print(f"  ⚠️ DDG 搜索出错: {e}")
-                raw_results = []
+                print(f"  ⚠️ DDG 搜索出错 [{query}]: {e}")
+                return []
 
-            for r in raw_results:
-                href  = r.get("href", "")
-                title = r.get("title", "")
-                body  = r.get("body", "")
+        all_raw_results: List[Dict] = []
+        max_workers = max(1, min(len(queries), 4))
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [executor.submit(_search_one, query) for query in queries]
+            for future in as_completed(futures):
+                all_raw_results.extend(future.result())
 
-                try:
-                    from urllib.parse import urlparse
-                    domain = urlparse(href).netloc.lower().replace('www.', '')
-                    if any(bad in domain for bad in _blacklist):
-                        continue
-                except Exception:
-                    pass
+        for r in all_raw_results:
+            href  = r.get("href", "")
+            title = r.get("title", "")
+            body  = r.get("body", "")
 
-                if len(body.strip()) < 40:
+            try:
+                domain = urlparse(href).netloc.lower().replace('www.', '')
+                if any(bad in domain for bad in _blacklist):
                     continue
-                if href and href in seen_urls:
-                    continue
-                if href:
-                    seen_urls.add(href)
+            except Exception:
+                domain = ""
 
-                # Relevance scoring: title hits × 3 (stronger signal), body hits × 1
-                combined    = (title + " " + body).lower()
-                title_hits  = sum(3 for kw in query_keywords if kw in title.lower())
-                body_hits   = sum(1 for kw in query_keywords if kw in combined)
-                price_bonus = sum(1 for pt in ['$', 'usd', 'rm ', 'myr', '£', '€',
-                                               'price', 'cost', 'buy', 'shop', 'store',
-                                               'order', 'stock', 'shipping', 'freight']
-                                  if pt in combined)
-                score = title_hits + body_hits + price_bonus
-                candidate_results.append((score, title, body, href))
+            if len(body.strip()) < 40:
+                continue
+            if href and href in seen_urls:
+                continue
+            if href:
+                seen_urls.add(href)
+
+            # Relevance scoring: title hits × 3 (stronger signal), body hits × 1
+            combined    = (title + " " + body).lower()
+            title_hits  = sum(3 for kw in query_keywords if kw in title.lower())
+            body_hits   = sum(1 for kw in query_keywords if kw in combined)
+            price_bonus = sum(1 for pt in ['$', 'usd', 'rm ', 'myr', '£', '€',
+                                           'price', 'cost', 'buy', 'shop', 'store',
+                                           'order', 'stock', 'shipping', 'freight']
+                              if pt in combined)
+            score = title_hits + body_hits + price_bonus
+            candidate_results.append((score, title, body, href, domain))
 
         # Sort by score, keep top N
         candidate_results.sort(key=lambda x: x[0], reverse=True)
-        top_results = candidate_results[:_max_total]
+        top_results = []
+        domain_counts = {}
+        for item in candidate_results:
+            domain = item[4]
+            count = domain_counts.get(domain, 0)
+            if domain and count >= 2:
+                continue
+            top_results.append(item)
+            if domain:
+                domain_counts[domain] = count + 1
+            if len(top_results) >= _max_total:
+                break
+
+        if len(top_results) < _max_total:
+            used_urls = {item[3] for item in top_results}
+            for item in candidate_results:
+                if item[3] in used_urls:
+                    continue
+                top_results.append(item)
+                used_urls.add(item[3])
+                if len(top_results) >= _max_total:
+                    break
 
         combined_results: List[str] = []
         sources: List[Dict[str, str]] = []
-        for idx, (score, title, body, href) in enumerate(top_results, start=1):
+        for idx, (score, title, body, href, domain) in enumerate(top_results, start=1):
             body_preview = body[:_snip_len].strip()
             # Format result with embedded markdown link so the model can cite correctly
             combined_results.append(f"[{idx}] [{title}]({href})\n{body_preview}")
