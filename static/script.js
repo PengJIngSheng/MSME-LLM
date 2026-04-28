@@ -708,7 +708,7 @@ function initGoogleClients() {
                             },
                             body: JSON.stringify({
                                 auth_code: response.code,
-                                redirect_uri: 'postmessage',
+                                redirect_uri: window.location.origin,
                                 service_id: pendingOAuthService
                             })
                         });

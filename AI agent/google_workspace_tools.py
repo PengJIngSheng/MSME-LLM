@@ -3,6 +3,8 @@ import sys
 import datetime
 import json
 import base64
+import logging
+from urllib.parse import urlparse
 from fastapi import APIRouter, HTTPException, Depends, Header
 from pydantic import BaseModel
 from pymongo import MongoClient
@@ -18,6 +20,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config_loader import cfg
 
 connectors_router = APIRouter()
+logger = logging.getLogger(__name__)
 
 # MongoDB setup
 mongo_client = MongoClient(cfg.mongo_uri)
@@ -42,8 +45,23 @@ SCOPES = [
     'https://www.googleapis.com/auth/calendar.events'
 ]
 
+def _origin(url: str) -> str:
+    parsed = urlparse(url or "")
+    if not parsed.scheme or not parsed.netloc:
+        return ""
+    return f"{parsed.scheme}://{parsed.netloc}"
+
+def _allowed_redirect_origins() -> list:
+    origins = {
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        _origin(cfg.public_site_url),
+    }
+    return sorted(origin for origin in origins if origin)
+
 def _google_oauth_client_config() -> dict:
     """Return the OAuth web-client config that must match GIS initCodeClient."""
+    redirect_origins = _allowed_redirect_origins()
     if GOOGLE_OAUTH_CLIENT_SECRET:
         return {
             "web": {
@@ -52,8 +70,8 @@ def _google_oauth_client_config() -> dict:
                 "auth_uri": "https://accounts.google.com/o/oauth2/auth",
                 "token_uri": "https://oauth2.googleapis.com/token",
                 "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-                "redirect_uris": ["postmessage", "http://localhost"],
-                "javascript_origins": ["http://localhost", "http://127.0.0.1"],
+                "redirect_uris": redirect_origins,
+                "javascript_origins": redirect_origins,
             }
         }
 
@@ -95,8 +113,8 @@ def _google_oauth_client_config() -> dict:
 
 class AuthCodeRequest(BaseModel):
     auth_code: str
-    redirect_uri: str = "postmessage" # Usually for frontend initCodeClient we use 'postmessage'
-    service_id: str = None # Add context of which service was just authorized
+    redirect_uri: str = ""
+    service_id: str = None
 
 class ConnectorToggleRequest(BaseModel):
     service: str
@@ -123,8 +141,18 @@ def get_current_user(authorization: str = Header(None)):
 async def exchange_auth_code(req: AuthCodeRequest, user_id: str = Depends(get_current_user)):
     """Exchange offline auth code for a refresh token and access token"""
     try:
+        redirect_uri = _origin(req.redirect_uri) or _origin(cfg.public_site_url)
+        if redirect_uri not in _allowed_redirect_origins():
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Google OAuth redirect origin is not allowed by this backend profile. "
+                    f"Received {redirect_uri or 'empty'}; expected one of "
+                    f"{', '.join(_allowed_redirect_origins())}."
+                )
+            )
         flow = Flow.from_client_config(
-            _google_oauth_client_config(), scopes=SCOPES, redirect_uri=req.redirect_uri
+            _google_oauth_client_config(), scopes=SCOPES, redirect_uri=redirect_uri
         )
         flow.fetch_token(code=req.auth_code)
         credentials = flow.credentials
@@ -150,7 +178,22 @@ async def exchange_auth_code(req: AuthCodeRequest, user_id: str = Depends(get_cu
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.exception("Google connector token exchange failed")
+        msg = str(e)
+        if "redirect_uri_mismatch" in msg or "redirect_uri" in msg:
+            detail = (
+                "Google OAuth redirect URI mismatch. Add the exact current site origin "
+                "to the OAuth client's Authorized JavaScript origins and Authorized "
+                "redirect URIs."
+            )
+        elif "invalid_client" in msg or "unauthorized_client" in msg:
+            detail = (
+                "Google OAuth client is not authorized for this site. Check the client id, "
+                "client secret, Authorized JavaScript origins, and OAuth consent screen."
+            )
+        else:
+            detail = "Google Workspace authorization failed. Please check the OAuth client configuration."
+        raise HTTPException(status_code=400, detail=detail)
 
 @connectors_router.post("/api/connectors/toggle")
 async def toggle_connector(req: ConnectorToggleRequest, user_id: str = Depends(get_current_user)):
