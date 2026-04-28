@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Register - MSME.AI</title>
+    <title>Login - MSME.AI</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -11,48 +11,48 @@
         // Synchronous state hydration before paint
         const authTranslations = {
             en: {
-                title1: "Create your account",
-                emailLog: "Sign up with Email",
-                googleLog: "Sign up with Google",
-                appleLog: "Sign up with Apple",
-                noAccount: "Already have an account?",
-                regLink: "Log in",
-                title2: "Sign up with Email",
+                title1: "Log into your account",
+                emailLog: "Log in with Email",
+                googleLog: "Log in with Google",
+                appleLog: "Log in with Apple",
+                noAccount: "Don't have an account?",
+                regLink: "Register",
+                title2: "Log in with Email",
                 emailUser: "Email or Username",
                 pass: "Password",
-                submit: "Register",
-                loginFailed: "Registration failed",
-                auth: "Registering...",
+                submit: "Login",
+                loginFailed: "Login failed",
+                auth: "Authenticating...",
                 tos: "By continuing you agree to xAI's <a href='#' style='color:inherit;'>Terms of Service</a> and <a href='#' style='color:inherit;'>Privacy Policy</a>."
             },
             zh: {
-                title1: "创建您的账户",
-                emailLog: "使用邮箱注册",
-                googleLog: "使用 Google 注册",
-                appleLog: "使用 Apple 注册",
-                noAccount: "已有账户？",
-                regLink: "登录",
-                title2: "使用邮箱注册",
+                title1: "登录您的账户",
+                emailLog: "使用邮箱登录",
+                googleLog: "使用 Google 登录",
+                appleLog: "使用 Apple 登录",
+                noAccount: "没有账户？",
+                regLink: "注册",
+                title2: "使用邮箱登录",
                 emailUser: "邮箱或用户名 (Email or Username)",
                 pass: "密码 (Password)",
-                submit: "注册 Register",
-                loginFailed: "注册失败 / Registration failed",
-                auth: "注册中 / Registering...",
+                submit: "登录 Login",
+                loginFailed: "登录失败 / Login failed",
+                auth: "登录中 / Authenticating...",
                 tos: "继续即表示您同意 xAI 的 <a href='#' style='color:inherit;'>服务条款</a> 和 <a href='#' style='color:inherit;'>隐私政策</a>。"
             },
             ms: {
-                title1: "Cipta akaun anda",
-                emailLog: "Daftar dengan E-mel",
-                googleLog: "Daftar dengan Google",
-                appleLog: "Daftar dengan Apple",
-                noAccount: "Sudah ada akaun?",
-                regLink: "Log masuk",
-                title2: "Daftar dengan E-mel",
+                title1: "Log masuk akaun anda",
+                emailLog: "Log masuk dengan E-mel",
+                googleLog: "Log masuk dengan Google",
+                appleLog: "Log masuk dengan Apple",
+                noAccount: "Tiada akaun?",
+                regLink: "Daftar",
+                title2: "Log masuk dengan E-mel",
                 emailUser: "E-mel atau Nama Pengguna",
                 pass: "Kata Laluan",
-                submit: "Daftar",
-                loginFailed: "Pendaftaran gagal",
-                auth: "Mendaftar...",
+                submit: "Log Masuk",
+                loginFailed: "Log masuk gagal",
+                auth: "Mengesahkan...",
                 tos: "Dengan meneruskan, anda bersetuju dengan <a href='#' style='color:inherit;'>Terma Perkhidmatan</a> dan <a href='#' style='color:inherit;'>Dasar Privasi</a> xAI."
             }
         };
@@ -138,7 +138,7 @@
             padding: 40px;
         }
         .logo-container img {
-            height: 48px;
+            height: 34px;
             object-fit: contain;
             filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
         }
@@ -390,7 +390,7 @@
         <div class="top-nav">
             <div class="logo-container">
                 <a href="/">
-                    <img src="/static/Main%20Logo.png" alt="MSME.AI Logo">
+                    <img src="/static/MOF_Logo.png" alt="MOF Logo">
                 </a>
             </div>
         </div>
@@ -399,10 +399,10 @@
             <div class="auth-box">
                 <!-- STEP 1: Method Selection -->
                 <div id="stepSelection" class="auth-step">
-                    <h2 class="auth-title" data-i18n="title1">创建您的账户</h2>
+                    <h2 class="auth-title" data-i18n="title1">登录您的账户</h2>
                     
                     <button class="oauth-btn primary-oauth" id="openEmailFormBtn">
-                        <i class="fa-regular fa-envelope" style="margin-right: 4px;"></i> <span data-i18n="emailLog">使用邮箱注册</span>
+                        <i class="fa-regular fa-envelope" style="margin-right: 4px;"></i> <span data-i18n="emailLog">使用邮箱登录</span>
                     </button>
                     
                     <button class="oauth-btn secondary-oauth" id="googleAuthBtn">
@@ -412,34 +412,34 @@
                             <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
                             <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
                         </svg>
-                        <span data-i18n="googleLog">使用 Google 注册</span>
+                        <span data-i18n="googleLog">使用 Google 登录</span>
                     </button>
                     
                     <button class="oauth-btn secondary-oauth" id="appleAuthBtn">
-                        <i class="fa-brands fa-apple" style="margin-right: 4px; font-size: 1.25rem;"></i> <span data-i18n="appleLog">使用 Apple 注册</span>
+                        <i class="fa-brands fa-apple" style="margin-right: 4px; font-size: 1.25rem;"></i> <span data-i18n="appleLog">使用 Apple 登录</span>
                     </button>
                     
                     <div class="auth-links">
-                        <span data-i18n="noAccount">已有账户？</span> <a href="/static/login.html" data-i18n="regLink">登录</a>
+                        <span data-i18n="noAccount">没有账户？</span> <a href="/static/register.html" data-i18n="regLink">注册</a>
                     </div>
                 </div>
 
-                <!-- STEP 2: Email Register Form -->
+                <!-- STEP 2: Email Login Form -->
                 <div id="stepEmailForm" class="auth-step hidden">
                     <button class="back-btn" id="backToSelectionBtn" title="返回"><i class="fa-solid fa-arrow-left"></i></button>
-                    <h2 class="auth-title" data-i18n="title2">使用邮箱注册</h2>
+                    <h2 class="auth-title" data-i18n="title2">使用邮箱登录</h2>
                     
-                    <form id="standaloneRegisterForm">
+                    <form id="standaloneLoginForm">
                         <div class="input-group">
                             <label data-i18n="emailUser">邮箱或用户名 (Email or Username)</label>
-                            <input type="text" id="registerUsername" class="input-field" required autocomplete="username">
+                            <input type="text" id="loginUsername" class="input-field" required autocomplete="username">
                         </div>
                         <div class="input-group">
                             <label data-i18n="pass">密码 (Password)</label>
-                            <input type="password" id="registerPassword" class="input-field" required autocomplete="new-password">
+                            <input type="password" id="loginPassword" class="input-field" required autocomplete="current-password">
                         </div>
                         
-                        <button type="submit" class="submit-btn" id="registerSubmitBtn" data-i18n="submit">注册 Register</button>
+                        <button type="submit" class="submit-btn" id="loginSubmitBtn" data-i18n="submit">登录 Login</button>
                     </form>
                 </div>
                 
@@ -569,18 +569,18 @@
             showToast("Apple OAuth 模块正在初始化。请在后端配置 Client_ID。", false);
         });
 
-        document.getElementById('standaloneRegisterForm').addEventListener('submit', async (e) => {
+        document.getElementById('standaloneLoginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const btn = document.getElementById('registerSubmitBtn');
-            const u = document.getElementById('registerUsername').value;
-            const p = document.getElementById('registerPassword').value;
+            const btn = document.getElementById('loginSubmitBtn');
+            const u = document.getElementById('loginUsername').value;
+            const p = document.getElementById('loginPassword').value;
             const t = authTranslations[currentLang] || authTranslations.en;
             
             try {
                 btn.textContent = t.auth;
                 btn.disabled = true;
                 
-                const res = await fetch('/api/register', { 
+                const res = await fetch('/api/login', { 
                     method: 'POST', 
                     headers: {'Content-Type': 'application/json'}, 
                     body: JSON.stringify({
@@ -593,7 +593,18 @@
                 
                 const data = await res.json();
                 
-                if (res.ok && data.status === "pending_verification") {
+                if (res.ok && data.status === "success") {
+                    localStorage.setItem('pepperJwt', data.access_token);
+                    localStorage.setItem('pepperUserId', data.user_id);
+                    localStorage.setItem('pepperUsername', data.username);
+                    if(data.display_name) localStorage.setItem('pepperDisplayName', data.display_name);
+                    if(data.preferences) {
+                        if(data.preferences.language) localStorage.setItem('pepperLang', data.preferences.language);
+                        if(data.preferences.theme) localStorage.setItem('pepperTheme', data.preferences.theme);
+                    }
+                    window.location.href = '/';
+                } else if (!res.ok && data.status === "unverified") {
+                    // Forward to verifier
                     localStorage.setItem('pendingUserId', data.user_id);
                     window.location.href = `/static/verify.html?id=${data.user_id}`;
                 } else { 

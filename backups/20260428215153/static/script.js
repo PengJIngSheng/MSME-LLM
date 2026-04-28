@@ -908,149 +908,6 @@ function renderMd(text) {
     return html;
 }
 
-const GMAIL_PREVIEW_RE = /\[GMAIL_PREVIEW:([A-Za-z0-9_-]+={0,2})\]/;
-
-function decodeGmailPreviewPayload(text) {
-    const match = String(text || '').match(GMAIL_PREVIEW_RE);
-    if (!match) return null;
-    try {
-        const padded = match[1] + '='.repeat((4 - (match[1].length % 4)) % 4);
-        const normalized = padded.replace(/-/g, '+').replace(/_/g, '/');
-        const binary = atob(normalized);
-        const bytes = Uint8Array.from(binary, ch => ch.charCodeAt(0));
-        return JSON.parse(new TextDecoder().decode(bytes));
-    } catch (err) {
-        console.warn('Unable to decode Gmail preview payload:', err);
-        return null;
-    }
-}
-
-function stripGmailPreviewPayload(text) {
-    return String(text || '').replace(GMAIL_PREVIEW_RE, '').trim();
-}
-
-function submitAgentCommand(command) {
-    const fakeInput = document.getElementById('userInput');
-    const submit = document.getElementById('submitBtn');
-    if (fakeInput && submit) {
-        fakeInput.value = command;
-        submit.click();
-    }
-}
-
-function createGmailActionCard() {
-    const gmailCard = document.createElement('div');
-    gmailCard.className = 'gmail-confirm-card';
-    gmailCard.innerHTML = `
-        <div class="gmail-card-actions">
-            <button class="gmail-confirm-btn" type="button">
-                <i class="fa-solid fa-paper-plane"></i> Confirm Send
-            </button>
-            <button class="gmail-cancel-btn" type="button">
-                <i class="fa-solid fa-xmark"></i> Cancel
-            </button>
-        </div>
-    `;
-    const confirmBtn = gmailCard.querySelector('.gmail-confirm-btn');
-    const cancelBtn = gmailCard.querySelector('.gmail-cancel-btn');
-
-    confirmBtn.addEventListener('click', () => {
-        confirmBtn.disabled = true;
-        cancelBtn.disabled = true;
-        confirmBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending...';
-        submitAgentCommand('[CONFIRM_GMAIL_SEND]');
-    });
-
-    cancelBtn.addEventListener('click', () => {
-        confirmBtn.disabled = true;
-        cancelBtn.disabled = true;
-        cancelBtn.innerHTML = '<i class="fa-solid fa-check"></i> Cancelled';
-        submitAgentCommand('[CANCEL_GMAIL_SEND]');
-    });
-
-    return gmailCard;
-}
-
-function createGmailPreviewCard(payload) {
-    if (!payload) return null;
-    const lang = payload.lang || getPreferredLanguage();
-    const labels = {
-        zh: { title: '邮件草稿', to: '收件人', subject: '主题', attach: '附件', none: '无附件', attached: '已附加', body: '正文预览', expand: '展开全文', collapse: '收起全文' },
-        ms: { title: 'Draf E-mel', to: 'Kepada', subject: 'Subjek', attach: 'Lampiran', none: 'Tiada', attached: 'Dilampirkan', body: 'Pratonton', expand: 'Lihat penuh', collapse: 'Ringkaskan' },
-        en: { title: 'Email Draft', to: 'To', subject: 'Subject', attach: 'Attachment', none: 'None', attached: 'Attached', body: 'Preview', expand: 'Expand', collapse: 'Collapse' }
-    };
-    const l = labels[lang] || labels.en;
-    const body = String(payload.body || '');
-    const isLong = body.length > 420 || body.split('\n').length > 9;
-    const card = document.createElement('div');
-    card.className = 'gmail-preview-card';
-    card.innerHTML = `
-        <div class="gmail-preview-head">
-            <div class="gmail-preview-mark"><i class="fa-solid fa-envelope-open-text"></i></div>
-            <div>
-                <div class="gmail-preview-kicker">Google Workspace</div>
-                <div class="gmail-preview-title">${escapeAttr(l.title)}</div>
-            </div>
-        </div>
-        <div class="gmail-preview-meta">
-            <div><span>${escapeAttr(l.to)}</span><strong>${escapeAttr(payload.recipient || '-')}</strong></div>
-            <div><span>${escapeAttr(l.subject)}</span><strong>${escapeAttr(payload.subject || '-')}</strong></div>
-            <div><span>${escapeAttr(l.attach)}</span><strong>${payload.hasAttachment ? escapeAttr(`${l.attached}${payload.attachmentName ? ` · ${payload.attachmentName}` : ''}`) : escapeAttr(l.none)}</strong></div>
-        </div>
-        <div class="gmail-preview-body-label">${escapeAttr(l.body)}</div>
-        <div class="gmail-preview-body ${isLong ? 'collapsed' : ''}">${escapeAttr(body).replace(/\n/g, '<br>')}</div>
-        ${isLong ? `<button class="gmail-preview-toggle" type="button"><i class="fa-solid fa-chevron-down"></i> ${escapeAttr(l.expand)}</button>` : ''}
-    `;
-    const toggle = card.querySelector('.gmail-preview-toggle');
-    if (toggle) {
-        toggle.addEventListener('click', () => {
-            const bodyEl = card.querySelector('.gmail-preview-body');
-            const collapsed = bodyEl.classList.toggle('collapsed');
-            toggle.innerHTML = collapsed
-                ? `<i class="fa-solid fa-chevron-down"></i> ${escapeAttr(l.expand)}`
-                : `<i class="fa-solid fa-chevron-up"></i> ${escapeAttr(l.collapse)}`;
-        });
-    }
-    return card;
-}
-
-function getProgressStages(mode) {
-    if (mode === 'agent') {
-        return ['Planning workspace action...', 'Reading active context...', 'Preparing tool call...', 'Composing final response...'];
-    }
-    if (mode === 'web') {
-        return ['Planning search...', 'Reading live sources...', 'Ranking evidence...', 'Synthesizing answer...'];
-    }
-    if (mode === 'think') {
-        return ['Mapping the problem...', 'Checking assumptions...', 'Building reasoning path...', 'Writing answer...'];
-    }
-    return ['Warming up model...', 'Reading context...', 'Choosing answer depth...', 'Drafting response...'];
-}
-
-function startProgressAnimation(thinkHeader, thinkDurationEl, mode) {
-    if (!thinkHeader) return { stop() {} };
-    const labelEl = thinkHeader.querySelector('.think-label');
-    const iconEl = thinkHeader.querySelector('.think-icon');
-    const stages = getProgressStages(mode);
-    let stageIndex = 0;
-    const startedAt = Date.now();
-    if (labelEl) labelEl.innerText = stages[0];
-    if (iconEl) iconEl.innerHTML = '<i class="fa-solid fa-sparkles fa-spin"></i>';
-    const tick = setInterval(() => {
-        stageIndex = (stageIndex + 1) % stages.length;
-        if (labelEl) labelEl.innerText = stages[stageIndex];
-        if (thinkDurationEl) {
-            thinkDurationEl.innerText = `${Math.max(1, Math.floor((Date.now() - startedAt) / 1000))}s`;
-        }
-    }, 2200);
-    return {
-        stop(finalLabel = '') {
-            clearInterval(tick);
-            if (finalLabel && labelEl) labelEl.innerText = finalLabel;
-        }
-    };
-}
-
 function unwrapPriceBadgesInTables(root) {
     if (!root) return;
     root.querySelectorAll('table .price-badge').forEach(span => {
@@ -1353,24 +1210,53 @@ function appendMessage(text, role, msgObj = null, msgIndex = null, feedbackVal =
             const aDiv = document.createElement('div');
             aDiv.className = 'message-bubble assistant markdown-content';
             let hasGmailPending = false;
-            const gmailPreviewPayload = decodeGmailPreviewPayload(displayAnswer);
-            if (gmailPreviewPayload) {
-                displayAnswer = stripGmailPreviewPayload(displayAnswer);
-            }
             if (displayAnswer.includes('[GMAIL_CONFIRM_PENDING]')) {
                 displayAnswer = displayAnswer.replace('[GMAIL_CONFIRM_PENDING]', '');
                 hasGmailPending = true;
             }
             aDiv.innerHTML = renderMd(displayAnswer);
             wrapper.appendChild(aDiv);
-
-            if (gmailPreviewPayload) {
-                const previewCard = createGmailPreviewCard(gmailPreviewPayload);
-                if (previewCard) wrapper.appendChild(previewCard);
-            }
-
+            
             if (hasGmailPending) {
-                wrapper.appendChild(createGmailActionCard());
+                const gmailCard = document.createElement('div');
+                gmailCard.className = 'gmail-confirm-card';
+                gmailCard.style = "margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--outline-variant);";
+                gmailCard.innerHTML = `
+                    <div class="gmail-card-actions" style="display: flex; gap: 10px; align-items: center; margin-bottom: 8px;">
+                        <button class="gmail-confirm-btn" id="gmailConfirm_${Date.now()}" style="padding: 8px 16px; border-radius: 8px; font-weight: 500; font-size: 0.9em; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s ease; border: none; background: #6366f1; color: white; min-width: 130px; justify-content: center;">
+                            <i class="fa-solid fa-paper-plane"></i> Confirm Send
+                        </button>
+                        <button class="gmail-cancel-btn" id="gmailCancel_${Date.now()}" style="padding: 8px 16px; border-radius: 8px; font-weight: 500; font-size: 0.9em; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s ease; border: 1px solid var(--outline-variant); background: transparent; color: var(--text-color); min-width: 100px; justify-content: center;">
+                            <i class="fa-solid fa-xmark"></i> Cancel
+                        </button>
+                    </div>
+                `;
+                const confirmBtn = gmailCard.querySelector('.gmail-confirm-btn');
+                const cancelBtn = gmailCard.querySelector('.gmail-cancel-btn');
+
+                confirmBtn.addEventListener('click', () => {
+                    confirmBtn.disabled = true;
+                    cancelBtn.disabled = true;
+                    confirmBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending...';
+                    confirmBtn.style.background = '#6366f1';
+                    const fakeInput = document.getElementById('userInput');
+                    if (fakeInput) {
+                        fakeInput.value = '[CONFIRM_GMAIL_SEND]';
+                        document.getElementById('submitBtn').click();
+                    }
+                });
+                cancelBtn.addEventListener('click', () => {
+                    confirmBtn.disabled = true;
+                    cancelBtn.disabled = true;
+                    cancelBtn.innerHTML = '<i class="fa-solid fa-check"></i> Cancelled';
+                    cancelBtn.style.background = '#dc2626';
+                    const fakeInput = document.getElementById('userInput');
+                    if (fakeInput) {
+                        fakeInput.value = '[CANCEL_GMAIL_SEND]';
+                        document.getElementById('submitBtn').click();
+                    }
+                });
+                wrapper.appendChild(gmailCard);
             }
         }
         
@@ -1554,8 +1440,6 @@ async function handleSend(isResume = false, resumeIndex = null) {
     // In agent mode, thinking is always on, web is always off
     const effectiveThinkMode = supportsThinkMode && (isAgentMode ? true : isThinkMode);
     const effectiveWebMode = isAgentMode ? false : isWebMode;
-    const passiveProgressMode = !effectiveThinkMode && !effectiveWebMode;
-    const progressMode = isAgentMode ? 'agent' : (effectiveWebMode ? 'web' : (effectiveThinkMode ? 'think' : 'normal'));
     submitBtn.className = 'submit-btn ' + ((effectiveThinkMode || effectiveWebMode && !frontendAnswerAccum) ? 'thinking-state' : 'answering-state');
     submitBtn.innerHTML = '<i class="fa-solid fa-pause"></i>';
 
@@ -1563,20 +1447,16 @@ async function handleSend(isResume = false, resumeIndex = null) {
     assistantContainer.className = 'message-bubble assistant';
     assistantWrapper.appendChild(assistantContainer);
 
-    let progressController = null;
-    let passiveProgressHidden = false;
-
-    if (effectiveThinkMode || effectiveWebMode || (!isResume && !frontendAnswerAccum)) {
+    if (effectiveThinkMode || effectiveWebMode) {
         thinkWrapper = document.createElement('div');
-        thinkWrapper.className = 'think-wrapper in-progress';
-        if (passiveProgressMode) thinkWrapper.classList.add('passive-progress');
-        if (!isResume && !passiveProgressMode) thinkWrapper.classList.add('collapsed');
+        thinkWrapper.className = 'think-wrapper';
+        if (!isResume) thinkWrapper.classList.add('collapsed');
         
         thinkHeader = document.createElement('div');
         thinkHeader.className = 'think-header';
         
-        let initialLabel = (isResume && frontendAnswerAccum) ? 'Thought Process' : (effectiveWebMode ? 'Searching the web...' : (isAgentMode ? 'Preparing agent...' : 'Preparing response...'));
-        let initialIcon = (isResume && frontendAnswerAccum) ? '<i class="fa-solid fa-circle-check"></i>' : (effectiveWebMode ? '<i class="fa-solid fa-globe fa-spin"></i>' : '<i class="fa-solid fa-sparkles fa-spin"></i>');
+        let initialLabel = (isResume && frontendAnswerAccum) ? 'Thought Process' : (effectiveThinkMode ? 'Thinking...' : 'Searching the web...');
+        let initialIcon = (isResume && frontendAnswerAccum) ? '<i class="fa-solid fa-circle-check"></i>' : (effectiveThinkMode ? '<i class="fa-solid fa-atom fa-spin"></i>' : '<i class="fa-solid fa-globe fa-spin"></i>');
         
         thinkHeader.innerHTML = `
             <span class="think-icon">${initialIcon}</span>
@@ -1601,10 +1481,6 @@ async function handleSend(isResume = false, resumeIndex = null) {
         thinkHeader.addEventListener('click', () => {
             thinkWrapper.classList.toggle('collapsed');
         });
-
-        if (!isResume) {
-            progressController = startProgressAnimation(thinkHeader, thinkDurationEl, progressMode);
-        }
         
         if (isResume && frontendThinkAccum.trim().length > 0 && !frontendAnswerAccum) {
             thinkWrapper.style.display = 'block';
@@ -1625,8 +1501,6 @@ async function handleSend(isResume = false, resumeIndex = null) {
     // === Fetch & Stream ===
     let hasStartedTimer = false;
     let forcedEndThinking = false;
-    let gmailPreviewRendered = false;
-    let gmailActionsRendered = false;
     const attachmentsPayload = isResume ? [] : (chatMessages[chatMessages.length - 1]?.attachments || []);
     console.log('DEBUG SEND payload:', attachmentsPayload, isAgentMode);
 
@@ -1669,7 +1543,6 @@ async function handleSend(isResume = false, resumeIndex = null) {
                     submitBtn.className = 'submit-btn';
                     submitBtn.innerHTML = '<i class="fa-solid fa-arrow-up"></i>';
                     if (thinkTimerInterval) clearInterval(thinkTimerInterval);
-                    if (progressController) progressController.stop();
 
                     // Reset any pending confirm buttons that might be stuck spinning
                     document.querySelectorAll('.gmail-confirm-btn').forEach(btn => {
@@ -1685,9 +1558,7 @@ async function handleSend(isResume = false, resumeIndex = null) {
                         const elapsed = ((Date.now() - thinkStartTime) / 1000).toFixed(0);
                         thinkHeader.querySelector('.think-icon').innerHTML = '<i class="fa-solid fa-circle-check"></i>';
                         
-                        if (passiveProgressMode) {
-                            thinkWrapper.style.display = 'none';
-                        } else if (effectiveThinkMode && !effectiveWebMode && frontendThinkAccum.trim().length === 0) {
+                        if (effectiveThinkMode && !effectiveWebMode && frontendThinkAccum.trim().length === 0) {
                             thinkWrapper.style.display = 'none';
                         } else {
                             if (effectiveThinkMode) {
@@ -1832,13 +1703,6 @@ async function handleSend(isResume = false, resumeIndex = null) {
                     if (data.text !== undefined) {
                         let textChunk = data.text;
                         rawAccumText += textChunk;
-
-                        if (passiveProgressMode && thinkWrapper && !passiveProgressHidden) {
-                            passiveProgressHidden = true;
-                            thinkWrapper.classList.remove('in-progress');
-                            thinkWrapper.style.display = 'none';
-                            if (progressController) progressController.stop();
-                        }
                         
                         if (effectiveThinkMode) {
                             if (data.thinking) {
@@ -1877,24 +1741,6 @@ async function handleSend(isResume = false, resumeIndex = null) {
                                 contentBox.innerHTML = renderMd(frontendAnswerAccum);
                             }
                         }
-
-                        const gmailPreviewPayload = decodeGmailPreviewPayload(frontendAnswerAccum);
-                        if (gmailPreviewPayload && !gmailPreviewRendered) {
-                            frontendAnswerAccum = stripGmailPreviewPayload(frontendAnswerAccum);
-                            rawAccumText = stripGmailPreviewPayload(rawAccumText);
-                            if (contentBox) contentBox.innerHTML = renderMd(frontendAnswerAccum);
-                            const previewCard = createGmailPreviewCard(gmailPreviewPayload);
-                            if (previewCard) assistantWrapper.appendChild(previewCard);
-                            gmailPreviewRendered = true;
-                        }
-
-                        if (frontendAnswerAccum.includes('[GMAIL_CONFIRM_PENDING]') && !gmailActionsRendered) {
-                            frontendAnswerAccum = frontendAnswerAccum.replace('[GMAIL_CONFIRM_PENDING]', '');
-                            rawAccumText = rawAccumText.replace('[GMAIL_CONFIRM_PENDING]', '');
-                            if (contentBox) contentBox.innerHTML = renderMd(frontendAnswerAccum);
-                            assistantWrapper.appendChild(createGmailActionCard());
-                            gmailActionsRendered = true;
-                        }
                         scrollToBottom();
                     }
 
@@ -1930,11 +1776,66 @@ async function handleSend(isResume = false, resumeIndex = null) {
                         continue;
                     }
 
+                    // === GMAIL CONFIRM — detect marker in text and render buttons ===
+                    if (data.text && data.text.includes('[GMAIL_CONFIRM_PENDING]')) {
+                        // Strip the marker from displayed text
+                        frontendAnswerAccum = frontendAnswerAccum.replace('[GMAIL_CONFIRM_PENDING]', '');
+                        rawAccumText = rawAccumText.replace('[GMAIL_CONFIRM_PENDING]', '');
+                        if (contentBox) {
+                            contentBox.innerHTML = renderMd(frontendAnswerAccum);
+                        }
+
+                        // Create Gmail confirmation card
+                        const gmailCard = document.createElement('div');
+                        gmailCard.className = 'gmail-confirm-card';
+                        gmailCard.style = "margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--outline-variant);";
+                        gmailCard.innerHTML = `
+                            <div class="gmail-card-actions" style="display: flex; gap: 10px; align-items: center; margin-bottom: 8px;">
+                                <button class="gmail-confirm-btn" id="gmailConfirm_${Date.now()}" style="padding: 8px 16px; border-radius: 8px; font-weight: 500; font-size: 0.9em; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s ease; border: none; background: #6366f1; color: white; min-width: 130px; justify-content: center;">
+                                    <i class="fa-solid fa-paper-plane"></i> Confirm Send
+                                </button>
+                                <button class="gmail-cancel-btn" id="gmailCancel_${Date.now()}" style="padding: 8px 16px; border-radius: 8px; font-weight: 500; font-size: 0.9em; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s ease; border: 1px solid var(--outline-variant); background: transparent; color: var(--text-color); min-width: 100px; justify-content: center;">
+                                    <i class="fa-solid fa-xmark"></i> Cancel
+                                </button>
+                            </div>
+                        `;
+                        const confirmBtn = gmailCard.querySelector('.gmail-confirm-btn');
+                        const cancelBtn = gmailCard.querySelector('.gmail-cancel-btn');
+
+                        confirmBtn.addEventListener('click', () => {
+                            confirmBtn.disabled = true;
+                            cancelBtn.disabled = true;
+                            confirmBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending...';
+                            confirmBtn.style.background = '#6366f1';
+                            // Send confirm message to backend
+                            const fakeInput = document.getElementById('userInput');
+                            if (fakeInput) {
+                                fakeInput.value = '[CONFIRM_GMAIL_SEND]';
+                                document.getElementById('submitBtn').click();
+                            }
+                        });
+                        cancelBtn.addEventListener('click', () => {
+                            confirmBtn.disabled = true;
+                            cancelBtn.disabled = true;
+                            cancelBtn.innerHTML = '<i class="fa-solid fa-check"></i> Cancelled';
+                            cancelBtn.style.background = '#dc2626';
+                            const fakeInput = document.getElementById('userInput');
+                            if (fakeInput) {
+                                fakeInput.value = '[CANCEL_GMAIL_SEND]';
+                                document.getElementById('submitBtn').click();
+                            }
+                        });
+
+                        assistantWrapper.appendChild(gmailCard);
+                        scrollToBottom();
+                        
+                        scrollToBottom();
+                    }
+
                 } catch (e) { /* partial JSON */ }
             }
         }
     } catch (e) {
-        if (progressController) progressController.stop();
         if (e.name === 'AbortError') {
             if (thinkTimerInterval) clearInterval(thinkTimerInterval);
             if (thinkHeader && !forcedEndThinking) {
