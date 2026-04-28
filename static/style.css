@@ -261,8 +261,8 @@ h1,h2,h3,h4,h5,h6 {
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    padding: 1.5rem 1rem 1.5rem;
-    min-height: 84px;
+    padding: 16px 1rem 10px;
+    min-height: 56px;
 }
 
 .home-link {
@@ -1311,6 +1311,8 @@ h1,h2,h3,h4,h5,h6 {
     font-weight: 700;
     color: var(--on-surface);
     letter-spacing: -0.02em;
+    line-height: 1.2;
+    text-align: center;
 }
 
 #logoContainer {
@@ -1327,16 +1329,16 @@ h1,h2,h3,h4,h5,h6 {
 }
 
 .logo-text {
-    font-size: 1.4rem;
+    font-size: 1.42rem;
     font-weight: 900;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.055em;
     margin: 0;
-    background: linear-gradient(90deg, #ff3b30, #ff9500, #ffcc00, #8e8e93, #ff3b30, #ff9500);
-    background-size: 200% auto;
+    background: linear-gradient(90deg, #141414 0%, #5f6065 24%, #b9a86f 45%, #f4f0df 55%, #55575c 72%, #141414 100%);
+    background-size: 220% auto;
     color: transparent;
     -webkit-background-clip: text;
     background-clip: text;
-    animation: textShine 10s linear infinite;
+    animation: textShine 12s linear infinite;
 }
 
 @keyframes textShine {
@@ -4963,6 +4965,121 @@ html:not([data-theme="dark"]) .account-delete-cancel {
     }
     .message-bubble.user {
         max-width: 88%;
+    }
+}
+
+@media (max-width: 760px) {
+    body {
+        overflow: hidden;
+    }
+
+    .page-wrapper {
+        width: 100vw;
+    }
+
+    .mobile-header {
+        display: flex;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 58px;
+        padding: 10px 16px;
+        background: color-mix(in srgb, var(--surface) 86%, transparent);
+        border-bottom: 1px solid var(--outline-variant);
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.04);
+    }
+
+    .sidebar {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        bottom: 10px;
+        width: min(82vw, 300px);
+        margin: 0;
+        z-index: 1200;
+        transform: translateX(0);
+        transition: transform 0.28s ease, opacity 0.28s ease;
+        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.18), inset 0 0 0 1px rgba(255,255,255,0.7);
+    }
+
+    .page-wrapper.sidebar-collapsed .sidebar {
+        width: min(82vw, 300px);
+        transform: translateX(calc(-100% - 24px));
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .page-wrapper.sidebar-collapsed .sidebar-top .home-link,
+    .page-wrapper.sidebar-collapsed .nav-text,
+    .page-wrapper.sidebar-collapsed .history-group-title,
+    .page-wrapper.sidebar-collapsed .history-item,
+    .page-wrapper.sidebar-collapsed .nav-divider,
+    .page-wrapper.sidebar-collapsed .sidebar-user-btn {
+        display: initial;
+        opacity: 1;
+    }
+
+    .page-wrapper.sidebar-collapsed .nav-menu-btn {
+        width: 100%;
+        height: auto;
+        padding: 8px 14px;
+        justify-content: flex-start;
+        aspect-ratio: auto;
+    }
+
+    .main-content {
+        width: 100vw;
+        min-width: 0;
+    }
+
+    .guest-header {
+        top: 58px;
+        padding: 10px 14px 0;
+    }
+
+    .guest-nav {
+        gap: 6px;
+    }
+
+    .guest-nav-login,
+    .guest-nav-register {
+        min-height: 36px;
+        padding: 7px 13px;
+        font-size: 0.82rem;
+    }
+
+    .app-container,
+    .app-container.centered-landing {
+        max-width: 100%;
+        padding: 104px 14px 0;
+    }
+
+    .app-container.centered-landing .chat-area {
+        margin-bottom: 1.2rem;
+    }
+
+    .greeting-container h2 {
+        font-size: clamp(1.55rem, 8vw, 2.05rem);
+        line-height: 1.16;
+    }
+
+    .logo-text {
+        font-size: clamp(1rem, 4.5vw, 1.28rem);
+    }
+
+    .input-wrapper {
+        left: 10px;
+        right: 10px;
+        bottom: max(10px, env(safe-area-inset-bottom));
+    }
+
+    .liquid-glass-input {
+        border-radius: 26px;
+    }
+
+    .messages {
+        gap: 1rem;
     }
 }
 

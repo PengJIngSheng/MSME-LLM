@@ -33,6 +33,21 @@ const liquidGlassInput = document.querySelector('.liquid-glass-input');
 const COMPOSER_MAX_HEIGHT = 168;
 let googleOAuthClientId = '685645444928-ivt7lgsjiatv0ff0r68ckmbln1rdrrm4.apps.googleusercontent.com';
 
+function getBrowserLanguagePreference() {
+    const raw = (navigator.language || navigator.userLanguage || 'en').toLowerCase();
+    if (raw.startsWith('zh')) return 'zh';
+    if (raw.startsWith('ms') || raw.includes('my')) return 'ms';
+    return 'en';
+}
+
+function getPreferredTheme() {
+    return localStorage.getItem('pepperTheme') || 'light';
+}
+
+function getPreferredLanguage() {
+    return localStorage.getItem('pepperLang') || getBrowserLanguagePreference();
+}
+
 function resolveAvatarSrc(url) {
     if (!url) return '';
     try {
@@ -127,7 +142,7 @@ function getUiCopy() {
 
 function getNormalLandingMarkup() {
     const copy = getUiCopy();
-    return `<h2><span class="logo-text"><i class="fa-solid fa-leaf"></i> Ministry of Finance</span><br/>${copy.greeting || 'How can I help you today?'}</h2>`;
+    return `<h2><span class="logo-text">MSME.AI</span><br/>${copy.greeting || 'How can I help you today?'}</h2>`;
 }
 
 function updateGuestLimitBannerCopy() {
@@ -139,8 +154,8 @@ function updateGuestLimitBannerCopy() {
 }
 
 function syncPreferenceControls() {
-    const theme = localStorage.getItem('pepperTheme') || 'dark';
-    const lang = localStorage.getItem('pepperLang') || 'en';
+    const theme = getPreferredTheme();
+    const lang = getPreferredLanguage();
     document.querySelectorAll('.theme-btn').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.theme === theme);
     });
@@ -155,8 +170,8 @@ function syncPreferenceControls() {
 function applyStoredPreferences(preferences = {}) {
     if (preferences.language) localStorage.setItem('pepperLang', preferences.language);
     if (preferences.theme) localStorage.setItem('pepperTheme', preferences.theme);
-    const theme = localStorage.getItem('pepperTheme') || 'dark';
-    const lang = localStorage.getItem('pepperLang') || 'en';
+    const theme = getPreferredTheme();
+    const lang = getPreferredLanguage();
     if (window.applyPepperTheme) {
         window.applyPepperTheme(theme);
     } else if (theme === 'dark') {
@@ -172,8 +187,8 @@ async function saveUserPreferences(partial = {}) {
     const token = localStorage.getItem('pepperJwt');
     if (!token) return;
     const body = {
-        language: localStorage.getItem('pepperLang') || 'en',
-        theme: localStorage.getItem('pepperTheme') || 'dark',
+        language: getPreferredLanguage(),
+        theme: getPreferredTheme(),
         ...partial
     };
     try {
@@ -367,6 +382,16 @@ const sidebarCloseBtn = document.getElementById('sidebarCloseBtn');
 const sidebarOpenBtn = document.getElementById('sidebarOpenBtn');
 const sidebarExpandBtn = document.getElementById('sidebarExpandBtn');
 const pageWrapper = document.querySelector('.page-wrapper');
+
+function syncMobileSidebarState() {
+    if (!pageWrapper) return;
+    if (window.innerWidth <= 760) {
+        pageWrapper.classList.add('sidebar-collapsed');
+    }
+}
+
+syncMobileSidebarState();
+window.addEventListener('resize', syncMobileSidebarState);
 
 if (sidebarCloseBtn) sidebarCloseBtn.addEventListener('click', () => pageWrapper.classList.add('sidebar-collapsed'));
 if (sidebarOpenBtn) sidebarOpenBtn.addEventListener('click', () => pageWrapper.classList.remove('sidebar-collapsed'));
@@ -783,7 +808,7 @@ document.querySelectorAll('.liquid-glass-switch').forEach(switchLabel => {
             // Block if Google account not linked
             const googleLinked = localStorage.getItem('pepperGoogleLinked') === 'true';
             if (!googleLinked) {
-                const _lang = localStorage.getItem('pepperLang') || 'en';
+                const _lang = getPreferredLanguage();
                 const _msgs = { zh: '请先在账户设置中绑定您的 Google 账号后再使用连接器。', en: 'Please link your Google account in Account Settings before using connectors.', ms: 'Sila pautkan akaun Google anda dalam Tetapan Akaun sebelum menggunakan penyambung.' };
                 showToast(_msgs[_lang] || _msgs.en, true);
                 return;
@@ -2404,7 +2429,7 @@ async function loadChatPreview(chatId, title, liElement) {
     }
 
     // ── Theme Toggle ──
-    const savedTheme = localStorage.getItem('pepperTheme') || 'dark';
+    const savedTheme = getPreferredTheme();
     applyTheme(savedTheme);
 
     nav.querySelectorAll('.theme-btn').forEach(btn => {
@@ -2431,7 +2456,7 @@ async function loadChatPreview(chatId, title, liElement) {
     window.applyPepperTheme = applyTheme;
 
     // ── Language Selector ──
-    const savedLang = localStorage.getItem('pepperLang') || 'en';
+    const savedLang = getPreferredLanguage();
     applyLang(savedLang);
 
     nav.querySelectorAll('.lang-btn').forEach(btn => {
@@ -2715,7 +2740,7 @@ loadUserPreferences();
     const ctxThemeGroup = document.getElementById('ctxThemeToggleGroup');
     if (ctxThemeGroup) {
         ctxThemeGroup.querySelectorAll('.theme-btn').forEach(btn => {
-            const savedTheme = localStorage.getItem('pepperTheme') || 'dark';
+            const savedTheme = getPreferredTheme();
             btn.classList.toggle('active', btn.dataset.theme === savedTheme);
             btn.addEventListener('click', () => {
                 localStorage.setItem('pepperTheme', btn.dataset.theme);
@@ -2729,7 +2754,7 @@ loadUserPreferences();
     const ctxLangSel = document.getElementById('ctxLangSelector');
     if (ctxLangSel) {
         ctxLangSel.querySelectorAll('.lang-btn').forEach(btn => {
-            const currentLang = localStorage.getItem('pepperLang') || 'en';
+            const currentLang = getPreferredLanguage();
             btn.classList.toggle('active', btn.dataset.lang === currentLang);
             btn.addEventListener('click', () => {
                 localStorage.setItem('pepperLang', btn.dataset.lang);
@@ -3056,12 +3081,12 @@ loadUserPreferences();
     }
 
     function syncAccountLanguageLabel() {
-        const lang = localStorage.getItem('pepperLang') || 'en';
+        const lang = getPreferredLanguage();
         if (langLabel) langLabel.textContent = languageLabels[lang] || 'EN';
     }
 
     function renderAccountLanguage() {
-        const lang = localStorage.getItem('pepperLang') || 'en';
+        const lang = getPreferredLanguage();
         const copy = accountCopy[lang] || accountCopy.en;
         document.querySelectorAll('[data-account-i18n]').forEach(el => {
             const key = el.dataset.accountI18n;
@@ -3077,7 +3102,7 @@ loadUserPreferences();
 
     function updateDeletePrompt() {
         if (!deleteEmailPrompt) return;
-        const lang = localStorage.getItem('pepperLang') || 'en';
+        const lang = getPreferredLanguage();
         const copy = accountCopy[lang] || accountCopy.en;
         const email = getAccountEmail();
         deleteEmailPrompt.innerHTML = `${copy.deleteEmailPrefix}<strong>${email}</strong>${copy.deleteEmailSuffix}`;
@@ -3106,13 +3131,13 @@ loadUserPreferences();
 
     function syncAccountThemeIcon() {
         if (!themeBtn) return;
-        const isDark = (localStorage.getItem('pepperTheme') || 'dark') === 'dark';
+        const isDark = getPreferredTheme() === 'dark';
         themeBtn.innerHTML = isDark ? '<i class="fa-regular fa-moon"></i>' : '<i class="fa-regular fa-sun"></i>';
         themeBtn.setAttribute('aria-label', isDark ? 'Dark mode' : 'Light mode');
     }
 
     function updateLoginMethodButtons(hasPassword, googleLinked, authProvider) {
-        const lang = localStorage.getItem('pepperLang') || 'en';
+        const lang = getPreferredLanguage();
         const copy = accountCopy[lang] || accountCopy.en;
         const emailBtn = document.getElementById('emailMethodBtn');
         const googleBtn = document.getElementById('googleMethodBtn');
@@ -3162,7 +3187,7 @@ loadUserPreferences();
             const stored = localStorage.getItem('pepperCreatedAt');
             if (stored) {
                 const d = new Date(stored);
-                const lang = localStorage.getItem('pepperLang') || 'en';
+                const lang = getPreferredLanguage();
                 profileCreatedEl.textContent = d.toLocaleDateString(lang === 'zh' ? 'zh-CN' : lang === 'ms' ? 'ms-MY' : 'en-US', { year: 'numeric', month: 'long', day: 'numeric' });
             } else {
                 profileCreatedEl.textContent = '—';
@@ -3256,7 +3281,7 @@ loadUserPreferences();
 
     if (langBtn) {
         langBtn.addEventListener('click', () => {
-            const currentLang = localStorage.getItem('pepperLang') || 'en';
+            const currentLang = getPreferredLanguage();
             const nextLang = languageOrder[(languageOrder.indexOf(currentLang) + 1) % languageOrder.length] || 'zh';
             localStorage.setItem('pepperLang', nextLang);
             if (window.applyPepperLang) window.applyPepperLang(nextLang);
@@ -3268,7 +3293,7 @@ loadUserPreferences();
 
     if (themeBtn) {
         themeBtn.addEventListener('click', () => {
-            const currentTheme = localStorage.getItem('pepperTheme') || 'dark';
+            const currentTheme = getPreferredTheme();
             const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
             localStorage.setItem('pepperTheme', nextTheme);
             if (window.applyPepperTheme) window.applyPepperTheme(nextTheme);
@@ -3334,7 +3359,7 @@ loadUserPreferences();
 
     if (deleteConfirmBtn) {
         deleteConfirmBtn.addEventListener('click', async () => {
-            const lang = localStorage.getItem('pepperLang') || 'en';
+            const lang = getPreferredLanguage();
             const copy = accountCopy[lang] || accountCopy.en;
             if (deleteEmailInput && deleteEmailInput.value.trim().toLowerCase() !== getAccountEmail().toLowerCase()) {
                 alert(copy.deleteMismatch);
@@ -3464,7 +3489,7 @@ loadUserPreferences();
 
     if (editEmailContinueBtn) {
         editEmailContinueBtn.addEventListener('click', async () => {
-            const lang = localStorage.getItem('pepperLang') || 'en';
+            const lang = getPreferredLanguage();
             const copy = accountCopy[lang] || accountCopy.en;
             const newEmail = editEmailInput ? editEmailInput.value.trim() : '';
             if (!newEmail || !newEmail.includes('@')) {
@@ -3644,7 +3669,7 @@ loadUserPreferences();
 
     if (setPasswordSaveBtn && newPasswordInput) {
         setPasswordSaveBtn.addEventListener('click', async () => {
-            const lang = localStorage.getItem('pepperLang') || 'en';
+            const lang = getPreferredLanguage();
             const copy = accountCopy[lang] || accountCopy.en;
             const pw = newPasswordInput.value;
             if (!pw || pw.length < 8) {
