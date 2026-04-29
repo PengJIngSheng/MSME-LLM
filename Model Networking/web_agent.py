@@ -127,10 +127,6 @@ class AgentState(TypedDict):
 # 2. WebSearchAgent
 # ============================================================
 class WebSearchAgent:
-    # Process-wide cache for DDG results, keyed by (query, timelimit). Bounded by replace-on-overflow.
-    _SEARCH_CACHE: Dict[Tuple[str, Optional[str]], List[Dict]] = {}
-    _SEARCH_CACHE_MAX = 256
-
     # Patterns that clearly don't need a web search
     _NO_SEARCH_PATTERNS = [
         "hello", "hi ", "hey ", "你好", "嗨",
@@ -155,7 +151,7 @@ class WebSearchAgent:
             'google.com', 'bing.com', 'yahoo.com',
         }
 
-    def __init__(self, generation_callback, max_iterations: int = 2, think_mode: bool = False):
+    def __init__(self, generation_callback, max_iterations: int = 2, think_mode: bool = False, user_context: Optional[Dict[str, str]] = None):
         """
         :param generation_callback: (messages: List[Dict]) -> str
         :param think_mode: If True, add instructions for the model to analyze search results in its <think> phase
@@ -163,6 +159,7 @@ class WebSearchAgent:
         self.generation_callback = generation_callback
         self.max_iterations = max_iterations
         self.think_mode = think_mode
+        self.user_context = user_context or {}
         self._graph_full    = self._build_graph(include_answerer=True)
         self._graph_prepare = self._build_graph(include_answerer=False)
 
@@ -258,16 +255,37 @@ class WebSearchAgent:
         q = text.lower()
         return any(keyword in q for keyword in self._MALAYSIA_CONTEXT_KEYWORDS)
 
+    def _user_country(self) -> str:
+        return str(self.user_context.get("country") or "").strip()
+
+    def _location_label(self) -> str:
+        country = self._user_country() or "Unknown region"
+        timezone = self.user_context.get("timezone") or "Unknown timezone"
+        date = self.user_context.get("date") or datetime.datetime.now().strftime("%Y-%m-%d")
+        return f"{country}, timezone: {timezone}, current date: {date}"
+
+    def _needs_local_context(self, text: str) -> bool:
+        q = text.lower()
+        local_terms = {
+            "price", "cost", "fee", "flight", "near me", "registration", "register",
+            "tax", "law", "legal", "visa", "bank", "exchange rate", "documents",
+            "requirements", "permit", "license", "licence", "insurance", "shipping",
+            "价格", "多少钱", "费用", "航班", "机票", "注册", "文件", "要求", "税", "法律",
+            "berapa", "harga", "kos", "daftar", "dokumen", "syarat", "cukai",
+        }
+        return any(term in q for term in local_terms) or self._needs_malaysia_context(text)
+
     def _needs_fresh_window(self, text: str) -> bool:
         q = text.lower()
         return any(keyword in q for keyword in self._FRESH_FACTUAL_KEYWORDS)
 
     def _normalize_queries(self, queries: List[str], user_question: str, task_type: str) -> List[str]:
         """Keep web searches current and locally relevant without over-constraining results."""
-        _now = datetime.datetime.now()
-        year = _now.strftime("%Y")
-        month_year = _now.strftime("%B %Y")   # e.g. "April 2026"
+        year = datetime.datetime.now().strftime("%Y")
+        today = datetime.datetime.now().strftime("%Y-%m-%d")
+        country = self._user_country()
         needs_malaysia = self._needs_malaysia_context(user_question)
+        needs_local = self._needs_local_context(user_question)
         needs_fresh = self._needs_fresh_window(user_question)
         is_ssm = "ssm" in user_question.lower() or "suruhanjaya syarikat" in user_question.lower()
         max_queries = _cfg.max_queries if _cfg else 5
@@ -280,9 +298,12 @@ class WebSearchAgent:
                 continue
             q_lower = q.lower()
             if not re.search(r"\b20\d{2}\b", q):
-                # Fresh or factual → use full month+year for stronger recency signal
-                q = f"{q} {month_year}" if (needs_fresh or task_type == "factual") else f"{q} {year}"
-            if needs_malaysia and "malaysia" not in q_lower:
+                q = f"{q} {year}"
+            if needs_fresh and today not in q:
+                q = f"{q} today"
+            if country and needs_local and country.lower() not in q_lower:
+                q = f"{q} {country}"
+            elif needs_malaysia and "malaysia" not in q_lower:
                 q = f"{q} Malaysia"
             if task_type == "factual" and "official" not in q.lower():
                 q = f"{q} official"
@@ -348,32 +369,78 @@ class WebSearchAgent:
     def _model_generate_queries(self, user_question: str, task_type: str = "factual") -> List[str]:
         """
         Generate targeted search queries based on task type.
-        - Factual: 1 query per topic, authoritative sources with today's date
-        - Analytical: 2 queries per topic, diverse perspectives
+        The deterministic planner is intentionally first: it avoids spending
+        20-40s on a 31B model before search even starts, while still adding
+        country/date/official-source hints.
         """
-        _now = datetime.datetime.now()
-        today_str = _now.strftime("%Y-%m-%d")          # e.g. "2026-04-28"
-        month_year = _now.strftime("%B %Y")             # e.g. "April 2026"
+        return self._smart_queries(user_question, task_type)
+
+    def _smart_queries(self, user_question: str, task_type: str = "factual") -> List[str]:
+        base = re.sub(r"\s+", " ", user_question).strip()[:160]
+        if not base:
+            return []
+        year = datetime.datetime.now().strftime("%Y")
+        country = self._user_country()
+        country_suffix = f" {country}" if country and self._needs_local_context(base) else ""
+        q_lower = base.lower()
+
+        if "ssm" in q_lower or "suruhanjaya syarikat" in q_lower:
+            return [
+                f"SSM registration documents {year} official Malaysia",
+                f"site:ssm.com.my SSM registration documents {year}",
+                f"site:ezbiz.ssm.com.my business registration documents {year}",
+                f"{base} {year} Malaysia official",
+            ]
+
+        if any(term in q_lower for term in ("flight", "airline", "ticket", "航班", "机票")):
+            return [
+                f"{base} {year} today price comparison{country_suffix}",
+                f"{base} Skyscanner AirAsia Malaysia Airlines {year}",
+                f"{base} official airline fare {year}{country_suffix}",
+                f"{base} cheapest flights today {year}",
+            ]
 
         if task_type == "factual":
+            return [
+                f"{base} {year} latest official{country_suffix}",
+                f"{base} {year} requirements official source{country_suffix}",
+                f"{base} {year} current data{country_suffix}",
+                f"{base} {year} explanation authoritative",
+            ]
+
+        return [
+            f"{base} {year} latest news{country_suffix}",
+            f"{base} {year} analysis background{country_suffix}",
+            f"{base} {year} official report data{country_suffix}",
+            f"{base} {year} expert analysis market impact",
+        ]
+
+    def _legacy_model_generate_queries(self, user_question: str, task_type: str = "factual") -> List[str]:
+        if task_type == "factual":
             instructions = (
-                f"You are a search query generator. TODAY: {today_str}.\n"
+                "You are an expert search query generator.\n"
+                "CRITICAL: If the user asks MULTIPLE unrelated questions, you MUST generate queries for EVERY SINGLE QUESTION.\n\n"
                 "RULES:\n"
-                "1. 1 query per distinct topic. Use 'today' or the current month/year for recency.\n"
-                "2. Add 'Malaysia' if question is about finance, business, or local markets.\n"
-                "3. All queries in English.\n"
-                "4. Output ONLY a raw JSON array of strings.\n"
-                f'Example: ["USD MYR exchange rate {month_year} Malaysia official", "CEO of Apple {month_year}"]'
+                "1. Generate exactly 1 query **FOR EACH DISTINCT TOPIC** asked by the user.\n"
+                "2. LOCALIZATION: If the user's question relates to finance, business, startups, markets, or economics, you MUST append 'Malaysia' to the search query.\n"
+                "3. FACTUAL FOCUS: Target official/authoritative sources (e.g., official sites, reuters) with recency signals ('2026', 'today', 'latest').\n"
+                "4. ENGLISH: Translate product names, currencies, and entities to English.\n"
+                "5. Output ONLY a raw JSON array of strings. No markdown, no explanations.\n\n"
+                "Example for 'USD to MYR today and who is the CEO of Apple':\n"
+                '["USD MYR exchange rate today latest Malaysia", "current CEO of Apple 2026 latest"]'
             )
         else:  # analytical
             instructions = (
-                f"You are a search query generator. TODAY: {today_str}.\n"
+                "You are an expert search query generator.\n"
+                "CRITICAL: If the user asks MULTIPLE unrelated questions, you MUST generate queries for EVERY SINGLE QUESTION.\n\n"
                 "RULES:\n"
-                "1. 2 queries per distinct topic: one for latest news, one for background/analysis.\n"
-                "2. Add 'Malaysia' if question is about finance, business, or local markets.\n"
-                "3. All queries in English.\n"
-                "4. Output ONLY a raw JSON array of strings.\n"
-                f'Example: ["coffee startup {month_year} Malaysia trends", "coffee shop growth factors analysis", "AI economic impact {month_year} latest", "artificial intelligence industries analysis"]'
+                "1. Generate 2 queries **FOR EACH DISTINCT TOPIC** asked by the user.\n"
+                "2. LOCALIZATION: If the user's question relates to finance, business, startups, markets, or economics, you MUST append 'Malaysia' to the search queries.\n"
+                "3. DIVERSITY: For each topic, target different angles (e.g., 'latest news', 'background causes').\n"
+                "4. ENGLISH: Translate product names, currencies, and entities to English.\n"
+                "5. Output ONLY a raw JSON array of strings. No markdown, no explanations.\n\n"
+                "Example for 'Coffee startup trends and AI impact':\n"
+                '["coffee startup market trends 2026 Malaysia", "coffee shop business growth factors Malaysia", "AI technology impact on industries latest", "artificial intelligence economic consequences"]'
             )
 
         router_prompt = [
@@ -481,6 +548,8 @@ class WebSearchAgent:
                 user_question = msg.get("content", "")
                 break
         malaysia_context = self._needs_malaysia_context(user_question)
+        country_context = self._user_country()
+        needs_local_context = self._needs_local_context(user_question)
         ssm_context = "ssm" in user_question.lower() or "suruhanjaya syarikat" in user_question.lower()
 
         # Mode-specific search parameters. Evergreen factual tasks need current-year
@@ -492,57 +561,32 @@ class WebSearchAgent:
 
         _max_per_q = _cfg.max_results_per_query if _cfg else 12
         _max_total_cfg = _cfg.max_results_total if _cfg else 10
-        # More pages for both modes; LLM context kept manageable via tighter snippets below.
-        _max_total = min(_max_total_cfg, 12) if task_type == "factual" else max(_max_total_cfg, 14)
+        _max_total = min(_max_total_cfg, 8) if task_type == "factual" else _max_total_cfg
 
         _snip_len_cfg = _cfg.snippet_length if _cfg else 250
-        # Tighter snippets — more pages × shorter blurbs ≈ same/less total tokens for the LLM.
-        _snip_len = min(_snip_len_cfg, 200) if task_type == "factual" else min(_snip_len_cfg, 240)
+        _snip_len = min(_snip_len_cfg, 260) if task_type == "factual" else _snip_len_cfg
         _blacklist = self._BLACKLIST_DOMAINS
         print(f"  ⏱️  timelimit={timelimit} | max_per_query={_max_per_q} | max_total={_max_total}")
 
-        def _ddg_call(query: str, with_timelimit: bool) -> List[Dict]:
-            """Single DDG call. Treats 'no results' as empty list (not an error)."""
-            try:
-                ddgs = DDGS(timeout=8)
-                kwargs = {"max_results": _max_per_q}
-                if with_timelimit and timelimit:
-                    kwargs["timelimit"] = timelimit
-                return list(ddgs.text(query, **kwargs) or [])
-            except Exception as e:
-                msg = str(e).lower()
-                # ddgs raises an exception for legitimately empty result sets — not an error.
-                if "no results" in msg or "no result" in msg:
-                    return []
-                # Real failure (timeout, ratelimit, network) — log and let caller fall back.
-                print(f"  ⚠️ DDG 搜索出错 [{query}]: {e}")
-                raise
-
         def _search_one(query: str) -> List[Dict]:
-            # Per-call cache: skip the network round-trip for repeat queries within the run.
-            cached = WebSearchAgent._SEARCH_CACHE.get((query, timelimit))
-            if cached is not None:
-                return cached
             try:
-                raw_results = _ddg_call(query, with_timelimit=True)
-                # Only retry without timelimit if we got essentially nothing.
-                if timelimit and len(raw_results) < 2:
-                    raw_results = _ddg_call(query, with_timelimit=False)
-                # HTML fallback only if DDG API returned zero — slow path.
-                if len(raw_results) == 0:
+                ddgs = DDGS()
+                kwargs = {"max_results": _max_per_q}
+                if timelimit:
+                    kwargs["timelimit"] = timelimit
+                raw_results = ddgs.text(query, **kwargs) or []
+                # Timelimits are useful for current news, but DDG can be sparse; fall back once.
+                if len(raw_results) < max(3, min(_max_per_q // 2, 5)):
+                    raw_results = ddgs.text(query, max_results=_max_per_q) or []
+                if len(raw_results) < 2:
                     raw_results = self._duckduckgo_html_search(query, _max_per_q)
-                results_list = list(raw_results)
-                # Bounded cache — drop oldest entry if we hit the cap.
-                if len(WebSearchAgent._SEARCH_CACHE) >= WebSearchAgent._SEARCH_CACHE_MAX:
-                    WebSearchAgent._SEARCH_CACHE.pop(next(iter(WebSearchAgent._SEARCH_CACHE)))
-                WebSearchAgent._SEARCH_CACHE[(query, timelimit)] = results_list
-                return results_list
-            except Exception:
+                return list(raw_results)
+            except Exception as e:
+                print(f"  ⚠️ DDG 搜索出错 [{query}]: {e}")
                 return self._duckduckgo_html_search(query, _max_per_q)
 
         all_raw_results: List[Dict] = []
-        # Bump parallelism: DDG handles 8 concurrent fine, and previous cap of 4 serialized 5+ queries.
-        max_workers = max(1, min(len(queries), 8))
+        max_workers = max(1, min(len(queries), 4))
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = [executor.submit(_search_one, query) for query in queries]
             for future in as_completed(futures):
@@ -591,6 +635,8 @@ class WebSearchAgent:
             context_penalty = 0
             if malaysia_context and not any(term in context_blob for term in ("malaysia", "ssm", "suruhanjaya", "myr", "rm ")):
                 context_penalty -= 5
+            if needs_local_context and country_context and country_context.lower() not in context_blob:
+                context_penalty -= 2
 
             score = title_hits + body_hits + price_bonus + official_bonus + context_penalty
             candidate_results.append((score, title, body, href, domain))
@@ -644,7 +690,7 @@ class WebSearchAgent:
         current_year = datetime.datetime.now().strftime("%Y")
         user_lang    = state.get("user_language", "English")
         task_type    = state.get("task_type", "factual")
-        user_loc     = get_user_location()
+        user_loc     = self._location_label()
         augmented    = list(state["messages"])
 
         if state.get("needs_search") and state.get("search_results"):
@@ -674,31 +720,51 @@ class WebSearchAgent:
 
             if task_type == "factual":
                 mode_instructions = (
-                    "MODE: Factual. Goal: definitive, authoritative answer to EVERY question asked.\n"
-                    f"- Recency: prefer {current_year} sources; if no date visible, treat as background.\n"
-                    "- Structure: bold numbered header per topic; bullets under each for data points.\n"
-                    "- Give exact numbers/prices upfront, then 1-2 sentences of context.\n"
-                    "- Synthesize directly from the results — never refuse if data is present."
+                    f"MODE: 事实检索模式 (Factual / Deterministic)\n"
+                    f"GOAL: Provide definitive, authoritative, and structured answers to EVERY question the user asked.\n\n"
+                    f"OUTPUT RULES:\n"
+                    f"0. RECENCY: Prioritize {current_year} official/current sources. If a source has no visible date, treat it as background only.\n"
+                    f"1. STRUCTURE: Use bold numbered headers for each distinct topic the user asked about.\n"
+                    f"2. VISUALS: Use clean bullets, compact tables, and a few tasteful scan markers/icons for prices, dates, requirements, and warnings.\n"
+                    f"3. EXACT DATA: Give the exact numbers/prices immediately.\n"
+                    f"4. CITATIONS: Cite the source inline using markdown links: [Source Name](url).\n"
+                    f"5. CONTEXT: Add 1-2 sentences of context (e.g., changes from yesterday, why it changed).\n"
+                    f"6. NO REFUSALS: If data exists in the search results, synthesize and state it directly."
                 )
             else:  # analytical
                 mode_instructions = (
-                    "MODE: Analytical. Goal: multi-perspective research brief.\n"
-                    f"- Recency: prefer {current_year}; clearly separate current facts from background.\n"
-                    "- Structure: bold numbered sections (Background, Current Status, Impact, Outlook).\n"
-                    "- Reference multiple viewpoints; add your own synthesis beyond quoting.\n"
-                    "- Include specific numbers, dates, names, percentages.\n"
-                    "- Synthesize without hedging or refusing."
+                    f"MODE: 深度挖掘模式 (Analytical / Multi-Dimensional)\n"
+                    f"GOAL: Produce a comprehensive, multi-perspective analysis — matching a professional research brief.\n\n"
+                    f"OUTPUT RULES:\n"
+                    f"0. RECENCY: Prioritize {current_year} sources and clearly separate current facts from background context.\n"
+                    f"1. STRUCTURE: Use bold numbered sections for each major aspect (Background, Current Status, Impact, Outlook).\n"
+                    f"2. VISUALS: Use clean section icons/symbols sparingly, bullets, tables, and **bold text** to highlight key names, dates, and concepts.\n"
+                    f"3. MULTI-SOURCE: Reference multiple different viewpoints (e.g., US side vs Iran side).\n"
+                    f"4. DEPTH: Add YOUR OWN synthesis and analysis sentences beyond just quoting the facts.\n"
+                    f"5. DATA: Include specific numbers, dates, names, and percentages from the sources.\n"
+                    f"6. CITATIONS: Always use inline links [Source Name](url).\n"
+                    f"7. NO REFUSALS: Synthesize all available information without hesitation."
                 )
 
             system_content = (
-                f"Date: {current_time} | Year: {current_year} | Location: {user_loc}\n"
-                f"Auto-convert currencies/units to user's region.\n\n"
-                f"══ WEB SEARCH RESULTS ══\n{state['search_results']}\n══ END RESULTS ══\n\n"
+                f"Date/time: {current_time}\n"
+                f"Current year: {current_year}\n"
+                f"User Location: {user_loc} (Auto-convert currencies, units, and contexts to this region proactively)\n\n"
+                f"══ WEB SEARCH RESULTS ══\n"
+                f"{state['search_results']}\n"
+                f"══ END RESULTS ══\n\n"
                 f"{think_block}"
-                f"Role: professional research journalist. Match Gemini 2.0 depth.\n\n"
+                f"ROLE: You are a professional research journalist and analyst.\n"
+                f"QUALITY BENCHMARK: Match or exceed Google Gemini 2.0 depth and clarity.\n\n"
                 f"{mode_instructions}\n\n"
-                f"CITATIONS: Use inline markdown links [Source Name](url) — NEVER bare [1][2].\n"
-                f"LANGUAGE: Reply ENTIRELY in {user_lang}."
+                f"CITATION FORMAT (CRITICAL WARNING):\n"
+                f"You MUST use inline markdown links with the actual title and URL. NO EXCEPTIONS.\n"
+                f"✅ CORRECT (EN): 'According to [Reuters News](https://reuters.com/...), the rate is 4.225'\n"
+                f"✅ CORRECT (ZH): '根据 [Reuters News](https://reuters.com/...), 汇率为 4.225'\n"
+                f"❌ FORBIDDEN: 'According to [1]'\n"
+                f"❌ FORBIDDEN: '... rate is 4.225 [1][2]'\n"
+                f"NEVER use standalone bracketed numbers like [1] or [2] for citations. ALWAYS use the full markdown link.\n\n"
+                f"LANGUAGE: Reply ENTIRELY in {user_lang}. Do not mix languages."
             )
 
         elif state.get("needs_search"):

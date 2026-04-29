@@ -260,6 +260,8 @@ window.showToast = showToast;
 function updateGuestInputUi() {
     const shouldHideNormalInput = !currentUserId && !isAgentMode && getGuestQuestionCount() >= GUEST_QUESTION_LIMIT;
     const shouldLockGuestAgent = !currentUserId && isAgentMode;
+    document.body.classList.toggle('is-guest', !currentUserId);
+    document.body.classList.toggle('is-logged-in', !!currentUserId);
 
     if (inputWrapper) {
         inputWrapper.classList.toggle('guest-input-hidden', shouldHideNormalInput);
@@ -856,26 +858,9 @@ setTimeout(async () => {
 
 // ============ Helpers ============
 let scrollToBottomFrame = null;
-let _userScrolledUp = false;   // true when user manually scrolled up during generation
-
-// Detect manual scroll-up during generation → pause auto-scroll
-(function _initScrollDetection() {
-    document.addEventListener('DOMContentLoaded', () => {
-        const chatArea = document.getElementById('chatArea');
-        if (!chatArea) return;
-        chatArea.addEventListener('scroll', () => {
-            if (!isGenerating) { _userScrolledUp = false; return; }
-            const distFromBottom = chatArea.scrollHeight - chatArea.scrollTop - chatArea.clientHeight;
-            _userScrolledUp = distFromBottom > 80;
-        }, { passive: true });
-    });
-})();
-
 function scrollToBottom(options = {}) {
     const chatArea = document.getElementById('chatArea');
     if (!chatArea) return;
-    // Don't fight the user if they scrolled up to read previous content
-    if (_userScrolledUp && !options.force) return;
 
     const run = () => {
         scrollToBottomFrame = null;
@@ -1163,10 +1148,8 @@ function applyRichFormatting(el) {
 
 // ============ User Message & Actions ============
 function createActionButtons(wrapper, msgIndex, feedbackVal, isAssistant, msgText) {
-    // Remove any previous action bar so re-generation doesn't stack
-    wrapper.querySelector('.msg-action-bar')?.remove();
     const actions = document.createElement('div');
-    actions.className = 'msg-action-bar always-visible';
+    actions.className = 'msg-action-bar';
     
     const copyBtn = document.createElement('button');
     copyBtn.className = 'msg-action-btn';
@@ -1214,6 +1197,16 @@ function createActionButtons(wrapper, msgIndex, feedbackVal, isAssistant, msgTex
             handleSend();
         };
         actions.appendChild(regenBtn);
+
+        const resumeBtn = document.createElement('button');
+        resumeBtn.className = 'msg-action-btn';
+        resumeBtn.title = 'Resume Generation';
+        resumeBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
+        resumeBtn.onclick = () => {
+            if (isGenerating) return;
+            handleSend(true, msgIndex);
+        };
+        actions.appendChild(resumeBtn);
 
         const likeBtn = document.createElement('button');
         likeBtn.className = `msg-action-btn ${feedbackVal === 1 ? 'active' : ''}`;
@@ -1585,7 +1578,6 @@ async function handleSend(isResume = false, resumeIndex = null) {
     }
 
     isGenerating = true;
-    _userScrolledUp = false;   // reset so new generation auto-scrolls normally
     currentAbortController = new AbortController();
     // In agent mode, thinking is always on, web is always off
     const effectiveThinkMode = supportsThinkMode && (isAgentMode ? true : isThinkMode);
@@ -1743,6 +1735,7 @@ async function handleSend(isResume = false, resumeIndex = null) {
                 is_resume: isResume,
                 agent_mode: isAgentMode,
                 user_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
+                browser_language: navigator.language || navigator.userLanguage || '',
                 regenerate_pdf: forceRegeneratePdf,
             }),
             signal: currentAbortController.signal,
@@ -2749,7 +2742,7 @@ async function loadChatPreview(chatId, title, liElement) {
                 ctxLogout: 'Logout'
             },
             zh: {
-                greeting: '今天我能为您做些什么？',
+                greeting: '今天有什么计划？',
                 placeholder: '您想了解什么？',
                 thinkMode: '思考模式',
                 searchMode: '联网搜索',
