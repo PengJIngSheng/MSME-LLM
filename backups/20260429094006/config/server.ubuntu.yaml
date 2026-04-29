@@ -1,0 +1,52 @@
+runtime:
+  name: "MSME AI Copilot - Cyberjaya MYS1a"
+  platform: "Ubuntu 24.04 + RTX 4090 (48GB VRAM)"
+
+model:
+  think_model: "gemma4:31b-it-q8_0"
+  fast_model: "gemma4:31b-it-q8_0"
+  search_query_model: "qwen2.5:3b-instruct"
+  gguf_path: ""
+  context_length: 32768
+
+generation:
+  max_new_tokens: 8192
+
+server:
+  host: "127.0.0.1"
+  port: 8000
+  public_site_url: "https://msme.ai.pepperlabs.my"
+  timezone: "Asia/Kuala_Lumpur"
+
+database:
+  mongodb:
+    uri: "mongodb://localhost:27017/"
+    database: "pepper_chat_db"
+  pgvector:
+    connection_uri: "postgresql+psycopg://postgres:postgres@localhost:5432/pepper_memory"
+    collection: "users_memory"
+
+services:
+  ollama:
+    base_url: "http://127.0.0.1:11434"
+    num_ctx_cap: 32768
+    num_gpu: 99
+    num_thread: 8
+
+deployment:
+  ssh:
+    host: "103.209.158.127"
+    port: 22
+    user: "ubuntu"
+    identity_file: "C:/Users/mier3/.ssh/MSMEAI.pem"
+  docker:
+    mongo_port: 27017
+    pgvector_port: 5432
+    ollama_port: 11434
+    app_port: 8000
+
+search:
+  max_queries: 4
+  max_results_per_query: 8
+  max_results_total: 12
+  snippet_length: 360

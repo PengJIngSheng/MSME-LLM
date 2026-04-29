@@ -1817,12 +1817,6 @@ async function handleSend(isResume = false, resumeIndex = null) {
                         }
                         continue;
                     }
-                    if (data.status === 'model_starting' && thinkHeader) {
-                        const label = isAgentMode ? 'Composing workspace response...' : (isWebMode ? 'Writing sourced answer...' : 'Writing answer...');
-                        thinkHeader.querySelector('.think-label').innerText = label;
-                        thinkHeader.querySelector('.think-icon').innerHTML = '<i class="fa-solid fa-sparkles fa-spin"></i>';
-                        continue;
-                    }
                     
                     if (data.think_start) {
                         if (!rawAccumText.includes('<think>')) rawAccumText += '<think>\n';

@@ -1651,13 +1651,15 @@ async function handleSend(isResume = false, resumeIndex = null) {
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
+        let sseBuffer = '';
 
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
 
-            const chunk = decoder.decode(value, { stream: true });
-            const lines = chunk.split('\n');
+            sseBuffer += decoder.decode(value, { stream: true });
+            const lines = sseBuffer.split('\n');
+            sseBuffer = lines.pop() || '';
 
             for (const line of lines) {
                 if (!line.startsWith('data: ')) continue;
@@ -1813,6 +1815,12 @@ async function handleSend(isResume = false, resumeIndex = null) {
                             thinkHeader.querySelector('.think-label').innerText = 'Synthesizing search results...';
                             thinkHeader.querySelector('.think-icon').innerHTML = '<i class="fa-solid fa-pen-fancy fa-spin"></i>';
                         }
+                        continue;
+                    }
+                    if (data.status === 'model_starting' && thinkHeader) {
+                        const label = isAgentMode ? 'Composing workspace response...' : (isWebMode ? 'Writing sourced answer...' : 'Writing answer...');
+                        thinkHeader.querySelector('.think-label').innerText = label;
+                        thinkHeader.querySelector('.think-icon').innerHTML = '<i class="fa-solid fa-sparkles fa-spin"></i>';
                         continue;
                     }
                     

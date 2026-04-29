@@ -15,7 +15,7 @@ generation:
 server:
   host: "127.0.0.1"
   port: 8000
-  public_site_url: "https://msme.ai.pepperlabs.my"
+  public_site_url: "http://103.209.158.127"
   timezone: "Asia/Kuala_Lumpur"
 
 database:

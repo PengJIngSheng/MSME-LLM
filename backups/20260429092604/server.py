@@ -98,12 +98,6 @@ _think_mode_supported = False   # resolved during startup from actual model name
 def _sse(d):
     return f"data: {json.dumps(d, ensure_ascii=False)}\n\n"
 
-SSE_HEADERS = {
-    "Cache-Control": "no-cache, no-transform",
-    "X-Accel-Buffering": "no",
-    "Connection": "keep-alive",
-}
-
 def _detect_language(text):
     cn = len(re.findall(r'[\u4e00-\u9fff]', text))
     total = max(len(text.strip()), 1)
@@ -129,7 +123,7 @@ def _response_profile(text: str, agent_mode: bool = False, web_mode: bool = Fals
     if agent_mode:
         return {
             "depth": "agent",
-            "max_predict": 8192 if has_pdf or score >= 3 else 6144,
+            "max_predict": 6144 if has_pdf or score >= 3 else 4096,
             "ctx": cfg.ollama_num_ctx_cap if has_pdf else min(cfg.ollama_num_ctx_cap, 12288),
             "instruction": (
                 "ANSWER DEPTH: Agent mode should be action-oriented and complete. "
@@ -151,21 +145,21 @@ def _response_profile(text: str, agent_mode: bool = False, web_mode: bool = Fals
     if score <= 0:
         return {
             "depth": "short",
-            "max_predict": 1536,
+            "max_predict": 768,
             "ctx": min(cfg.ollama_num_ctx_cap, 4096),
-            "instruction": "ANSWER DEPTH: This appears simple. Answer directly, but include enough context to be genuinely useful.",
+            "instruction": "ANSWER DEPTH: This appears simple. Answer directly in 2-5 concise paragraphs or bullets.",
         }
     if score <= 2:
         return {
             "depth": "standard",
-            "max_predict": 2560,
-            "ctx": min(cfg.ollama_num_ctx_cap, 6144),
-            "instruction": "ANSWER DEPTH: Give a balanced, high-quality answer with concrete examples or steps when useful.",
+            "max_predict": 1536,
+            "ctx": min(cfg.ollama_num_ctx_cap, 4096),
+            "instruction": "ANSWER DEPTH: Give a balanced answer with enough detail to be useful, avoiding unnecessary length.",
         }
     return {
         "depth": "deep",
-        "max_predict": 4096,
-        "ctx": min(cfg.ollama_num_ctx_cap, 8192),
+        "max_predict": 3072,
+        "ctx": min(cfg.ollama_num_ctx_cap, 6144),
         "instruction": "ANSWER DEPTH: This is complex. Provide a high-quality structured answer with reasoning, examples, and tables where useful.",
     }
 
@@ -906,8 +900,7 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
         if agent_mode:
             _max_predict = min(max_new_tok, response_profile["max_predict"]) + _think_budget
         elif web_mode:
-            _web_cap = 2560 if _web_factual else 4096
-            _max_predict = min(max_new_tok, response_profile["max_predict"], _web_cap) + _think_budget
+            _max_predict = min(max_new_tok, response_profile["max_predict"], 2560 if _web_factual else 4096) + _think_budget
         else:
             _max_predict = min(max_new_tok, response_profile["max_predict"]) + _think_budget
 
@@ -929,13 +922,11 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
         }
 
         _gen_started = time.perf_counter()
-        yield _sse({"status": "model_starting"})
         ollama_stream = _ollama_client.chat(
             model=_ollama_model,
             messages=final_messages,
             stream=True,
             options=_ollama_opts,
-            keep_alive="30m",
         )
 
         gguf_all   = ""
@@ -1229,7 +1220,17 @@ async def chat_endpoint(req: ChatRequest):
         ):
             yield chunk
 
-    return StreamingResponse(wrapped(), media_type="text/event-stream", headers=SSE_HEADERS)
+    return StreamingResponse(
+        wrapped(),
+        media_type="text/event-stream",
+        headers={
+            # Disable nginx/proxy buffering so chunks reach the client immediately,
+            # otherwise long Q8 generations look "frozen" and may time out at the proxy.
+            "X-Accel-Buffering": "no",
+            "Cache-Control": "no-cache, no-transform",
+            "Connection": "keep-alive",
+        },
+    )
 
 
 @app.get("/api/download_pdf/{filename}")
