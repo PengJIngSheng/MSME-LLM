@@ -1622,6 +1622,66 @@ async function handleSend(isResume = false, resumeIndex = null) {
     if (isResume) contentBox.innerHTML = renderMd(frontendAnswerAccum);
     assistantContainer.appendChild(contentBox);
 
+    const LIVE_RENDER_INTERVAL_MS = 120;
+    let answerRenderTimer = null;
+    let thinkRenderTimer = null;
+    let lastAnswerRenderAt = 0;
+    let lastThinkRenderAt = 0;
+
+    const renderAnswerNow = () => {
+        if (!contentBox) return;
+        contentBox.innerHTML = renderMd(frontendAnswerAccum);
+        lastAnswerRenderAt = performance.now();
+        answerRenderTimer = null;
+    };
+
+    const renderThinkNow = () => {
+        if (!thinkContent) return;
+        thinkContent.innerHTML = renderMd(frontendThinkAccum);
+        lastThinkRenderAt = performance.now();
+        thinkRenderTimer = null;
+    };
+
+    const scheduleAnswerRender = (force = false) => {
+        if (!contentBox) return;
+        if (force) {
+            if (answerRenderTimer) clearTimeout(answerRenderTimer);
+            answerRenderTimer = null;
+            renderAnswerNow();
+            return;
+        }
+        const wait = Math.max(0, LIVE_RENDER_INTERVAL_MS - (performance.now() - lastAnswerRenderAt));
+        if (wait === 0) {
+            if (answerRenderTimer) {
+                clearTimeout(answerRenderTimer);
+                answerRenderTimer = null;
+            }
+            renderAnswerNow();
+        } else if (!answerRenderTimer) {
+            answerRenderTimer = setTimeout(renderAnswerNow, wait);
+        }
+    };
+
+    const scheduleThinkRender = (force = false) => {
+        if (!thinkContent) return;
+        if (force) {
+            if (thinkRenderTimer) clearTimeout(thinkRenderTimer);
+            thinkRenderTimer = null;
+            renderThinkNow();
+            return;
+        }
+        const wait = Math.max(0, LIVE_RENDER_INTERVAL_MS - (performance.now() - lastThinkRenderAt));
+        if (wait === 0) {
+            if (thinkRenderTimer) {
+                clearTimeout(thinkRenderTimer);
+                thinkRenderTimer = null;
+            }
+            renderThinkNow();
+        } else if (!thinkRenderTimer) {
+            thinkRenderTimer = setTimeout(renderThinkNow, wait);
+        }
+    };
+
     // === Fetch & Stream ===
     let hasStartedTimer = false;
     let forcedEndThinking = false;
@@ -1648,10 +1708,14 @@ async function handleSend(isResume = false, resumeIndex = null) {
             }),
             signal: currentAbortController.signal,
         });
+        if (!response.ok || !response.body) {
+            throw new Error(`CHAT_HTTP_${response.status || 'NO_BODY'}`);
+        }
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let sseBuffer = '';
+        let streamCompleted = false;
 
         while (true) {
             const { done, value } = await reader.read();
@@ -1666,6 +1730,7 @@ async function handleSend(isResume = false, resumeIndex = null) {
                 const dataStr = line.slice(6);
 
                 if (dataStr === '[DONE]') {
+                    streamCompleted = true;
                     isGenerating = false;
                     currentAbortController = null;
                     submitBtn.className = 'submit-btn';
@@ -1713,6 +1778,8 @@ async function handleSend(isResume = false, resumeIndex = null) {
                     }
 
                     // Apply syntax highlighting + math rendering after streaming completes
+                    scheduleAnswerRender(true);
+                    scheduleThinkRender(true);
                     applyRichFormatting(contentBox);
                     if (thinkContent) applyRichFormatting(thinkContent);
                     
@@ -1860,14 +1927,12 @@ async function handleSend(isResume = false, resumeIndex = null) {
                             }
                             
                             if (thinkContent) {
-                                thinkContent.innerHTML = renderMd(frontendThinkAccum);
+                                scheduleThinkRender();
                                 if (frontendThinkAccum.trim().length > 0 && thinkWrapper.style.display === 'none') {
                                     thinkWrapper.style.display = 'block';
                                 }
                             }
-                            if (contentBox) {
-                                contentBox.innerHTML = renderMd(frontendAnswerAccum);
-                            }
+                            scheduleAnswerRender();
                             
                             if (!thinkStartTime && thinkWrapper && (data.think_start || data.thinking || frontendThinkAccum.length > 0)) {
                                 if (!hasStartedTimer) {
@@ -1881,16 +1946,14 @@ async function handleSend(isResume = false, resumeIndex = null) {
                             }
                         } else {
                             frontendAnswerAccum += textChunk;
-                            if (contentBox) {
-                                contentBox.innerHTML = renderMd(frontendAnswerAccum);
-                            }
+                            scheduleAnswerRender();
                         }
 
                         const gmailPreviewPayload = decodeGmailPreviewPayload(frontendAnswerAccum);
                         if (gmailPreviewPayload && !gmailPreviewRendered) {
                             frontendAnswerAccum = stripGmailPreviewPayload(frontendAnswerAccum);
                             rawAccumText = stripGmailPreviewPayload(rawAccumText);
-                            if (contentBox) contentBox.innerHTML = renderMd(frontendAnswerAccum);
+                            scheduleAnswerRender(true);
                             const previewCard = createGmailPreviewCard(gmailPreviewPayload);
                             if (previewCard) assistantWrapper.appendChild(previewCard);
                             gmailPreviewRendered = true;
@@ -1899,7 +1962,7 @@ async function handleSend(isResume = false, resumeIndex = null) {
                         if (frontendAnswerAccum.includes('[GMAIL_CONFIRM_PENDING]') && !gmailActionsRendered) {
                             frontendAnswerAccum = frontendAnswerAccum.replace('[GMAIL_CONFIRM_PENDING]', '');
                             rawAccumText = rawAccumText.replace('[GMAIL_CONFIRM_PENDING]', '');
-                            if (contentBox) contentBox.innerHTML = renderMd(frontendAnswerAccum);
+                            scheduleAnswerRender(true);
                             assistantWrapper.appendChild(createGmailActionCard());
                             gmailActionsRendered = true;
                         }
@@ -1941,20 +2004,41 @@ async function handleSend(isResume = false, resumeIndex = null) {
                 } catch (e) { /* partial JSON */ }
             }
         }
+        if (!streamCompleted) {
+            throw new Error('STREAM_ENDED_WITHOUT_DONE');
+        }
     } catch (e) {
         if (progressController) progressController.stop();
-        if (e.name === 'AbortError') {
+        if (answerRenderTimer) {
+            clearTimeout(answerRenderTimer);
+            answerRenderTimer = null;
+            renderAnswerNow();
+        }
+        if (thinkRenderTimer) {
+            clearTimeout(thinkRenderTimer);
+            thinkRenderTimer = null;
+            renderThinkNow();
+        }
+        const streamEndedEarly = e && e.message === 'STREAM_ENDED_WITHOUT_DONE';
+        const interrupted = (e && e.name === 'AbortError') || streamEndedEarly;
+        if (interrupted) {
             if (thinkTimerInterval) clearInterval(thinkTimerInterval);
             if (thinkHeader && !forcedEndThinking) {
                 const durationStr = thinkDurationEl ? thinkDurationEl.innerText : '';
-                thinkHeader.querySelector('.think-icon').innerHTML = '<i class="fa-solid fa-pause"></i>';
-                thinkHeader.querySelector('.think-label').innerText = 'Thinking Paused';
+                thinkHeader.querySelector('.think-icon').innerHTML = streamEndedEarly
+                    ? '<i class="fa-solid fa-triangle-exclamation"></i>'
+                    : '<i class="fa-solid fa-pause"></i>';
+                thinkHeader.querySelector('.think-label').innerText = streamEndedEarly
+                    ? 'Stream interrupted'
+                    : 'Thinking Paused';
                 if (durationStr) thinkDurationEl.innerText = durationStr;
             }
 
             const wrap = document.createElement('div');
             wrap.className = 'markdown-content';
-            wrap.innerHTML = '<br><em style="color:var(--primary-dim); font-size: 0.9em;"><i class="fa-solid fa-pause"></i> Generation paused by user</em>';
+            wrap.innerHTML = streamEndedEarly
+                ? '<br><em style="color:var(--primary-dim); font-size: 0.9em;"><i class="fa-solid fa-triangle-exclamation"></i> Connection interrupted. Click resume to continue from here.</em>'
+                : '<br><em style="color:var(--primary-dim); font-size: 0.9em;"><i class="fa-solid fa-pause"></i> Generation paused by user</em>';
             contentBox.appendChild(wrap);
             
             const msgStore = { role: 'assistant', content: rawAccumText, sources: currentSources };
@@ -1971,7 +2055,27 @@ async function handleSend(isResume = false, resumeIndex = null) {
             isPaused = true;
             pausedMsgIndex = savedIndex;
         } else {
-            contentBox.innerText = "Error connecting to server.";
+            console.error("Chat stream failed", e);
+            if (rawAccumText && rawAccumText.trim()) {
+                const wrap = document.createElement('div');
+                wrap.className = 'markdown-content';
+                wrap.innerHTML = '<br><em style="color:var(--primary-dim); font-size: 0.9em;"><i class="fa-solid fa-triangle-exclamation"></i> Response interrupted. Click resume to continue.</em>';
+                contentBox.appendChild(wrap);
+                const msgStore = { role: 'assistant', content: rawAccumText, sources: currentSources };
+                let savedIndex = null;
+                if (isResume && resumeIndex !== null) {
+                    chatMessages[resumeIndex] = msgStore;
+                    savedIndex = resumeIndex;
+                } else {
+                    chatMessages.push(msgStore);
+                    savedIndex = chatMessages.length - 1;
+                }
+                createActionButtons(assistantWrapper, savedIndex, 0, true, rawAccumText);
+                isPaused = true;
+                pausedMsgIndex = savedIndex;
+            } else {
+                contentBox.innerText = "Error connecting to server.";
+            }
         }
         isGenerating = false;
         currentAbortController = null;

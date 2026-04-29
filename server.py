@@ -652,7 +652,25 @@ async def rename_chat(chat_id: str, req: RenameChatRequest):
 
 
 
-async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=False, max_tokens_override=None, agent_mode=False, attachments=None, user_timezone=""):
+async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=False, max_tokens_override=None, agent_mode=False, attachments=None, user_timezone="", client_request=None):
+    async def _client_gone():
+        if client_request is None:
+            return False
+        try:
+            return await client_request.is_disconnected()
+        except Exception:
+            return False
+
+    def _close_stream(stream_obj):
+        if stream_obj is None:
+            return
+        close_fn = getattr(stream_obj, "close", None)
+        if callable(close_fn):
+            try:
+                close_fn()
+            except Exception:
+                pass
+
     # --- Language detection ---
     latest_user_msg = ""
     for msg in reversed(messages):
@@ -803,7 +821,17 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
             return _generate_search_query_response(msgs)
         wa = WebSearchAgent(agent_cb, think_mode=think_mode)
         try:
-            final_messages, sources = await asyncio.to_thread(wa.prepare, inference_messages)
+            prepare_task = asyncio.create_task(asyncio.to_thread(wa.prepare, inference_messages))
+            while True:
+                done, _ = await asyncio.wait({prepare_task}, timeout=8)
+                if done:
+                    break
+                if await _client_gone():
+                    prepare_task.cancel()
+                    print(f"[STREAM] Client disconnected during web search; chat_id={chat_id}")
+                    return
+                yield _sse({"heartbeat": True, "status": "searching"})
+            final_messages, sources = await prepare_task
         except Exception as e:
             yield _sse({'text': f'Web Search Error: {e}'})
             yield "data: [DONE]\n\n"
@@ -937,13 +965,7 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
 
         _gen_started = time.perf_counter()
         yield _sse({"status": "model_starting"})
-        ollama_stream = _ollama_client.chat(
-            model=_ollama_model,
-            messages=final_messages,
-            stream=True,
-            options=_ollama_opts,
-            keep_alive="45m",
-        )
+        ollama_stream = None
 
         gguf_all   = ""
         think_raw  = ""   # 思考内容（用于存档）
@@ -957,82 +979,102 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
         gguf_sent_start = (gguf_phase == "answering")
         detected_think_tag = True if _ollama_has_think_tags else False
 
-        for chunk in ollama_stream:
-            if chunk.get("done"):
-                elapsed = time.perf_counter() - _gen_started
-                prompt_tokens = chunk.get("prompt_eval_count") or 0
-                output_tokens = chunk.get("eval_count") or 0
-                prompt_duration = (chunk.get("prompt_eval_duration") or 0) / 1_000_000_000
-                output_duration = (chunk.get("eval_duration") or 0) / 1_000_000_000
-                prompt_rate = prompt_tokens / prompt_duration if prompt_duration > 0 else 0
-                output_rate = output_tokens / output_duration if output_duration > 0 else 0
-                print(
-                    f"[OLLAMA PERF] model={_ollama_model} web={web_mode} factual={_web_factual} "
-                    f"ctx={_ctx} predict={_max_predict} elapsed={elapsed:.1f}s "
-                    f"prompt={prompt_tokens} tok @ {prompt_rate:.1f} tok/s | "
-                    f"output={output_tokens} tok @ {output_rate:.1f} tok/s"
-                )
-                continue
+        try:
+            ollama_stream = _ollama_client.chat(
+                model=_ollama_model,
+                messages=final_messages,
+                stream=True,
+                options=_ollama_opts,
+                keep_alive="45m",
+            )
 
-            piece = chunk['message']['content']
-            if not piece:
-                continue
-            gguf_all += piece
+            for chunk in ollama_stream:
+                if await _client_gone():
+                    print(f"[STREAM] Client disconnected; stopping Ollama stream for chat_id={chat_id}")
+                    _close_stream(ollama_stream)
+                    return
 
-            # 动态探测非思考模式下的模型是否在吐出 <think>
-            if detected_think_tag is None and not initial_phase and not think_mode:
-                if "<think>" in gguf_all:
-                    detected_think_tag = True
-                elif len(gguf_all) >= 100:
-                    detected_think_tag = False
-                    # 确定该模型不吐出 <think>，立刻切换为回答模式并将累积内容当作正文
-                    gguf_phase = "answering"
-                    answer_raw += gguf_all
-                    answer_text += gguf_all
-                    yield _sse({'text': gguf_all})
-                    continue
-                else:
-                    # 长度不足100且还没看到 <think>，暂时缓存不发送
+                if chunk.get("done"):
+                    elapsed = time.perf_counter() - _gen_started
+                    prompt_tokens = chunk.get("prompt_eval_count") or 0
+                    output_tokens = chunk.get("eval_count") or 0
+                    prompt_duration = (chunk.get("prompt_eval_duration") or 0) / 1_000_000_000
+                    output_duration = (chunk.get("eval_duration") or 0) / 1_000_000_000
+                    prompt_rate = prompt_tokens / prompt_duration if prompt_duration > 0 else 0
+                    output_rate = output_tokens / output_duration if output_duration > 0 else 0
+                    print(
+                        f"[OLLAMA PERF] model={_ollama_model} web={web_mode} factual={_web_factual} "
+                        f"ctx={_ctx} predict={_max_predict} elapsed={elapsed:.1f}s "
+                        f"prompt={prompt_tokens} tok @ {prompt_rate:.1f} tok/s | "
+                        f"output={output_tokens} tok @ {output_rate:.1f} tok/s"
+                    )
                     continue
 
-            # ── 思考阶段 ────────────────────────────────────
-            if gguf_phase == "thinking":
+                piece = chunk['message']['content']
+                if not piece:
+                    continue
+                gguf_all += piece
 
-                # 仅在 think_mode=True 时才发送 think_start
-                if think_mode and not gguf_sent_start:
-                    yield _sse({'think_start': True})
-                    gguf_sent_start = True
+                # 动态探测非思考模式下的模型是否在吐出 <think>
+                if detected_think_tag is None and not initial_phase and not think_mode:
+                    if "<think>" in gguf_all:
+                        detected_think_tag = True
+                    elif len(gguf_all) >= 100:
+                        detected_think_tag = False
+                        # 确定该模型不吐出 <think>，立刻切换为回答模式并将累积内容当作正文
+                        gguf_phase = "answering"
+                        answer_raw += gguf_all
+                        answer_text += gguf_all
+                        yield _sse({'text': gguf_all})
+                        continue
+                    else:
+                        # 长度不足100且还没看到 <think>，暂时缓存不发送
+                        continue
 
-                if '</think>' in gguf_all:
-                    # 思考结束 → 切换到回答阶段
-                    gguf_phase = "answering"
-                    think_raw  = gguf_all.split('</think>', 1)[0]
+                # ── 思考阶段 ────────────────────────────────────
+                if gguf_phase == "thinking":
 
-                    if think_mode:
-                        yield _sse({'think_end': True})
+                    # 仅在 think_mode=True 时才发送 think_start
+                    if think_mode and not gguf_sent_start:
+                        yield _sse({'think_start': True})
+                        gguf_sent_start = True
 
-                    # </think> 之后的内容是实际回答
-                    after = gguf_all.split('</think>', 1)[1].lstrip('\n')
-                    if after:
-                        answer_raw  += after
-                        answer_text += after
-                        yield _sse({'text': after})
-                else:
-                    # 仍在思考中
-                    if think_mode:
-                        # 开启了思考模式 → 显示给用户
-                        clean_piece = piece.replace('<think>', '').replace('</think>', '')
-                        if clean_piece:
-                            yield _sse({'text': clean_piece, 'thinking': True})
-                    # think_mode=False → 静默跳过思考内容，不发送给前端
+                    if '</think>' in gguf_all:
+                        # 思考结束 → 切换到回答阶段
+                        gguf_phase = "answering"
+                        think_raw  = gguf_all.split('</think>', 1)[0]
 
-            # ── 回答阶段 ────────────────────────────────────
-            elif gguf_phase == "answering":
-                answer_raw  += piece
-                answer_text += piece
-                yield _sse({'text': piece})
+                        if think_mode:
+                            yield _sse({'think_end': True})
 
-            await asyncio.sleep(0.005)
+                        # </think> 之后的内容是实际回答
+                        after = gguf_all.split('</think>', 1)[1].lstrip('\n')
+                        if after:
+                            answer_raw  += after
+                            answer_text += after
+                            yield _sse({'text': after})
+                    else:
+                        # 仍在思考中
+                        if think_mode:
+                            # 开启了思考模式 → 显示给用户
+                            clean_piece = piece.replace('<think>', '').replace('</think>', '')
+                            if clean_piece:
+                                yield _sse({'text': clean_piece, 'thinking': True})
+                        # think_mode=False → 静默跳过思考内容，不发送给前端
+
+                # ── 回答阶段 ────────────────────────────────────
+                elif gguf_phase == "answering":
+                    answer_raw  += piece
+                    answer_text += piece
+                    yield _sse({'text': piece})
+
+                await asyncio.sleep(0.005)
+        except asyncio.CancelledError:
+            print(f"[STREAM] Request cancelled; closing Ollama stream for chat_id={chat_id}")
+            _close_stream(ollama_stream)
+            return
+        finally:
+            _close_stream(ollama_stream)
 
         # ── 流结束后处理 ─────────────────────────────────────
         if gguf_phase == "thinking":
@@ -1198,7 +1240,7 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
 
 
 @app.post("/api/chat")
-async def chat_endpoint(req: ChatRequest):
+async def chat_endpoint(req: ChatRequest, request: Request):
     chat_id = req.chat_id
     if not chat_id:
         chat_id = str(uuid.uuid4())
@@ -1233,6 +1275,7 @@ async def chat_endpoint(req: ChatRequest):
             agent_mode=req.agent_mode,
             attachments=req.attachments,
             user_timezone=req.user_timezone or "",
+            client_request=request,
         ):
             yield chunk
 
