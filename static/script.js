@@ -855,9 +855,31 @@ setTimeout(async () => {
 }, 1200);
 
 // ============ Helpers ============
-function scrollToBottom() {
+let scrollToBottomFrame = null;
+function scrollToBottom(options = {}) {
     const chatArea = document.getElementById('chatArea');
-    chatArea.scrollTo({ top: chatArea.scrollHeight, behavior: 'smooth' });
+    if (!chatArea) return;
+
+    const run = () => {
+        scrollToBottomFrame = null;
+        chatArea.scrollTo({
+            top: chatArea.scrollHeight,
+            behavior: options.smooth ? 'smooth' : 'auto'
+        });
+    };
+
+    if (options.force) {
+        if (scrollToBottomFrame) {
+            cancelAnimationFrame(scrollToBottomFrame);
+            scrollToBottomFrame = null;
+        }
+        run();
+        return;
+    }
+
+    if (!scrollToBottomFrame) {
+        scrollToBottomFrame = requestAnimationFrame(run);
+    }
 }
 
 function getFavicon(url) {
@@ -906,6 +928,149 @@ function renderMd(text) {
     // Price badges
     html = highlightPrices(html);
     return html;
+}
+
+const GMAIL_PREVIEW_RE = /\[GMAIL_PREVIEW:([A-Za-z0-9_-]+={0,2})\]/;
+
+function decodeGmailPreviewPayload(text) {
+    const match = String(text || '').match(GMAIL_PREVIEW_RE);
+    if (!match) return null;
+    try {
+        const padded = match[1] + '='.repeat((4 - (match[1].length % 4)) % 4);
+        const normalized = padded.replace(/-/g, '+').replace(/_/g, '/');
+        const binary = atob(normalized);
+        const bytes = Uint8Array.from(binary, ch => ch.charCodeAt(0));
+        return JSON.parse(new TextDecoder().decode(bytes));
+    } catch (err) {
+        console.warn('Unable to decode Gmail preview payload:', err);
+        return null;
+    }
+}
+
+function stripGmailPreviewPayload(text) {
+    return String(text || '').replace(GMAIL_PREVIEW_RE, '').trim();
+}
+
+function submitAgentCommand(command) {
+    const fakeInput = document.getElementById('userInput');
+    const submit = document.getElementById('submitBtn');
+    if (fakeInput && submit) {
+        fakeInput.value = command;
+        submit.click();
+    }
+}
+
+function createGmailActionCard() {
+    const gmailCard = document.createElement('div');
+    gmailCard.className = 'gmail-confirm-card';
+    gmailCard.innerHTML = `
+        <div class="gmail-card-actions">
+            <button class="gmail-confirm-btn" type="button">
+                <i class="fa-solid fa-paper-plane"></i> Confirm Send
+            </button>
+            <button class="gmail-cancel-btn" type="button">
+                <i class="fa-solid fa-xmark"></i> Cancel
+            </button>
+        </div>
+    `;
+    const confirmBtn = gmailCard.querySelector('.gmail-confirm-btn');
+    const cancelBtn = gmailCard.querySelector('.gmail-cancel-btn');
+
+    confirmBtn.addEventListener('click', () => {
+        confirmBtn.disabled = true;
+        cancelBtn.disabled = true;
+        confirmBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending...';
+        submitAgentCommand('[CONFIRM_GMAIL_SEND]');
+    });
+
+    cancelBtn.addEventListener('click', () => {
+        confirmBtn.disabled = true;
+        cancelBtn.disabled = true;
+        cancelBtn.innerHTML = '<i class="fa-solid fa-check"></i> Cancelled';
+        submitAgentCommand('[CANCEL_GMAIL_SEND]');
+    });
+
+    return gmailCard;
+}
+
+function createGmailPreviewCard(payload) {
+    if (!payload) return null;
+    const lang = payload.lang || getPreferredLanguage();
+    const labels = {
+        zh: { title: '邮件草稿', to: '收件人', subject: '主题', attach: '附件', none: '无附件', attached: '已附加', body: '正文预览', expand: '展开全文', collapse: '收起全文' },
+        ms: { title: 'Draf E-mel', to: 'Kepada', subject: 'Subjek', attach: 'Lampiran', none: 'Tiada', attached: 'Dilampirkan', body: 'Pratonton', expand: 'Lihat penuh', collapse: 'Ringkaskan' },
+        en: { title: 'Email Draft', to: 'To', subject: 'Subject', attach: 'Attachment', none: 'None', attached: 'Attached', body: 'Preview', expand: 'Expand', collapse: 'Collapse' }
+    };
+    const l = labels[lang] || labels.en;
+    const body = String(payload.body || '');
+    const isLong = body.length > 420 || body.split('\n').length > 9;
+    const card = document.createElement('div');
+    card.className = 'gmail-preview-card';
+    card.innerHTML = `
+        <div class="gmail-preview-head">
+            <div class="gmail-preview-mark"><i class="fa-solid fa-envelope-open-text"></i></div>
+            <div>
+                <div class="gmail-preview-kicker">Google Workspace</div>
+                <div class="gmail-preview-title">${escapeAttr(l.title)}</div>
+            </div>
+        </div>
+        <div class="gmail-preview-meta">
+            <div><span>${escapeAttr(l.to)}</span><strong>${escapeAttr(payload.recipient || '-')}</strong></div>
+            <div><span>${escapeAttr(l.subject)}</span><strong>${escapeAttr(payload.subject || '-')}</strong></div>
+            <div><span>${escapeAttr(l.attach)}</span><strong>${payload.hasAttachment ? escapeAttr(`${l.attached}${payload.attachmentName ? ` · ${payload.attachmentName}` : ''}`) : escapeAttr(l.none)}</strong></div>
+        </div>
+        <div class="gmail-preview-body-label">${escapeAttr(l.body)}</div>
+        <div class="gmail-preview-body ${isLong ? 'collapsed' : ''}">${escapeAttr(body).replace(/\n/g, '<br>')}</div>
+        ${isLong ? `<button class="gmail-preview-toggle" type="button"><i class="fa-solid fa-chevron-down"></i> ${escapeAttr(l.expand)}</button>` : ''}
+    `;
+    const toggle = card.querySelector('.gmail-preview-toggle');
+    if (toggle) {
+        toggle.addEventListener('click', () => {
+            const bodyEl = card.querySelector('.gmail-preview-body');
+            const collapsed = bodyEl.classList.toggle('collapsed');
+            toggle.innerHTML = collapsed
+                ? `<i class="fa-solid fa-chevron-down"></i> ${escapeAttr(l.expand)}`
+                : `<i class="fa-solid fa-chevron-up"></i> ${escapeAttr(l.collapse)}`;
+        });
+    }
+    return card;
+}
+
+function getProgressStages(mode) {
+    if (mode === 'agent') {
+        return ['Planning workspace action...', 'Reading active context...', 'Preparing tool call...', 'Composing final response...'];
+    }
+    if (mode === 'web') {
+        return ['Planning search...', 'Reading live sources...', 'Ranking evidence...', 'Synthesizing answer...'];
+    }
+    if (mode === 'think') {
+        return ['Mapping the problem...', 'Checking assumptions...', 'Building reasoning path...', 'Writing answer...'];
+    }
+    return ['Warming up model...', 'Reading context...', 'Choosing answer depth...', 'Drafting response...'];
+}
+
+function startProgressAnimation(thinkHeader, thinkDurationEl, mode) {
+    if (!thinkHeader) return { stop() {} };
+    const labelEl = thinkHeader.querySelector('.think-label');
+    const iconEl = thinkHeader.querySelector('.think-icon');
+    const stages = getProgressStages(mode);
+    let stageIndex = 0;
+    const startedAt = Date.now();
+    if (labelEl) labelEl.innerText = stages[0];
+    if (iconEl) iconEl.innerHTML = '<i class="fa-solid fa-sparkles fa-spin"></i>';
+    const tick = setInterval(() => {
+        stageIndex = (stageIndex + 1) % stages.length;
+        if (labelEl) labelEl.innerText = stages[stageIndex];
+        if (thinkDurationEl) {
+            thinkDurationEl.innerText = `${Math.max(1, Math.floor((Date.now() - startedAt) / 1000))}s`;
+        }
+    }, 2200);
+    return {
+        stop(finalLabel = '') {
+            clearInterval(tick);
+            if (finalLabel && labelEl) labelEl.innerText = finalLabel;
+        }
+    };
 }
 
 function unwrapPriceBadgesInTables(root) {
@@ -1002,6 +1167,7 @@ function createActionButtons(wrapper, msgIndex, feedbackVal, isAssistant, msgTex
         regenBtn.innerHTML = '<i class="fa-solid fa-rotate-right"></i>';
         regenBtn.onclick = () => {
             if (isGenerating) return;
+            const targetAssistantMsg = chatMessages[msgIndex];
             let prevUserMsg = chatMessages[msgIndex - 1];
             if (!prevUserMsg || prevUserMsg.role !== 'user') return;
             
@@ -1021,6 +1187,9 @@ function createActionButtons(wrapper, msgIndex, feedbackVal, isAssistant, msgTex
                 // Wait, handleSend expects them in pendingFiles, but pendingFiles are File objects.
                 // Instead, we can inject a temporary flag so handleSend knows to reuse them.
                 window._regenerateAttachments = prevUserMsg.attachments;
+            }
+            if (isAgentMode && targetAssistantMsg?.pdf_url) {
+                window._forceRegeneratePdf = true;
             }
             
             handleSend();
@@ -1210,53 +1379,24 @@ function appendMessage(text, role, msgObj = null, msgIndex = null, feedbackVal =
             const aDiv = document.createElement('div');
             aDiv.className = 'message-bubble assistant markdown-content';
             let hasGmailPending = false;
+            const gmailPreviewPayload = decodeGmailPreviewPayload(displayAnswer);
+            if (gmailPreviewPayload) {
+                displayAnswer = stripGmailPreviewPayload(displayAnswer);
+            }
             if (displayAnswer.includes('[GMAIL_CONFIRM_PENDING]')) {
                 displayAnswer = displayAnswer.replace('[GMAIL_CONFIRM_PENDING]', '');
                 hasGmailPending = true;
             }
             aDiv.innerHTML = renderMd(displayAnswer);
             wrapper.appendChild(aDiv);
-            
-            if (hasGmailPending) {
-                const gmailCard = document.createElement('div');
-                gmailCard.className = 'gmail-confirm-card';
-                gmailCard.style = "margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--outline-variant);";
-                gmailCard.innerHTML = `
-                    <div class="gmail-card-actions" style="display: flex; gap: 10px; align-items: center; margin-bottom: 8px;">
-                        <button class="gmail-confirm-btn" id="gmailConfirm_${Date.now()}" style="padding: 8px 16px; border-radius: 8px; font-weight: 500; font-size: 0.9em; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s ease; border: none; background: #6366f1; color: white; min-width: 130px; justify-content: center;">
-                            <i class="fa-solid fa-paper-plane"></i> Confirm Send
-                        </button>
-                        <button class="gmail-cancel-btn" id="gmailCancel_${Date.now()}" style="padding: 8px 16px; border-radius: 8px; font-weight: 500; font-size: 0.9em; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s ease; border: 1px solid var(--outline-variant); background: transparent; color: var(--text-color); min-width: 100px; justify-content: center;">
-                            <i class="fa-solid fa-xmark"></i> Cancel
-                        </button>
-                    </div>
-                `;
-                const confirmBtn = gmailCard.querySelector('.gmail-confirm-btn');
-                const cancelBtn = gmailCard.querySelector('.gmail-cancel-btn');
 
-                confirmBtn.addEventListener('click', () => {
-                    confirmBtn.disabled = true;
-                    cancelBtn.disabled = true;
-                    confirmBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending...';
-                    confirmBtn.style.background = '#6366f1';
-                    const fakeInput = document.getElementById('userInput');
-                    if (fakeInput) {
-                        fakeInput.value = '[CONFIRM_GMAIL_SEND]';
-                        document.getElementById('submitBtn').click();
-                    }
-                });
-                cancelBtn.addEventListener('click', () => {
-                    confirmBtn.disabled = true;
-                    cancelBtn.disabled = true;
-                    cancelBtn.innerHTML = '<i class="fa-solid fa-check"></i> Cancelled';
-                    cancelBtn.style.background = '#dc2626';
-                    const fakeInput = document.getElementById('userInput');
-                    if (fakeInput) {
-                        fakeInput.value = '[CANCEL_GMAIL_SEND]';
-                        document.getElementById('submitBtn').click();
-                    }
-                });
-                wrapper.appendChild(gmailCard);
+            if (gmailPreviewPayload) {
+                const previewCard = createGmailPreviewCard(gmailPreviewPayload);
+                if (previewCard) wrapper.appendChild(previewCard);
+            }
+
+            if (hasGmailPending) {
+                wrapper.appendChild(createGmailActionCard());
             }
         }
         
@@ -1440,6 +1580,8 @@ async function handleSend(isResume = false, resumeIndex = null) {
     // In agent mode, thinking is always on, web is always off
     const effectiveThinkMode = supportsThinkMode && (isAgentMode ? true : isThinkMode);
     const effectiveWebMode = isAgentMode ? false : isWebMode;
+    const passiveProgressMode = !effectiveThinkMode && !effectiveWebMode;
+    const progressMode = isAgentMode ? 'agent' : (effectiveWebMode ? 'web' : (effectiveThinkMode ? 'think' : 'normal'));
     submitBtn.className = 'submit-btn ' + ((effectiveThinkMode || effectiveWebMode && !frontendAnswerAccum) ? 'thinking-state' : 'answering-state');
     submitBtn.innerHTML = '<i class="fa-solid fa-pause"></i>';
 
@@ -1447,16 +1589,20 @@ async function handleSend(isResume = false, resumeIndex = null) {
     assistantContainer.className = 'message-bubble assistant';
     assistantWrapper.appendChild(assistantContainer);
 
-    if (effectiveThinkMode || effectiveWebMode) {
+    let progressController = null;
+    let passiveProgressHidden = false;
+
+    if (effectiveThinkMode || effectiveWebMode || (!isResume && !frontendAnswerAccum)) {
         thinkWrapper = document.createElement('div');
-        thinkWrapper.className = 'think-wrapper';
-        if (!isResume) thinkWrapper.classList.add('collapsed');
+        thinkWrapper.className = 'think-wrapper in-progress';
+        if (passiveProgressMode) thinkWrapper.classList.add('passive-progress');
+        if (!isResume && !passiveProgressMode) thinkWrapper.classList.add('collapsed');
         
         thinkHeader = document.createElement('div');
         thinkHeader.className = 'think-header';
         
-        let initialLabel = (isResume && frontendAnswerAccum) ? 'Thought Process' : (effectiveThinkMode ? 'Thinking...' : 'Searching the web...');
-        let initialIcon = (isResume && frontendAnswerAccum) ? '<i class="fa-solid fa-circle-check"></i>' : (effectiveThinkMode ? '<i class="fa-solid fa-atom fa-spin"></i>' : '<i class="fa-solid fa-globe fa-spin"></i>');
+        let initialLabel = (isResume && frontendAnswerAccum) ? 'Thought Process' : (effectiveWebMode ? 'Searching the web...' : (isAgentMode ? 'Preparing agent...' : 'Preparing response...'));
+        let initialIcon = (isResume && frontendAnswerAccum) ? '<i class="fa-solid fa-circle-check"></i>' : (effectiveWebMode ? '<i class="fa-solid fa-globe fa-spin"></i>' : '<i class="fa-solid fa-sparkles fa-spin"></i>');
         
         thinkHeader.innerHTML = `
             <span class="think-icon">${initialIcon}</span>
@@ -1481,6 +1627,10 @@ async function handleSend(isResume = false, resumeIndex = null) {
         thinkHeader.addEventListener('click', () => {
             thinkWrapper.classList.toggle('collapsed');
         });
+
+        if (!isResume) {
+            progressController = startProgressAnimation(thinkHeader, thinkDurationEl, progressMode);
+        }
         
         if (isResume && frontendThinkAccum.trim().length > 0 && !frontendAnswerAccum) {
             thinkWrapper.style.display = 'block';
@@ -1498,10 +1648,74 @@ async function handleSend(isResume = false, resumeIndex = null) {
     if (isResume) contentBox.innerHTML = renderMd(frontendAnswerAccum);
     assistantContainer.appendChild(contentBox);
 
+    const LIVE_RENDER_INTERVAL_MS = 120;
+    let answerRenderTimer = null;
+    let thinkRenderTimer = null;
+    let lastAnswerRenderAt = 0;
+    let lastThinkRenderAt = 0;
+
+    const renderAnswerNow = () => {
+        if (!contentBox) return;
+        contentBox.innerHTML = renderMd(frontendAnswerAccum);
+        lastAnswerRenderAt = performance.now();
+        answerRenderTimer = null;
+    };
+
+    const renderThinkNow = () => {
+        if (!thinkContent) return;
+        thinkContent.innerHTML = renderMd(frontendThinkAccum);
+        lastThinkRenderAt = performance.now();
+        thinkRenderTimer = null;
+    };
+
+    const scheduleAnswerRender = (force = false) => {
+        if (!contentBox) return;
+        if (force) {
+            if (answerRenderTimer) clearTimeout(answerRenderTimer);
+            answerRenderTimer = null;
+            renderAnswerNow();
+            return;
+        }
+        const wait = Math.max(0, LIVE_RENDER_INTERVAL_MS - (performance.now() - lastAnswerRenderAt));
+        if (wait === 0) {
+            if (answerRenderTimer) {
+                clearTimeout(answerRenderTimer);
+                answerRenderTimer = null;
+            }
+            renderAnswerNow();
+        } else if (!answerRenderTimer) {
+            answerRenderTimer = setTimeout(renderAnswerNow, wait);
+        }
+    };
+
+    const scheduleThinkRender = (force = false) => {
+        if (!thinkContent) return;
+        if (force) {
+            if (thinkRenderTimer) clearTimeout(thinkRenderTimer);
+            thinkRenderTimer = null;
+            renderThinkNow();
+            return;
+        }
+        const wait = Math.max(0, LIVE_RENDER_INTERVAL_MS - (performance.now() - lastThinkRenderAt));
+        if (wait === 0) {
+            if (thinkRenderTimer) {
+                clearTimeout(thinkRenderTimer);
+                thinkRenderTimer = null;
+            }
+            renderThinkNow();
+        } else if (!thinkRenderTimer) {
+            thinkRenderTimer = setTimeout(renderThinkNow, wait);
+        }
+    };
+
     // === Fetch & Stream ===
     let hasStartedTimer = false;
     let forcedEndThinking = false;
+    let gmailPreviewRendered = false;
+    let gmailActionsRendered = false;
     const attachmentsPayload = isResume ? [] : (chatMessages[chatMessages.length - 1]?.attachments || []);
+    const forceRegeneratePdf = !!window._forceRegeneratePdf;
+    window._forceRegeneratePdf = false;
     console.log('DEBUG SEND payload:', attachmentsPayload, isAgentMode);
 
     try {
@@ -1519,30 +1733,39 @@ async function handleSend(isResume = false, resumeIndex = null) {
                 is_resume: isResume,
                 agent_mode: isAgentMode,
                 user_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
+                regenerate_pdf: forceRegeneratePdf,
             }),
             signal: currentAbortController.signal,
         });
+        if (!response.ok || !response.body) {
+            throw new Error(`CHAT_HTTP_${response.status || 'NO_BODY'}`);
+        }
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
+        let sseBuffer = '';
+        let streamCompleted = false;
 
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
 
-            const chunk = decoder.decode(value, { stream: true });
-            const lines = chunk.split('\n');
+            sseBuffer += decoder.decode(value, { stream: true });
+            const lines = sseBuffer.split('\n');
+            sseBuffer = lines.pop() || '';
 
             for (const line of lines) {
                 if (!line.startsWith('data: ')) continue;
                 const dataStr = line.slice(6);
 
                 if (dataStr === '[DONE]') {
+                    streamCompleted = true;
                     isGenerating = false;
                     currentAbortController = null;
                     submitBtn.className = 'submit-btn';
                     submitBtn.innerHTML = '<i class="fa-solid fa-arrow-up"></i>';
                     if (thinkTimerInterval) clearInterval(thinkTimerInterval);
+                    if (progressController) progressController.stop();
 
                     // Reset any pending confirm buttons that might be stuck spinning
                     document.querySelectorAll('.gmail-confirm-btn').forEach(btn => {
@@ -1558,7 +1781,9 @@ async function handleSend(isResume = false, resumeIndex = null) {
                         const elapsed = ((Date.now() - thinkStartTime) / 1000).toFixed(0);
                         thinkHeader.querySelector('.think-icon').innerHTML = '<i class="fa-solid fa-circle-check"></i>';
                         
-                        if (effectiveThinkMode && !effectiveWebMode && frontendThinkAccum.trim().length === 0) {
+                        if (passiveProgressMode) {
+                            thinkWrapper.style.display = 'none';
+                        } else if (effectiveThinkMode && !effectiveWebMode && frontendThinkAccum.trim().length === 0) {
                             thinkWrapper.style.display = 'none';
                         } else {
                             if (effectiveThinkMode) {
@@ -1582,6 +1807,8 @@ async function handleSend(isResume = false, resumeIndex = null) {
                     }
 
                     // Apply syntax highlighting + math rendering after streaming completes
+                    scheduleAnswerRender(true);
+                    scheduleThinkRender(true);
                     applyRichFormatting(contentBox);
                     if (thinkContent) applyRichFormatting(thinkContent);
                     
@@ -1686,6 +1913,12 @@ async function handleSend(isResume = false, resumeIndex = null) {
                         }
                         continue;
                     }
+                    if (data.status === 'model_starting' && thinkHeader) {
+                        const label = isAgentMode ? 'Composing workspace response...' : (isWebMode ? 'Writing sourced answer...' : 'Writing answer...');
+                        thinkHeader.querySelector('.think-label').innerText = label;
+                        thinkHeader.querySelector('.think-icon').innerHTML = '<i class="fa-solid fa-sparkles fa-spin"></i>';
+                        continue;
+                    }
                     
                     if (data.think_start) {
                         if (!rawAccumText.includes('<think>')) rawAccumText += '<think>\n';
@@ -1703,6 +1936,13 @@ async function handleSend(isResume = false, resumeIndex = null) {
                     if (data.text !== undefined) {
                         let textChunk = data.text;
                         rawAccumText += textChunk;
+
+                        if (passiveProgressMode && thinkWrapper && !passiveProgressHidden) {
+                            passiveProgressHidden = true;
+                            thinkWrapper.classList.remove('in-progress');
+                            thinkWrapper.style.display = 'none';
+                            if (progressController) progressController.stop();
+                        }
                         
                         if (effectiveThinkMode) {
                             if (data.thinking) {
@@ -1716,14 +1956,12 @@ async function handleSend(isResume = false, resumeIndex = null) {
                             }
                             
                             if (thinkContent) {
-                                thinkContent.innerHTML = renderMd(frontendThinkAccum);
+                                scheduleThinkRender();
                                 if (frontendThinkAccum.trim().length > 0 && thinkWrapper.style.display === 'none') {
                                     thinkWrapper.style.display = 'block';
                                 }
                             }
-                            if (contentBox) {
-                                contentBox.innerHTML = renderMd(frontendAnswerAccum);
-                            }
+                            scheduleAnswerRender();
                             
                             if (!thinkStartTime && thinkWrapper && (data.think_start || data.thinking || frontendThinkAccum.length > 0)) {
                                 if (!hasStartedTimer) {
@@ -1737,9 +1975,25 @@ async function handleSend(isResume = false, resumeIndex = null) {
                             }
                         } else {
                             frontendAnswerAccum += textChunk;
-                            if (contentBox) {
-                                contentBox.innerHTML = renderMd(frontendAnswerAccum);
-                            }
+                            scheduleAnswerRender();
+                        }
+
+                        const gmailPreviewPayload = decodeGmailPreviewPayload(frontendAnswerAccum);
+                        if (gmailPreviewPayload && !gmailPreviewRendered) {
+                            frontendAnswerAccum = stripGmailPreviewPayload(frontendAnswerAccum);
+                            rawAccumText = stripGmailPreviewPayload(rawAccumText);
+                            scheduleAnswerRender(true);
+                            const previewCard = createGmailPreviewCard(gmailPreviewPayload);
+                            if (previewCard) assistantWrapper.appendChild(previewCard);
+                            gmailPreviewRendered = true;
+                        }
+
+                        if (frontendAnswerAccum.includes('[GMAIL_CONFIRM_PENDING]') && !gmailActionsRendered) {
+                            frontendAnswerAccum = frontendAnswerAccum.replace('[GMAIL_CONFIRM_PENDING]', '');
+                            rawAccumText = rawAccumText.replace('[GMAIL_CONFIRM_PENDING]', '');
+                            scheduleAnswerRender(true);
+                            assistantWrapper.appendChild(createGmailActionCard());
+                            gmailActionsRendered = true;
                         }
                         scrollToBottom();
                     }
@@ -1776,78 +2030,44 @@ async function handleSend(isResume = false, resumeIndex = null) {
                         continue;
                     }
 
-                    // === GMAIL CONFIRM — detect marker in text and render buttons ===
-                    if (data.text && data.text.includes('[GMAIL_CONFIRM_PENDING]')) {
-                        // Strip the marker from displayed text
-                        frontendAnswerAccum = frontendAnswerAccum.replace('[GMAIL_CONFIRM_PENDING]', '');
-                        rawAccumText = rawAccumText.replace('[GMAIL_CONFIRM_PENDING]', '');
-                        if (contentBox) {
-                            contentBox.innerHTML = renderMd(frontendAnswerAccum);
-                        }
-
-                        // Create Gmail confirmation card
-                        const gmailCard = document.createElement('div');
-                        gmailCard.className = 'gmail-confirm-card';
-                        gmailCard.style = "margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--outline-variant);";
-                        gmailCard.innerHTML = `
-                            <div class="gmail-card-actions" style="display: flex; gap: 10px; align-items: center; margin-bottom: 8px;">
-                                <button class="gmail-confirm-btn" id="gmailConfirm_${Date.now()}" style="padding: 8px 16px; border-radius: 8px; font-weight: 500; font-size: 0.9em; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s ease; border: none; background: #6366f1; color: white; min-width: 130px; justify-content: center;">
-                                    <i class="fa-solid fa-paper-plane"></i> Confirm Send
-                                </button>
-                                <button class="gmail-cancel-btn" id="gmailCancel_${Date.now()}" style="padding: 8px 16px; border-radius: 8px; font-weight: 500; font-size: 0.9em; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s ease; border: 1px solid var(--outline-variant); background: transparent; color: var(--text-color); min-width: 100px; justify-content: center;">
-                                    <i class="fa-solid fa-xmark"></i> Cancel
-                                </button>
-                            </div>
-                        `;
-                        const confirmBtn = gmailCard.querySelector('.gmail-confirm-btn');
-                        const cancelBtn = gmailCard.querySelector('.gmail-cancel-btn');
-
-                        confirmBtn.addEventListener('click', () => {
-                            confirmBtn.disabled = true;
-                            cancelBtn.disabled = true;
-                            confirmBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending...';
-                            confirmBtn.style.background = '#6366f1';
-                            // Send confirm message to backend
-                            const fakeInput = document.getElementById('userInput');
-                            if (fakeInput) {
-                                fakeInput.value = '[CONFIRM_GMAIL_SEND]';
-                                document.getElementById('submitBtn').click();
-                            }
-                        });
-                        cancelBtn.addEventListener('click', () => {
-                            confirmBtn.disabled = true;
-                            cancelBtn.disabled = true;
-                            cancelBtn.innerHTML = '<i class="fa-solid fa-check"></i> Cancelled';
-                            cancelBtn.style.background = '#dc2626';
-                            const fakeInput = document.getElementById('userInput');
-                            if (fakeInput) {
-                                fakeInput.value = '[CANCEL_GMAIL_SEND]';
-                                document.getElementById('submitBtn').click();
-                            }
-                        });
-
-                        assistantWrapper.appendChild(gmailCard);
-                        scrollToBottom();
-                        
-                        scrollToBottom();
-                    }
-
                 } catch (e) { /* partial JSON */ }
             }
         }
+        if (!streamCompleted) {
+            throw new Error('STREAM_ENDED_WITHOUT_DONE');
+        }
     } catch (e) {
-        if (e.name === 'AbortError') {
+        if (progressController) progressController.stop();
+        if (answerRenderTimer) {
+            clearTimeout(answerRenderTimer);
+            answerRenderTimer = null;
+            renderAnswerNow();
+        }
+        if (thinkRenderTimer) {
+            clearTimeout(thinkRenderTimer);
+            thinkRenderTimer = null;
+            renderThinkNow();
+        }
+        const streamEndedEarly = e && e.message === 'STREAM_ENDED_WITHOUT_DONE';
+        const interrupted = (e && e.name === 'AbortError') || streamEndedEarly;
+        if (interrupted) {
             if (thinkTimerInterval) clearInterval(thinkTimerInterval);
             if (thinkHeader && !forcedEndThinking) {
                 const durationStr = thinkDurationEl ? thinkDurationEl.innerText : '';
-                thinkHeader.querySelector('.think-icon').innerHTML = '<i class="fa-solid fa-pause"></i>';
-                thinkHeader.querySelector('.think-label').innerText = 'Thinking Paused';
+                thinkHeader.querySelector('.think-icon').innerHTML = streamEndedEarly
+                    ? '<i class="fa-solid fa-triangle-exclamation"></i>'
+                    : '<i class="fa-solid fa-pause"></i>';
+                thinkHeader.querySelector('.think-label').innerText = streamEndedEarly
+                    ? 'Stream interrupted'
+                    : 'Thinking Paused';
                 if (durationStr) thinkDurationEl.innerText = durationStr;
             }
 
             const wrap = document.createElement('div');
             wrap.className = 'markdown-content';
-            wrap.innerHTML = '<br><em style="color:var(--primary-dim); font-size: 0.9em;"><i class="fa-solid fa-pause"></i> Generation paused by user</em>';
+            wrap.innerHTML = streamEndedEarly
+                ? '<br><em style="color:var(--primary-dim); font-size: 0.9em;"><i class="fa-solid fa-triangle-exclamation"></i> Connection interrupted. Click resume to continue from here.</em>'
+                : '<br><em style="color:var(--primary-dim); font-size: 0.9em;"><i class="fa-solid fa-pause"></i> Generation paused by user</em>';
             contentBox.appendChild(wrap);
             
             const msgStore = { role: 'assistant', content: rawAccumText, sources: currentSources };
@@ -1864,7 +2084,27 @@ async function handleSend(isResume = false, resumeIndex = null) {
             isPaused = true;
             pausedMsgIndex = savedIndex;
         } else {
-            contentBox.innerText = "Error connecting to server.";
+            console.error("Chat stream failed", e);
+            if (rawAccumText && rawAccumText.trim()) {
+                const wrap = document.createElement('div');
+                wrap.className = 'markdown-content';
+                wrap.innerHTML = '<br><em style="color:var(--primary-dim); font-size: 0.9em;"><i class="fa-solid fa-triangle-exclamation"></i> Response interrupted. Click resume to continue.</em>';
+                contentBox.appendChild(wrap);
+                const msgStore = { role: 'assistant', content: rawAccumText, sources: currentSources };
+                let savedIndex = null;
+                if (isResume && resumeIndex !== null) {
+                    chatMessages[resumeIndex] = msgStore;
+                    savedIndex = resumeIndex;
+                } else {
+                    chatMessages.push(msgStore);
+                    savedIndex = chatMessages.length - 1;
+                }
+                createActionButtons(assistantWrapper, savedIndex, 0, true, rawAccumText);
+                isPaused = true;
+                pausedMsgIndex = savedIndex;
+            } else {
+                contentBox.innerText = "Error connecting to server.";
+            }
         }
         isGenerating = false;
         currentAbortController = null;

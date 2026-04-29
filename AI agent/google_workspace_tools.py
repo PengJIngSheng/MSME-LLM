@@ -4,6 +4,7 @@ import datetime
 import json
 import base64
 import logging
+import html
 from urllib.parse import urlparse
 from fastapi import APIRouter, HTTPException, Depends, Header
 from pydantic import BaseModel
@@ -44,6 +45,30 @@ SCOPES = [
     'https://www.googleapis.com/auth/documents',
     'https://www.googleapis.com/auth/calendar.events'
 ]
+
+def _email_body_to_html(body: str, subject: str = "") -> str:
+    """Build a clean HTML alternative while keeping the plain-text body intact."""
+    safe_subject = html.escape(subject or "MSME.AI")
+    safe_body = html.escape(body or "").replace("\n", "<br>")
+    return f"""<!doctype html>
+<html>
+<body style="margin:0;padding:0;background:#f6f7f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#111;">
+  <div style="max-width:680px;margin:0 auto;padding:32px 18px;">
+    <div style="background:#fff;border:1px solid #e7e7e7;border-radius:12px;overflow:hidden;">
+      <div style="padding:24px 28px;border-bottom:1px solid #eee;">
+        <div style="font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:#6b7280;font-weight:700;">MSME.AI</div>
+        <h1 style="margin:10px 0 0;font-size:22px;line-height:1.3;color:#111;">{safe_subject}</h1>
+      </div>
+      <div style="padding:28px;font-size:15px;line-height:1.75;color:#202124;">
+        {safe_body}
+      </div>
+      <div style="padding:18px 28px;border-top:1px solid #eee;color:#8a8f98;font-size:12px;">
+        Sent via MSME.AI Workspace Agent
+      </div>
+    </div>
+  </div>
+</body>
+</html>"""
 
 def _origin(url: str) -> str:
     parsed = urlparse(url or "")
@@ -398,10 +423,13 @@ def tool_gmail_send(user_id: str, to: str, subject: str, body: str, attachment_p
             from email.mime.base import MIMEBase
             from email import encoders
             
-            msg = MIMEMultipart()
+            msg = MIMEMultipart('mixed')
             msg['To'] = to
             msg['Subject'] = subject if subject else "Pepper Chat Analysis Report"
-            msg.attach(MIMEText(body, 'plain'))
+            alt = MIMEMultipart('alternative')
+            alt.attach(MIMEText(body, 'plain', 'utf-8'))
+            alt.attach(MIMEText(_email_body_to_html(body, msg['Subject']), 'html', 'utf-8'))
+            msg.attach(alt)
             
             with open(attachment_path, 'rb') as f:
                 part = MIMEBase('application', 'octet-stream')
@@ -415,10 +443,12 @@ def tool_gmail_send(user_id: str, to: str, subject: str, body: str, attachment_p
             
             encoded_message = base64.urlsafe_b64encode(msg.as_bytes()).decode()
         else:
+            final_subject = subject if subject else "Pepper Chat Analysis Report"
             message = EmailMessage()
             message.set_content(body)
+            message.add_alternative(_email_body_to_html(body, final_subject), subtype='html')
             message['To'] = to
-            message['Subject'] = subject if subject else "Pepper Chat Analysis Report"
+            message['Subject'] = final_subject
             encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
         
         create_message = {'raw': encoded_message}

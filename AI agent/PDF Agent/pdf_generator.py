@@ -756,8 +756,10 @@ async def markdown_to_pdf(markdown_text: str, doc_type: str = "general", is_temp
     theme     = _theme(doc_type)
     body_html = _md_to_html_body(markdown_text)
 
-    # Use colorful design if a template was uploaded, otherwise use academic black & white
-    chosen_template = _HTML_TEMPLATE if is_template else _HTML_TEMPLATE_BW
+    # Use colorful design if a template was uploaded, otherwise use academic black & white.
+    # `_HTML_TEMPLATE` used to be referenced here, but the actual constant is
+    # `_HTML_TEMPLATE_COLOR`; the old name made all template-based PDF renders fail.
+    chosen_template = _HTML_TEMPLATE_COLOR if is_template else _HTML_TEMPLATE_BW
 
     html = chosen_template.format(
         title            = title,

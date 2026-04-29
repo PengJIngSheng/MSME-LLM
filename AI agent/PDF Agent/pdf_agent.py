@@ -246,6 +246,62 @@ def get_routing_question(lang: str = "en") -> str:
 def _log(msg: str):
     print(f"[PDF Agent] {msg}")
 
+def _table_to_markdown(rows) -> str:
+    rows = rows or []
+    rows = [
+        [re.sub(r"\s+", " ", str(c or "")).strip() for c in row]
+        for row in rows
+        if row and any(str(c or "").strip() for c in row)
+    ]
+    if not rows:
+        return ""
+    width = max(len(row) for row in rows)
+    rows = [row + [""] * (width - len(row)) for row in rows]
+    header = rows[0]
+    md = "| " + " | ".join(header) + " |\n"
+    md += "| " + " | ".join("---" for _ in header) + " |\n"
+    for row in rows[1:]:
+        md += "| " + " | ".join(row) + " |\n"
+    return md
+
+def _current_pdf_ids(attachments: list) -> set:
+    return set(_pdf_attachment_ids(attachments))
+
+def _latest_previous_pdf_attachments(history_messages: list, exclude_ids: set) -> list:
+    """Return the most recent previous PDF attachment group from chat history."""
+    exclude_ids = exclude_ids or set()
+    for msg in reversed(history_messages or []):
+        pdfs = [
+            att for att in (msg.get("attachments") or [])
+            if att.get("saved_path", "").lower().endswith(".pdf")
+            and att.get("saved_path", "") not in exclude_ids
+        ]
+        if pdfs:
+            return pdfs
+    return []
+
+def _recover_source_from_history(state: dict, history_messages: list, exclude_ids: set) -> bool:
+    """Rebuild source PDF state after a server restart using persisted chat attachments."""
+    if state.get("source_data"):
+        return True
+    previous_pdfs = _latest_previous_pdf_attachments(history_messages, exclude_ids)
+    if not previous_pdfs:
+        return False
+    source_text, source_names = _extract_attachments(previous_pdfs)
+    if not source_text.strip():
+        return False
+    state["source_data"] = source_text
+    state["doc_type"] = _detect_doc_type(source_text)
+    _mark_source_document(state, previous_pdfs)
+    for att in previous_pdfs:
+        if att.get("saved_path"):
+            state["processed_files"].add(att.get("saved_path"))
+    _log(
+        f"[recover] Restored source from chat history: {', '.join(source_names) or 'previous PDF'}; "
+        f"doc_type={state['doc_type']}, chars={len(source_text)}"
+    )
+    return True
+
 # ─── GridFS File Resolution ───────────────────────────────────────────────────
 def _resolve_pdf_from_gridfs(saved_path: str) -> str:
     """Download a PDF from GridFS to a temp file, return its real disk path."""
@@ -270,6 +326,8 @@ def _extract_pdf(path: str) -> str:
     Tables are converted to Markdown format for better model comprehension.
     """
     try:
+        if pymupdf is None:
+            raise RuntimeError("PyMuPDF is not installed")
         doc = pymupdf.open(path)
         parts = []
         for page_num, page in enumerate(doc, 1):
@@ -288,15 +346,34 @@ def _extract_pdf(path: str) -> str:
                     except Exception:
                         # Fallback: extract as raw cell data
                         extracted = tbl.extract()
-                        if extracted and len(extracted) >= 1:
-                            header = extracted[0]
-                            md = "| " + " | ".join(str(c or "") for c in header) + " |\n"
-                            md += "| " + " | ".join("---" for _ in header) + " |\n"
-                            for row in extracted[1:]:
-                                md += "| " + " | ".join(str(c or "") for c in row) + " |\n"
+                        md = _table_to_markdown(extracted)
+                        if md:
                             parts.append(f"[Table {ti+1} from Page {page_num}]:\n{md}")
             except Exception as te:
                 _log(f"[table extract] Page {page_num} table error (non-fatal): {te}")
+
+        # Higher-fidelity table fallback. PyMuPDF is fast, but pdfplumber often
+        # preserves financial statement cells and multi-column tables better.
+        try:
+            import pdfplumber
+            with pdfplumber.open(path) as pdf:
+                for page_num, page in enumerate(pdf.pages, 1):
+                    try:
+                        plumber_text = page.extract_text(x_tolerance=1, y_tolerance=3, layout=True) or ""
+                        if plumber_text.strip():
+                            parts.append(f"--- Page {page_num} layout text ---\n{plumber_text.strip()}")
+                    except Exception:
+                        pass
+                    try:
+                        tables = page.extract_tables() or []
+                        for ti, rows in enumerate(tables[:12]):
+                            md = _table_to_markdown(rows)
+                            if md:
+                                parts.append(f"[Precise Table {ti+1} from Page {page_num}]:\n{md}")
+                    except Exception as pe:
+                        _log(f"[pdfplumber table extract] Page {page_num} table error (non-fatal): {pe}")
+        except Exception as pe:
+            _log(f"[pdfplumber fallback] skipped: {pe}")
         
         result = "\n\n".join(parts)
         _log(f"[PyMuPDF] {path} → {len(result)} chars (with table structures)")
@@ -333,6 +410,48 @@ def _extract_attachments(attachments: list) -> tuple:
         except OSError:
             pass
     return combined, names
+
+def _parse_template_layout(template_attachments: list) -> tuple:
+    """Extract only layout/table skeletons from template PDFs; never template content values."""
+    layout_report = ""
+    table_structures = ""
+    temp_files = []
+    for att in (template_attachments or []):
+        saved_path = att.get("saved_path", "")
+        if not saved_path or not saved_path.lower().endswith(".pdf"):
+            continue
+        real_path = _resolve_pdf_from_gridfs(saved_path)
+        if not real_path:
+            _log(f"[template] Could not resolve {saved_path} from GridFS")
+            continue
+        temp_files.append(real_path)
+        try:
+            import pdfplumber
+            with pdfplumber.open(real_path) as pdf:
+                pages = len(pdf.pages)
+                table_count = 0
+                for pi, page in enumerate(pdf.pages):
+                    found = page.find_tables()
+                    table_count += len(found)
+                    for ti, tbl in enumerate(found[:8]):
+                        extracted = tbl.extract()
+                        md = _table_to_markdown((extracted or [])[:3])
+                        if md:
+                            table_structures += f"\n--- Table {ti+1} (Page {pi+1}) ---\n{md}"
+                has_tables = "yes" if table_count > 0 else "no"
+                layout_report += (
+                    f"\n[Layout Scan - {att.get('original_name', 'Doc')}]: "
+                    f"Pages={pages}, Tables={table_count} ({has_tables} tables)\n"
+                )
+        except Exception as e:
+            _log(f"[template pdfplumber error] {e}")
+    for tmp in temp_files:
+        try:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+        except OSError:
+            pass
+    return layout_report, table_structures
 
 # ─── Document Type Detection ──────────────────────────────────────────────────
 def _detect_doc_type(text: str) -> str:
@@ -393,7 +512,7 @@ def _detect_doc_type(text: str) -> str:
 # Long report structure prompts live in pdf_agent_prompts.py.
 
 # ─── Main Entry Point ─────────────────────────────────────────────────────────
-def process_agent_request(chat_id: str, user_message: str, attachments: list):
+def process_agent_request(chat_id: str, user_message: str, attachments: list, history_messages: list = None):
     if chat_id not in agent_memory:
         agent_memory[chat_id] = {
             "stage":            "init",
@@ -427,6 +546,10 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
     # Only process attachments if they haven't been processed yet
     new_attachments = [att for att in (attachments or []) if att.get("saved_path") not in state["processed_files"]]
     new_text, new_names = _extract_attachments(new_attachments)
+    current_pdf_ids = _current_pdf_ids(new_attachments or attachments)
+    current_upload_is_template = bool(new_text and _is_template_yes(user_message))
+    if current_upload_is_template and not state.get("source_data"):
+        _recover_source_from_history(state, history_messages or [], current_pdf_ids)
     
     # Mark as processed
     for att in new_attachments:
@@ -439,7 +562,38 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
     # STAGE: init
     # ══════════════════════════════════════════════════════════════════════════
     if state["stage"] == "init":
-        if new_text:
+        if new_text and current_upload_is_template and state.get("source_data"):
+            layout_report, table_structures = _parse_template_layout(new_attachments)
+            state["template_data"] = (
+                layout_report + "\n\n[Template Table Structures]:\n" + table_structures
+                if table_structures else layout_report
+            )
+            state["stage"]           = "generate"
+            state["generate_pdf_now"]= True
+            state["use_fast_model"]  = False
+            state["generation_question_pending"] = False
+            state["generation_question_asked"] = True
+            state["generation_choice_answered"] = True
+            tname = ", ".join(new_names) or "the template"
+            _log("[recover] Current upload treated as template after restoring previous source data")
+            instruction = _prompts.build_template_generation_instruction(
+                tname, table_structures, layout_report, reply_lang
+            )
+        elif new_text and current_upload_is_template and not state.get("source_data"):
+            layout_report, table_structures = _parse_template_layout(new_attachments)
+            state["template_data"] = (
+                layout_report + "\n\n[Template Table Structures]:\n" + table_structures
+                if table_structures else layout_report
+            )
+            state["stage"] = "init"
+            state["generate_pdf_now"] = False
+            state["use_fast_model"] = False
+            instruction = (
+                "I received this PDF as a report template/layout reference. "
+                "To generate the final PDF accurately, please upload the source data document that should fill this template. "
+                "Do not upload another template yet."
+            )
+        elif new_text:
             state["source_data"] += new_text
             state["doc_type"]      = _detect_doc_type(state["source_data"])
             _mark_source_document(state, new_attachments)
@@ -461,63 +615,37 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
     # ══════════════════════════════════════════════════════════════════════════
     elif state["stage"] == "wait_template":
         if new_text:
-            layout_report = ""
-            table_structures = ""
-            _template_temp_files = []
-            for att in (attachments or []):
-                saved_path = att.get("saved_path", "")
-                if not saved_path or not saved_path.lower().endswith(".pdf"):
-                    continue
-                # Resolve from GridFS to temp disk
-                real_path = _resolve_pdf_from_gridfs(saved_path)
-                if not real_path:
-                    _log(f"[template] Could not resolve {saved_path} from GridFS")
-                    continue
-                _template_temp_files.append(real_path)
-                try:
-                    import pdfplumber
-                    with pdfplumber.open(real_path) as pdf:
-                        pages = len(pdf.pages)
-                        table_count = 0
-                        for pi, page in enumerate(pdf.pages):
-                            found = page.find_tables()
-                            table_count += len(found)
-                            for ti, tbl in enumerate(found[:8]):
-                                extracted = tbl.extract()
-                                if extracted and len(extracted) >= 1:
-                                    header = extracted[0]
-                                    sample_rows = extracted[1:3]
-                                    table_structures += f"\n--- Table {ti+1} (Page {pi+1}) ---\n"
-                                    table_structures += "| " + " | ".join(str(c or "") for c in header) + " |\n"
-                                    table_structures += "| " + " | ".join("---" for _ in header) + " |\n"
-                                    for row in sample_rows:
-                                        table_structures += "| " + " | ".join(str(c or "") for c in row) + " |\n"
-                        has_tables = "有" if table_count > 0 else "无"
-                        layout_report += f"\n[Layout Scan - {att.get('original_name', 'Doc')}]: Pages={pages}, Tables={table_count} ({has_tables}表格)\n"
-                except Exception as e:
-                    _log(f"[pdfplumber error] {e}")
-            # Cleanup template temp files
-            for tmp in _template_temp_files:
-                try:
-                    if os.path.exists(tmp):
-                        os.remove(tmp)
-                except OSError:
-                    pass
-            
+            if not state.get("source_data"):
+                _recover_source_from_history(state, history_messages or [], current_pdf_ids)
+
+            layout_report, table_structures = _parse_template_layout(new_attachments)
+            if not state.get("source_data"):
+                state["template_data"] = (
+                    layout_report + "\n\n[Template Table Structures]:\n" + table_structures
+                    if table_structures else layout_report
+                )
+                state["stage"] = "init"
+                state["generate_pdf_now"] = False
+                state["use_fast_model"] = False
+                instruction = (
+                    "I received this PDF as the template/layout reference, but I cannot find the source data document in this chat. "
+                    "Please upload the data PDF that should be analyzed and filled into this template."
+                )
+            else:
             # ── CRITICAL: Content-Structure Isolation ──
             # Store ONLY structural metadata from template, NOT its text content.
             # This prevents template placeholder data from contaminating the output.
-            state["template_data"]  = layout_report + "\n\n[Template Table Structures]:\n" + table_structures if table_structures else layout_report
-            state["stage"]           = "generate"
-            state["generate_pdf_now"]= True
-            state["use_fast_model"]  = False
-            state["generation_question_pending"] = False
-            state["generation_question_asked"] = True
-            state["generation_choice_answered"] = True
-            tname = ", ".join(new_names) or "the template"
-            instruction = _prompts.build_template_generation_instruction(
-                tname, table_structures, layout_report, reply_lang
-            )
+                state["template_data"]  = layout_report + "\n\n[Template Table Structures]:\n" + table_structures if table_structures else layout_report
+                state["stage"]           = "generate"
+                state["generate_pdf_now"]= True
+                state["use_fast_model"]  = False
+                state["generation_question_pending"] = False
+                state["generation_question_asked"] = True
+                state["generation_choice_answered"] = True
+                tname = ", ".join(new_names) or "the template"
+                instruction = _prompts.build_template_generation_instruction(
+                    tname, table_structures, layout_report, reply_lang
+                )
 
         elif state.get("template_data") and _is_template_yes(user_message):
             state["stage"]           = "generate"
@@ -634,6 +762,19 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
                 instruction = _prompts.build_template_regeneration_instruction(
                     state["template_data"], reply_lang
                 )
+            elif _is_regenerate_request(user_message):
+                layout_report, table_structures = _parse_template_layout(new_attachments)
+                state["template_data"]   = layout_report + "\n\n[Template Table Structures]:\n" + table_structures
+                state["stage"]           = "generate"
+                state["generate_pdf_now"]= True
+                state["use_fast_model"]  = False
+                state["generation_question_pending"] = False
+                state["generation_question_asked"] = True
+                state["generation_choice_answered"] = True
+                _log(f"[agent] New template + regenerate request in done stage → generate")
+                instruction = _prompts.build_done_template_regeneration_instruction(
+                    doc_type, _prompts.get_structure(doc_type), reply_lang
+                )
             elif not _is_regenerate_request(user_message):
                 # It's a brand-new source PDF! Reset to init for a fresh analysis cycle
                 state["source_data"]     = new_text
@@ -650,18 +791,7 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list):
                 doc_list = ", ".join(new_names) or "the uploaded document"
                 dtype    = state["doc_type"].replace("_", " ").title()
                 _log(f"[agent] New source PDF in done stage → reset to wait_template for fresh analysis")
-            instruction = _prompts.build_new_source_analysis_instruction(routing_q, reply_lang)
-
-        # Case 2: User uploaded a new TEMPLATE PDF with regeneration intent
-        elif new_text and _is_regenerate_request(user_message):
-            state["template_data"]   = new_text
-            state["stage"]           = "generate"
-            state["generate_pdf_now"]= True
-            state["use_fast_model"]  = False
-            _log(f"[agent] New template + regenerate request in done stage → generate")
-            instruction = _prompts.build_done_template_regeneration_instruction(
-                doc_type, _prompts.get_structure(doc_type), reply_lang
-            )
+                instruction = _prompts.build_new_source_analysis_instruction(routing_q, reply_lang)
 
         # Case 3: User explicitly asked to regenerate/update PDF (no new file)
         elif _is_regenerate_request(user_message) or _is_pdf_generation_request(user_message):

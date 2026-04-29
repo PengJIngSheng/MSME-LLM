@@ -12,11 +12,11 @@
 model:
   # Ollama model name for THINK MODE (has <think>...</think> template)
   # This is the model registered via: ollama create <name> -f Modelfile
-  think_model: "gemma4:31b-it-q8_0"
+  think_model: "gemma4:31b-it-q4_K_M"
 
   # Ollama model name for STANDARD MODE (no <think> template, answers directly)
   # Registered via: ollama create <name> -f Modelfile_fast
-  fast_model: "gemma4:31b-it-q8_0"
+  fast_model: "gemma4:31b-it-q4_K_M"
 
   # Lightweight model for web-search query planning only.
   # Leave empty to use fast_model.

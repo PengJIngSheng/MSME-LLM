@@ -3,19 +3,23 @@ runtime:
   platform: "Ubuntu 24.04 + RTX 4090 (48GB VRAM)"
 
 model:
-  think_model: "gemma4:31b-it-q8_0"
-  fast_model: "gemma4:31b-it-q8_0"
+  think_model: "gemma4:31b-it-q4_K_M"
+  fast_model: "gemma4:31b-it-q4_K_M"
   search_query_model: "qwen2.5:3b-instruct"
   gguf_path: ""
   context_length: 32768
 
 generation:
   max_new_tokens: 8192
+  temperature: 0.42
+  top_p: 0.9
+  repetition_penalty: 1.08
+  do_sample: true
 
 server:
   host: "127.0.0.1"
   port: 8000
-  public_site_url: "http://103.209.158.127"
+  public_site_url: "https://msme.ai.pepperlabs.my"
   timezone: "Asia/Kuala_Lumpur"
 
 database:
@@ -29,7 +33,7 @@ database:
 services:
   ollama:
     base_url: "http://127.0.0.1:11434"
-    num_ctx_cap: 32768
+    num_ctx_cap: 16384
     num_gpu: 99
     num_thread: 8
 
