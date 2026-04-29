@@ -506,11 +506,23 @@ def _execute_tool(
             result = _gwt.tool_docs_create(user_id, title, content, lang=lang)
 
         elif name == "gmail_send":
-            # Allow empty bodies if the user explicitly cleared it. 
+            # Allow empty bodies if the user explicitly cleared it.
             body = args.get("body", "")
             # ONLY fall back to previous analysis if explicitly marked
             if body == "USE_PREVIOUS_ANALYSIS":
-                body = _extract_previous_analysis(messages)
+                if extracted_pdf_path:
+                    # PDF send: write a short professional cover body, NOT the full report
+                    subj = args.get("subject", "")
+                    att_name = os.path.splitext(os.path.basename(extracted_pdf_path))[0].replace('_', ' ').replace('-', ' ').title()
+                    display = subj if subj else att_name
+                    if lang == "zh":
+                        body = f"请查阅附件中的《{display}》报告，如有任何问题，欢迎随时与我联系。"
+                    elif lang == "ms":
+                        body = f"Sila rujuk laporan '{display}' yang dilampirkan. Jangan teragak-agak untuk menghubungi kami sekiranya ada sebarang pertanyaan."
+                    else:
+                        body = f"Please find attached the '{display}' report. Feel free to reach out if you have any questions."
+                else:
+                    body = _extract_previous_analysis(messages)
             
             recipient = args.get("recipient", "")
             subject = args.get("subject", "AI Generated Email")
