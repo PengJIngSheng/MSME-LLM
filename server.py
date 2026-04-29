@@ -109,6 +109,37 @@ def _detect_language(text):
     total = max(len(text.strip()), 1)
     return "Chinese" if cn / total > 0.15 else "English"
 
+def _extract_client_ip(request: Request) -> str:
+    """Read the original client IP behind nginx/Plesk proxies when available."""
+    for header in ("x-forwarded-for", "x-real-ip", "cf-connecting-ip"):
+        value = request.headers.get(header, "")
+        if value:
+            return value.split(",")[0].strip()
+    return request.client.host if request.client else ""
+
+def _infer_country_from_locale_timezone(browser_language: str = "", timezone: str = "") -> str:
+    raw = f"{browser_language or ''} {timezone or ''}".lower()
+    country_map = [
+        (("my", "kuala_lumpur", "malaysia"), "Malaysia"),
+        (("sg", "singapore"), "Singapore"),
+        (("cn", "shanghai", "beijing", "china"), "China"),
+        (("hk", "hong_kong"), "Hong Kong"),
+        (("tw", "taipei"), "Taiwan"),
+        (("id", "jakarta", "indonesia"), "Indonesia"),
+        (("th", "bangkok", "thailand"), "Thailand"),
+        (("vn", "ho_chi_minh", "vietnam"), "Vietnam"),
+        (("ph", "manila", "philippines"), "Philippines"),
+        (("us", "new_york", "los_angeles", "chicago", "america"), "United States"),
+        (("gb", "london", "united kingdom"), "United Kingdom"),
+        (("au", "sydney", "melbourne", "australia"), "Australia"),
+        (("jp", "tokyo", "japan"), "Japan"),
+        (("kr", "seoul", "korea"), "South Korea"),
+    ]
+    for needles, country in country_map:
+        if any(n in raw for n in needles):
+            return country
+    return ""
+
 def _response_profile(text: str, agent_mode: bool = False, web_mode: bool = False, has_pdf: bool = False) -> dict:
     """Choose answer depth and generation budget from the request shape."""
     t = (text or "").strip()
@@ -179,12 +210,16 @@ def _model_supports_thinking(model_name: str) -> bool:
     return any(marker in name for marker in ("deepseek", "qwq", "qwen3", "qwen-3", "reasoning"))
 
 
+_unavailable_ollama_models = set()
+
 def _generate_search_query_response(messages) -> str:
     """Use a tiny utility model for web-search query planning when available."""
     if tokenizer == "ollama" or model_type in ("gguf", "ollama"):
         tried = set()
         for query_model in (cfg.search_query_model, cfg.fast_model):
             if not query_model or query_model in tried:
+                continue
+            if query_model in _unavailable_ollama_models:
                 continue
             tried.add(query_model)
             try:
@@ -207,6 +242,7 @@ def _generate_search_query_response(messages) -> str:
                 if content:
                     return content
             except Exception as exc:
+                _unavailable_ollama_models.add(query_model)
                 print(f"  ⚠️ Search query model '{query_model}' unavailable: {exc}")
 
     return ms.generate_response(
@@ -436,6 +472,7 @@ class ChatRequest(BaseModel):
     agent_mode: bool = False
     max_tokens: Optional[int] = None   # override MAX_NEW_TOKENS per request
     user_timezone: Optional[str] = ""
+    browser_language: Optional[str] = ""
     regenerate_pdf: bool = False
 
 class SettingsRequest(BaseModel):
@@ -653,7 +690,22 @@ async def rename_chat(chat_id: str, req: RenameChatRequest):
 
 
 
-async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=False, max_tokens_override=None, agent_mode=False, attachments=None, user_timezone="", client_request=None, regenerate_pdf=False):
+async def stream_generator(
+    chat_id,
+    messages,
+    think_mode,
+    web_mode,
+    is_resume=False,
+    max_tokens_override=None,
+    agent_mode=False,
+    attachments=None,
+    user_timezone="",
+    client_request=None,
+    regenerate_pdf=False,
+    browser_language="",
+    client_ip="",
+    user_country="",
+):
     async def _client_gone():
         if client_request is None:
             return False
@@ -823,7 +875,14 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
         def agent_cb(msgs):
             # Query planning is a tiny JSON task; keep it off the 31B model when possible.
             return _generate_search_query_response(msgs)
-        wa = WebSearchAgent(agent_cb, think_mode=think_mode)
+        web_user_context = {
+            "ip": client_ip or "",
+            "country": user_country or "",
+            "timezone": user_timezone or "",
+            "browser_language": browser_language or "",
+            "date": dt.datetime.now().strftime("%Y-%m-%d"),
+        }
+        wa = WebSearchAgent(agent_cb, think_mode=think_mode, user_context=web_user_context)
         try:
             prepare_task = asyncio.create_task(asyncio.to_thread(wa.prepare, inference_messages))
             while True:
@@ -845,12 +904,24 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
         
         # Inject identity, language, agent context, and memory into web mode system prompt
         _web_additions = []
+        _today = dt.datetime.now().strftime("%Y-%m-%d")
+        _web_location = user_country or "the user's region"
+        _web_context = (
+            f"DATE AND USER CONTEXT: Today is {_today}. "
+            f"User timezone: {user_timezone or 'unknown'}. "
+            f"User country/region hint: {_web_location}. "
+            f"Browser language: {browser_language or 'unknown'}. "
+            f"Client IP is available only as private routing metadata and must not be displayed unless directly relevant.\n"
+            f"WEB ANSWER STYLE: Prefer fresh {_today[:4]} sources. For location-sensitive questions, localize to {_web_location}. "
+            f"Use clean markdown, inline source links, compact tables for comparisons/prices, and tasteful small icons/symbols only when they improve scanning."
+        )
         _identity_lang = (
             f"IDENTITY: Your name is Pepper Labs AI. You are an AI assistant created and trained by Pepper Labs. "
             f"If asked who you are, always say: 'I am Pepper Labs AI, an AI assistant built by Pepper Labs.'\n"
             f"LANGUAGE: Detect the language of the user's message and reply in that exact same language. "
             f"Only use Chinese (中文), English, or Malay (Bahasa Malaysia). Never use any other language."
         )
+        _web_additions.append(_web_context)
         _web_additions.append(_identity_lang)
         _web_additions.append(response_profile["instruction"])
         if agent_system_context:
@@ -930,7 +1001,7 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
         if agent_mode:
             _ctx = response_profile["ctx"]
         elif web_mode:
-            _ctx = min(response_profile["ctx"], 6144 if _web_factual else 8192)
+            _ctx = min(response_profile["ctx"], 4096 if _web_factual else 6144)
         else:
             _ctx = response_profile["ctx"]
 
@@ -946,8 +1017,12 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
             _max_predict = min(max_new_tok, response_profile["max_predict"]) + _think_budget
 
         _is_gemma4 = "gemma4" in (_ollama_model or "").lower()
-        _temperature = 0.42 if _is_gemma4 else ms.TEMPERATURE
-        _top_p = 0.90 if _is_gemma4 else ms.TOP_P
+        if _is_gemma4 and web_mode:
+            _temperature = 0.30 if _web_factual else 0.36
+            _top_p = 0.88
+        else:
+            _temperature = 0.42 if _is_gemma4 else ms.TEMPERATURE
+            _top_p = 0.90 if _is_gemma4 else ms.TOP_P
         _min_p = 0.03 if _is_gemma4 else 0.05
         _repeat_penalty = 1.08 if _is_gemma4 else ms.REPETITION_PENALTY
         _num_batch = 1024 if _ctx <= 8192 else 512
@@ -1245,6 +1320,8 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
 
 @app.post("/api/chat")
 async def chat_endpoint(req: ChatRequest, request: Request):
+    client_ip = _extract_client_ip(request)
+    user_country = _infer_country_from_locale_timezone(req.browser_language or "", req.user_timezone or "")
     chat_id = req.chat_id
     if not chat_id:
         chat_id = str(uuid.uuid4())
@@ -1281,6 +1358,9 @@ async def chat_endpoint(req: ChatRequest, request: Request):
             user_timezone=req.user_timezone or "",
             client_request=request,
             regenerate_pdf=req.regenerate_pdf,
+            browser_language=req.browser_language or "",
+            client_ip=client_ip,
+            user_country=user_country,
         ):
             yield chunk
 

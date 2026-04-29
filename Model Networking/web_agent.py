@@ -151,7 +151,7 @@ class WebSearchAgent:
             'google.com', 'bing.com', 'yahoo.com',
         }
 
-    def __init__(self, generation_callback, max_iterations: int = 2, think_mode: bool = False):
+    def __init__(self, generation_callback, max_iterations: int = 2, think_mode: bool = False, user_context: Optional[Dict[str, str]] = None):
         """
         :param generation_callback: (messages: List[Dict]) -> str
         :param think_mode: If True, add instructions for the model to analyze search results in its <think> phase
@@ -159,6 +159,7 @@ class WebSearchAgent:
         self.generation_callback = generation_callback
         self.max_iterations = max_iterations
         self.think_mode = think_mode
+        self.user_context = user_context or {}
         self._graph_full    = self._build_graph(include_answerer=True)
         self._graph_prepare = self._build_graph(include_answerer=False)
 
@@ -254,6 +255,26 @@ class WebSearchAgent:
         q = text.lower()
         return any(keyword in q for keyword in self._MALAYSIA_CONTEXT_KEYWORDS)
 
+    def _user_country(self) -> str:
+        return str(self.user_context.get("country") or "").strip()
+
+    def _location_label(self) -> str:
+        country = self._user_country() or "Unknown region"
+        timezone = self.user_context.get("timezone") or "Unknown timezone"
+        date = self.user_context.get("date") or datetime.datetime.now().strftime("%Y-%m-%d")
+        return f"{country}, timezone: {timezone}, current date: {date}"
+
+    def _needs_local_context(self, text: str) -> bool:
+        q = text.lower()
+        local_terms = {
+            "price", "cost", "fee", "flight", "near me", "registration", "register",
+            "tax", "law", "legal", "visa", "bank", "exchange rate", "documents",
+            "requirements", "permit", "license", "licence", "insurance", "shipping",
+            "价格", "多少钱", "费用", "航班", "机票", "注册", "文件", "要求", "税", "法律",
+            "berapa", "harga", "kos", "daftar", "dokumen", "syarat", "cukai",
+        }
+        return any(term in q for term in local_terms) or self._needs_malaysia_context(text)
+
     def _needs_fresh_window(self, text: str) -> bool:
         q = text.lower()
         return any(keyword in q for keyword in self._FRESH_FACTUAL_KEYWORDS)
@@ -261,7 +282,11 @@ class WebSearchAgent:
     def _normalize_queries(self, queries: List[str], user_question: str, task_type: str) -> List[str]:
         """Keep web searches current and locally relevant without over-constraining results."""
         year = datetime.datetime.now().strftime("%Y")
+        today = datetime.datetime.now().strftime("%Y-%m-%d")
+        country = self._user_country()
         needs_malaysia = self._needs_malaysia_context(user_question)
+        needs_local = self._needs_local_context(user_question)
+        needs_fresh = self._needs_fresh_window(user_question)
         is_ssm = "ssm" in user_question.lower() or "suruhanjaya syarikat" in user_question.lower()
         max_queries = _cfg.max_queries if _cfg else 5
         max_queries = max(1, min(max_queries, 8))
@@ -274,7 +299,11 @@ class WebSearchAgent:
             q_lower = q.lower()
             if not re.search(r"\b20\d{2}\b", q):
                 q = f"{q} {year}"
-            if needs_malaysia and "malaysia" not in q_lower:
+            if needs_fresh and today not in q:
+                q = f"{q} today"
+            if country and needs_local and country.lower() not in q_lower:
+                q = f"{q} {country}"
+            elif needs_malaysia and "malaysia" not in q_lower:
                 q = f"{q} Malaysia"
             if task_type == "factual" and "official" not in q.lower():
                 q = f"{q} official"
@@ -340,9 +369,53 @@ class WebSearchAgent:
     def _model_generate_queries(self, user_question: str, task_type: str = "factual") -> List[str]:
         """
         Generate targeted search queries based on task type.
-        - Factual: 2-3 queries, focused on authoritative/official sources with recency
-        - Analytical: 4-5 queries, diverse perspectives (news, expert, market, background)
+        The deterministic planner is intentionally first: it avoids spending
+        20-40s on a 31B model before search even starts, while still adding
+        country/date/official-source hints.
         """
+        return self._smart_queries(user_question, task_type)
+
+    def _smart_queries(self, user_question: str, task_type: str = "factual") -> List[str]:
+        base = re.sub(r"\s+", " ", user_question).strip()[:160]
+        if not base:
+            return []
+        year = datetime.datetime.now().strftime("%Y")
+        country = self._user_country()
+        country_suffix = f" {country}" if country and self._needs_local_context(base) else ""
+        q_lower = base.lower()
+
+        if "ssm" in q_lower or "suruhanjaya syarikat" in q_lower:
+            return [
+                f"SSM registration documents {year} official Malaysia",
+                f"site:ssm.com.my SSM registration documents {year}",
+                f"site:ezbiz.ssm.com.my business registration documents {year}",
+                f"{base} {year} Malaysia official",
+            ]
+
+        if any(term in q_lower for term in ("flight", "airline", "ticket", "航班", "机票")):
+            return [
+                f"{base} {year} today price comparison{country_suffix}",
+                f"{base} Skyscanner AirAsia Malaysia Airlines {year}",
+                f"{base} official airline fare {year}{country_suffix}",
+                f"{base} cheapest flights today {year}",
+            ]
+
+        if task_type == "factual":
+            return [
+                f"{base} {year} latest official{country_suffix}",
+                f"{base} {year} requirements official source{country_suffix}",
+                f"{base} {year} current data{country_suffix}",
+                f"{base} {year} explanation authoritative",
+            ]
+
+        return [
+            f"{base} {year} latest news{country_suffix}",
+            f"{base} {year} analysis background{country_suffix}",
+            f"{base} {year} official report data{country_suffix}",
+            f"{base} {year} expert analysis market impact",
+        ]
+
+    def _legacy_model_generate_queries(self, user_question: str, task_type: str = "factual") -> List[str]:
         if task_type == "factual":
             instructions = (
                 "You are an expert search query generator.\n"
@@ -475,6 +548,8 @@ class WebSearchAgent:
                 user_question = msg.get("content", "")
                 break
         malaysia_context = self._needs_malaysia_context(user_question)
+        country_context = self._user_country()
+        needs_local_context = self._needs_local_context(user_question)
         ssm_context = "ssm" in user_question.lower() or "suruhanjaya syarikat" in user_question.lower()
 
         # Mode-specific search parameters. Evergreen factual tasks need current-year
@@ -560,6 +635,8 @@ class WebSearchAgent:
             context_penalty = 0
             if malaysia_context and not any(term in context_blob for term in ("malaysia", "ssm", "suruhanjaya", "myr", "rm ")):
                 context_penalty -= 5
+            if needs_local_context and country_context and country_context.lower() not in context_blob:
+                context_penalty -= 2
 
             score = title_hits + body_hits + price_bonus + official_bonus + context_penalty
             candidate_results.append((score, title, body, href, domain))
@@ -613,7 +690,7 @@ class WebSearchAgent:
         current_year = datetime.datetime.now().strftime("%Y")
         user_lang    = state.get("user_language", "English")
         task_type    = state.get("task_type", "factual")
-        user_loc     = get_user_location()
+        user_loc     = self._location_label()
         augmented    = list(state["messages"])
 
         if state.get("needs_search") and state.get("search_results"):
@@ -648,7 +725,7 @@ class WebSearchAgent:
                     f"OUTPUT RULES:\n"
                     f"0. RECENCY: Prioritize {current_year} official/current sources. If a source has no visible date, treat it as background only.\n"
                     f"1. STRUCTURE: Use bold numbered headers for each distinct topic the user asked about.\n"
-                    f"2. VISUALS: Use bullet points under each header to organize data (e.g. '• Current Rate:', '• Fluctuation Range:', '• Trend:').\n"
+                    f"2. VISUALS: Use clean bullets, compact tables, and a few tasteful scan markers/icons for prices, dates, requirements, and warnings.\n"
                     f"3. EXACT DATA: Give the exact numbers/prices immediately.\n"
                     f"4. CITATIONS: Cite the source inline using markdown links: [Source Name](url).\n"
                     f"5. CONTEXT: Add 1-2 sentences of context (e.g., changes from yesterday, why it changed).\n"
@@ -661,7 +738,7 @@ class WebSearchAgent:
                     f"OUTPUT RULES:\n"
                     f"0. RECENCY: Prioritize {current_year} sources and clearly separate current facts from background context.\n"
                     f"1. STRUCTURE: Use bold numbered sections for each major aspect (Background, Current Status, Impact, Outlook).\n"
-                    f"2. VISUALS: Liberally use bullet points and **bold text** to highlight key names, dates, and concepts.\n"
+                    f"2. VISUALS: Use clean section icons/symbols sparingly, bullets, tables, and **bold text** to highlight key names, dates, and concepts.\n"
                     f"3. MULTI-SOURCE: Reference multiple different viewpoints (e.g., US side vs Iran side).\n"
                     f"4. DEPTH: Add YOUR OWN synthesis and analysis sentences beyond just quoting the facts.\n"
                     f"5. DATA: Include specific numbers, dates, names, and percentages from the sources.\n"

@@ -260,6 +260,8 @@ window.showToast = showToast;
 function updateGuestInputUi() {
     const shouldHideNormalInput = !currentUserId && !isAgentMode && getGuestQuestionCount() >= GUEST_QUESTION_LIMIT;
     const shouldLockGuestAgent = !currentUserId && isAgentMode;
+    document.body.classList.toggle('is-guest', !currentUserId);
+    document.body.classList.toggle('is-logged-in', !!currentUserId);
 
     if (inputWrapper) {
         inputWrapper.classList.toggle('guest-input-hidden', shouldHideNormalInput);
@@ -1733,6 +1735,7 @@ async function handleSend(isResume = false, resumeIndex = null) {
                 is_resume: isResume,
                 agent_mode: isAgentMode,
                 user_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
+                browser_language: navigator.language || navigator.userLanguage || '',
                 regenerate_pdf: forceRegeneratePdf,
             }),
             signal: currentAbortController.signal,
@@ -2739,7 +2742,7 @@ async function loadChatPreview(chatId, title, liElement) {
                 ctxLogout: 'Logout'
             },
             zh: {
-                greeting: '今天我能为您做些什么？',
+                greeting: '今天有什么计划？',
                 placeholder: '您想了解什么？',
                 thinkMode: '思考模式',
                 searchMode: '联网搜索',
