@@ -705,10 +705,55 @@ document.querySelectorAll('tbody td').forEach(td => {{
 </html>
 """
 
+# ─── LaTeX math symbols → Unicode (common model output patterns) ─────────────
+_LATEX_SYMBOLS = [
+    (r'\$\\checkmark\$', '✓'), (r'\$\\check\$', '✓'),
+    (r'\$\\times\$',     '✗'), (r'\$\\cross\$',  '✗'),
+    (r'\$\\uparrow\$',   '↑'), (r'\$\\Uparrow\$', '⬆'),
+    (r'\$\\downarrow\$', '↓'), (r'\$\\Downarrow\$','⬇'),
+    (r'\$\\rightarrow\$','→'), (r'\$\\leftarrow\$', '←'),
+    (r'\$\\leftrightarrow\$','↔'),
+    (r'\$\\approx\$',    '≈'), (r'\$\\neq\$',    '≠'),
+    (r'\$\\leq\$',       '≤'), (r'\$\\geq\$',    '≥'),
+    (r'\$\\pm\$',        '±'), (r'\$\\infty\$',  '∞'),
+    (r'\$\\Delta\$',     'Δ'), (r'\$\\delta\$',  'δ'),
+    (r'\$\\sigma\$',     'σ'), (r'\$\\alpha\$',  'α'),
+    (r'\$\\beta\$',      'β'), (r'\$\\gamma\$',  'γ'),
+    (r'\$\\%\$',         '%'),
+    # bare (non-dollar-wrapped) variants the model sometimes emits
+    (r'\\checkmark',     '✓'), (r'\\times',      '✗'),
+    (r'\\uparrow',       '↑'), (r'\\downarrow',  '↓'),
+    (r'\\rightarrow',    '→'), (r'\\leftarrow',  '←'),
+    (r'\\approx',        '≈'), (r'\\neq',        '≠'),
+    (r'\\leq',           '≤'), (r'\\geq',        '≥'),
+    (r'\\pm',            '±'),
+]
+
+def _convert_latex_symbols(text: str) -> str:
+    for pattern, replacement in _LATEX_SYMBOLS:
+        text = re.sub(pattern, replacement, text)
+    # Strip any remaining inline math delimiters: $...$  (single-char or short expression)
+    text = re.sub(r'\$([^$\n]{1,40})\$', r'\1', text)
+    return text
+
+def _clean_residual_placeholders(text: str) -> str:
+    """Replace bracket placeholders the model sometimes leaves in tables with N/A."""
+    # e.g.  [Data from P&L]  [%]  [Value]  [Amount]  [X]  [Name]
+    text = re.sub(r'\[Data\s+from\s+[^\]]+\]', 'N/A', text, flags=re.IGNORECASE)
+    text = re.sub(r'\[\s*%\s*\]', 'N/A', text)
+    text = re.sub(r'\[\s*(?:Value|Amount|Name|X|Formula|Number|Total|Data|Insert)\s*\]', 'N/A', text, flags=re.IGNORECASE)
+    # Also replace bracket formulas like [Aset Semasa / Liabiliti Semasa] with N/A
+    text = re.sub(r'\[[^\]]{3,60}/[^\]]{3,60}\]', 'N/A', text)
+    return text
+
 # ─── Markdown → HTML (body only) ─────────────────────────────────────────────
 def _md_to_html_body(md_text: str) -> str:
     # Strip <think> blocks
     md_text = re.sub(r"<think>.*?</think>", "", md_text, flags=re.DOTALL).strip()
+    # Convert LaTeX math symbols to Unicode before Markdown parsing
+    md_text = _convert_latex_symbols(md_text)
+    # Replace residual bracket placeholders
+    md_text = _clean_residual_placeholders(md_text)
     html = _md_lib.markdown(
         md_text,
         extensions=["tables", "fenced_code", "nl2br", "attr_list", "smarty", "toc"],

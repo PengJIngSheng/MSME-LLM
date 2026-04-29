@@ -354,30 +354,50 @@ def _extract_pdf(path: str) -> str:
 
         # Higher-fidelity table fallback. PyMuPDF is fast, but pdfplumber often
         # preserves financial statement cells and multi-column tables better.
+        # Track which tables we already captured to avoid duplication.
+        seen_table_digests: set = set()
         try:
-            import pdfplumber
+            import pdfplumber, hashlib
             with pdfplumber.open(path) as pdf:
                 for page_num, page in enumerate(pdf.pages, 1):
                     try:
                         plumber_text = page.extract_text(x_tolerance=1, y_tolerance=3, layout=True) or ""
-                        if plumber_text.strip():
-                            parts.append(f"--- Page {page_num} layout text ---\n{plumber_text.strip()}")
+                        plumber_text = plumber_text.strip()
+                        if plumber_text:
+                            # Only add if it's meaningfully different from the PyMuPDF text for this page
+                            pymupdf_text = next(
+                                (p.split("\n", 1)[1] for p in parts
+                                 if p.startswith(f"--- Page {page_num} ---")), ""
+                            )
+                            overlap = sum(1 for line in plumber_text.splitlines()
+                                         if line.strip() and line.strip() in pymupdf_text)
+                            total_lines = max(len(plumber_text.splitlines()), 1)
+                            if overlap / total_lines < 0.7:   # <70% overlap → genuinely new info
+                                parts.append(f"--- Page {page_num} (layout) ---\n{plumber_text}")
                     except Exception:
                         pass
                     try:
                         tables = page.extract_tables() or []
                         for ti, rows in enumerate(tables[:12]):
                             md = _table_to_markdown(rows)
-                            if md:
-                                parts.append(f"[Precise Table {ti+1} from Page {page_num}]:\n{md}")
+                            if not md:
+                                continue
+                            digest = hashlib.md5(md.encode()).hexdigest()
+                            if digest in seen_table_digests:
+                                continue
+                            seen_table_digests.add(digest)
+                            parts.append(f"[Precise Table {ti+1} from Page {page_num}]:\n{md}")
                     except Exception as pe:
                         _log(f"[pdfplumber table extract] Page {page_num} table error (non-fatal): {pe}")
         except Exception as pe:
             _log(f"[pdfplumber fallback] skipped: {pe}")
-        
-        result = "\n\n".join(parts)
-        _log(f"[PyMuPDF] {path} → {len(result)} chars (with table structures)")
-        return result
+
+        # Cap total extraction to ~60 000 chars to keep model context manageable
+        full = "\n\n".join(parts)
+        if len(full) > 60_000:
+            full = full[:60_000] + "\n\n[... content truncated for context window ...]"
+        _log(f"[PyMuPDF+pdfplumber] {path} → {len(full)} chars (deduplicated)")
+        return full
     except Exception as e:
         _log(f"[extract_pdf ERROR] {e}")
         return ""
