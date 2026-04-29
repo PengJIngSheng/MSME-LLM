@@ -14,7 +14,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/static/style.css?v=5.0.9">
+    <link rel="stylesheet" href="/static/style.css?v=5.2.1">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 
@@ -184,13 +184,15 @@
                             <!-- Connectors Dropdown (Agent Mode Only) -->
                             <div class="connectors-container" id="connectorsContainer" style="display: none;">
                                 <button class="connector-trigger" id="connectorBtn" title="Google Workspace Connectors">
-                                    <i class="fa-solid fa-plug" style="color:#fbbc05;"></i> <span>Connectors</span>
-                                    <i class="fa-solid fa-chevron-up"></i>
+                                    <i class="fa-brands fa-google" style="font-size:0.78rem;opacity:0.7;"></i>
+                                    <span>Connectors</span>
+                                    <i class="fa-solid fa-chevron-up ct-chevron"></i>
                                 </button>
                                 <div class="connector-dropdown" id="connectorDropdown">
+                                    <div class="connector-dropdown-header">Google Workspace</div>
                                     <div class="connector-item" data-service="drive">
                                         <div class="connector-icon-name">
-                                            <i class="fa-brands fa-google-drive" style="color:#34a853;"></i> Google Drive
+                                            <i class="fa-brands fa-google-drive" style="color:#34a853;"></i> Drive
                                         </div>
                                         <label class="liquid-glass-switch" id="switch-drive" data-service="drive">
                                             <input type="checkbox" id="checkbox-drive">
@@ -208,7 +210,7 @@
                                     </div>
                                     <div class="connector-item" data-service="docs">
                                         <div class="connector-icon-name">
-                                            <i class="fa-solid fa-file-word" style="color:#4285f4;"></i> Google Docs
+                                            <i class="fa-solid fa-file-lines" style="color:#4285f4;"></i> Docs
                                         </div>
                                         <label class="liquid-glass-switch" id="switch-docs" data-service="docs">
                                             <input type="checkbox" id="checkbox-docs">
@@ -217,7 +219,7 @@
                                     </div>
                                     <div class="connector-item" data-service="calendar">
                                         <div class="connector-icon-name">
-                                            <i class="fa-solid fa-calendar-days" style="color:#4285f4;"></i> Calendar
+                                            <i class="fa-solid fa-calendar-days" style="color:#fbbc05;"></i> Calendar
                                         </div>
                                         <label class="liquid-glass-switch" id="switch-calendar" data-service="calendar">
                                             <input type="checkbox" id="checkbox-calendar">
@@ -226,7 +228,7 @@
                                     </div>
                                     <div class="connector-item" data-service="meet">
                                         <div class="connector-icon-name">
-                                            <i class="fa-solid fa-video" style="color:#00bcd4;"></i> Google Meet
+                                            <i class="fa-solid fa-video" style="color:#34a853;"></i> Meet
                                         </div>
                                         <label class="liquid-glass-switch" id="switch-meet" data-service="meet">
                                             <input type="checkbox" id="checkbox-meet">
@@ -696,7 +698,7 @@
     <!-- Markdown -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <!-- Application Scripts -->
-    <script src="/static/script.js?v=5.0.9"></script>
+    <script src="/static/script.js?v=5.1.0"></script>
 </body>
 
 </html>
