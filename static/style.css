@@ -2207,6 +2207,64 @@ h1,h2,h3,h4,h5,h6 {
     animation: think-pulse-light 2.5s ease-in-out infinite;
 }
 
+/* Sidebar refinement pass: lighter typography, calmer spacing, centered collapsed rail. */
+.sidebar .nav-menu-btn,
+.sidebar .nav-menu-btn.active,
+.sidebar .nav-menu-btn .nav-text {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif !important;
+    font-weight: 400 !important;
+    letter-spacing: 0 !important;
+}
+
+.sidebar-content {
+    padding-top: 18px !important;
+}
+
+.history-dropdown-header {
+    padding-top: 4px !important;
+    padding-bottom: 10px !important;
+    font-weight: 400 !important;
+    letter-spacing: 0 !important;
+}
+
+@media (min-width: 761px) {
+    .page-wrapper.sidebar-collapsed .sidebar-nav-menu {
+        align-items: center !important;
+        justify-content: flex-start !important;
+        padding: 0 !important;
+        gap: 7px !important;
+        margin-top: 6px !important;
+    }
+
+    .page-wrapper.sidebar-collapsed .nav-menu-btn,
+    .page-wrapper.sidebar-collapsed .nav-menu-btn.active {
+        width: 44px !important;
+        height: 44px !important;
+        min-height: 44px !important;
+        aspect-ratio: 1 / 1 !important;
+        padding: 0 !important;
+        margin: 0 auto !important;
+        justify-content: center !important;
+        align-items: center !important;
+        border-radius: 14px !important;
+    }
+
+    .page-wrapper.sidebar-collapsed .nav-menu-btn i {
+        width: auto !important;
+        margin: 0 !important;
+        text-align: center !important;
+        font-size: 1.02rem !important;
+    }
+}
+
+@media (max-width: 760px) {
+    body.is-guest .nav-menu-btn,
+    body.is-guest .nav-menu-btn.active,
+    body.is-guest .nav-menu-btn .nav-text {
+        font-weight: 400 !important;
+    }
+}
+
 /* =====================================================
    2026 Polish: Compact Sidebar, Rich Answers, Mobile Guest
    ===================================================== */
@@ -2542,6 +2600,64 @@ h1,h2,h3,h4,h5,h6 {
     body.is-guest .sidebar-content,
     body.is-guest .sidebar-footer {
         display: none;
+    }
+}
+
+/* Sidebar final adjustment for lighter text and centered collapsed icons. */
+.sidebar .nav-menu-btn,
+.sidebar .nav-menu-btn.active,
+.sidebar .nav-menu-btn .nav-text {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif !important;
+    font-weight: 400 !important;
+    letter-spacing: 0 !important;
+}
+
+.sidebar-content {
+    padding-top: 18px !important;
+}
+
+.history-dropdown-header {
+    padding-top: 4px !important;
+    padding-bottom: 10px !important;
+    font-weight: 400 !important;
+    letter-spacing: 0 !important;
+}
+
+@media (min-width: 761px) {
+    .page-wrapper.sidebar-collapsed .sidebar-nav-menu {
+        align-items: center !important;
+        justify-content: flex-start !important;
+        padding: 0 !important;
+        gap: 7px !important;
+        margin-top: 6px !important;
+    }
+
+    .page-wrapper.sidebar-collapsed .nav-menu-btn,
+    .page-wrapper.sidebar-collapsed .nav-menu-btn.active {
+        width: 44px !important;
+        height: 44px !important;
+        min-height: 44px !important;
+        aspect-ratio: 1 / 1 !important;
+        padding: 0 !important;
+        margin: 0 auto !important;
+        justify-content: center !important;
+        align-items: center !important;
+        border-radius: 14px !important;
+    }
+
+    .page-wrapper.sidebar-collapsed .nav-menu-btn i {
+        width: auto !important;
+        margin: 0 !important;
+        text-align: center !important;
+        font-size: 1.02rem !important;
+    }
+}
+
+@media (max-width: 760px) {
+    body.is-guest .nav-menu-btn,
+    body.is-guest .nav-menu-btn.active,
+    body.is-guest .nav-menu-btn .nav-text {
+        font-weight: 400 !important;
     }
 }
 
