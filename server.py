@@ -730,7 +730,7 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
 
         # Run in thread so SSE stream stays alive during heavy PDF extraction
         agent_inst, agent_ctx = await asyncio.to_thread(
-            pdf_agent.process_agent_request, chat_id, latest_user_msg, attachments
+            pdf_agent.process_agent_request, chat_id, latest_user_msg, attachments, messages
         )
         _agent_state = pdf_agent.agent_memory.get(chat_id, {})
         if _agent_state.get("new_source_loaded"):

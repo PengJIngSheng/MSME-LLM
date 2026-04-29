@@ -855,9 +855,31 @@ setTimeout(async () => {
 }, 1200);
 
 // ============ Helpers ============
-function scrollToBottom() {
+let scrollToBottomFrame = null;
+function scrollToBottom(options = {}) {
     const chatArea = document.getElementById('chatArea');
-    chatArea.scrollTo({ top: chatArea.scrollHeight, behavior: 'smooth' });
+    if (!chatArea) return;
+
+    const run = () => {
+        scrollToBottomFrame = null;
+        chatArea.scrollTo({
+            top: chatArea.scrollHeight,
+            behavior: options.smooth ? 'smooth' : 'auto'
+        });
+    };
+
+    if (options.force) {
+        if (scrollToBottomFrame) {
+            cancelAnimationFrame(scrollToBottomFrame);
+            scrollToBottomFrame = null;
+        }
+        run();
+        return;
+    }
+
+    if (!scrollToBottomFrame) {
+        scrollToBottomFrame = requestAnimationFrame(run);
+    }
 }
 
 function getFavicon(url) {
