@@ -1,0 +1,483 @@
+{
+  "dataset": "Malaysia Business Bank Accounts for MSME",
+  "last_reviewed": "2026-03-09",
+  "source": "Business Bank Account Comparison – Malaysia",
+  "documents_required_general": {
+    "note": "Document requirements vary by bank and business structure. The lists below cover what most Malaysian banks ask for.",
+    "sdn_bhd": [
+      "Certified SSM company profile / SSM extracts (company info, directors/shareholders, and registered address details)",
+      "Company Constitution (if applicable)",
+      "Board resolution authorising the account opening and naming authorised signatories",
+      "Identity cards (MyKad) or passports for all directors and authorised signatories",
+      "Proof of registered business address (tenancy agreement or utility bill)",
+      "Business licence or permit (where applicable)",
+      "Initial deposit amount"
+    ],
+    "sole_proprietorship_and_partnership": [
+      "Business Registration Certificate issued by SSM (or Enterprise Registration)",
+      "Identity card (MyKad) of the proprietor or all partners",
+      "Partnership deed (if applicable)",
+      "Business licence (if applicable)",
+      "Initial deposit amount"
+    ]
+  },
+  "accounts": [
+    {
+      "id": 1,
+      "bank_name": "Maybank",
+      "account_name": "SME First Account",
+      "best_for": "Businesses that need a large branch and ATM network across Malaysia",
+      "key_features": {
+        "initial_deposit": "RM1,000 (RM100 via digital transfer for sole proprietors)",
+        "service_charge": "RM10 per half-year, waived if monthly average balance is above RM1,000",
+        "account_opening": "Partially online",
+        "introducer_required": false,
+        "standout_features": [
+          "Maybank2u Biz supports bulk payroll uploads of up to 100 payees at once",
+          "SME Digital Financing offers loan approvals of up to RM500,000 within minutes for eligible businesses"
+        ]
+      },
+      "documents_required": {
+        "account_opening_steps": [
+          "Key in your application online",
+          "Your account will be created immediately",
+          "Activate your account online (for Sole Proprietors, Partnership and Private Limited companies) or visit your preferred branch with the required documents"
+        ],
+        "private_limited_company": {
+          "note": "All documents to be Certified True Copy by Company Secretary",
+          "documents": [
+            "Memorandum and Articles of Association / Constitution / CoSec Confirmation New Act Sec21",
+            "Copy of all directors' identity card / passport (if foreigner) and authorised signatories",
+            "Form 9 (Certificate of Incorporation of Private Company) / Notice of Registration",
+            "Form 13 (Change of Company Name) / Notice of Registration of New Name (if applicable)",
+            "Form 24 / Return for Allotment of Shares",
+            "Form 49 / Notification of change in the Register of Directors, Managers & Secretaries",
+            "Resolution of the Board of Directors to open and operate the account",
+            "Initial deposit of RM1,000 upon opening of account"
+          ]
+        },
+        "sole_proprietorship_and_partnership": {
+          "documents": [
+            "Identity card / passport (if foreigner) of the proprietor / all partners and authorised signatories",
+            "Certificate of Registration / Business Registration",
+            "Form D (Business License)",
+            "Deed of Partnership (for Partnership only)",
+            "Letter of Introduction",
+            "Mandate Letter",
+            "Initial deposit — RM100 minimum via First Party digital transfer (sole proprietors only) OR RM1,000 via account transfer for Partnership / deposit at branch for all business types"
+          ]
+        },
+        "club_society_association_professional": {
+          "documents": [
+            "Board Resolution / Letter of appointment of authorised signatories",
+            "License or Certificate issued by the Registrar of Societies or statutory bodies",
+            "Rules and Regulations / By Laws / Constitution",
+            "Letter for Bar Council (for Law Firms)",
+            "Certificate of Registration of Law Firms (for Law Firms)",
+            "Professional Indemnity Insurance Certificate (for Law Firms)",
+            "Identification document of Partners, authorised Signatories and Controlling Person (UBO)",
+            "Initial deposit of RM1,000 at branch"
+          ]
+        }
+      }
+    },
+    {
+      "id": 2,
+      "bank_name": "CIMB",
+      "account_name": "Business Current Account-i",
+      "best_for": "Businesses that require a Shariah-compliant account",
+      "key_features": {
+        "initial_deposit": "RM1,000 for Sdn Bhd; RM3,000 for partnerships and LLPs",
+        "service_charge": "Not disclosed",
+        "account_opening": "Partially online",
+        "introducer_required": false,
+        "standout_features": [
+          "Operates under Islamic finance principles with profit-sharing contracts",
+          "Separate Multi Currency Account-i available supporting up to 11 foreign currencies"
+        ]
+      },
+      "documents_required": {
+        "sdn_bhd": [
+          "Certified SSM company profile / SSM extracts (company info, directors/shareholders, and registered address details)",
+          "Company Constitution (if applicable)",
+          "Board resolution authorising the account opening and naming authorised signatories",
+          "Identity cards (MyKad) or passports for all directors and authorised signatories",
+          "Proof of registered business address (tenancy agreement or utility bill)",
+          "Business licence or permit (where applicable)",
+          "Initial deposit of RM1,000"
+        ],
+        "sole_proprietorship_and_partnership": [
+          "Business Registration Certificate issued by SSM (or Enterprise Registration)",
+          "Identity card (MyKad) of the proprietor or all partners",
+          "Partnership deed (if applicable)",
+          "Business licence (if applicable)",
+          "Initial deposit of RM3,000"
+        ]
+      }
+    },
+    {
+      "id": 3,
+      "bank_name": "OCBC",
+      "account_name": "eBiz Account",
+      "best_for": "Digital-first SMEs, sole proprietors, and businesses with Malaysian or Singaporean ownership and up to two directors",
+      "key_features": {
+        "initial_deposit": "RM500",
+        "service_charge": "RM10 per half-year, waived if monthly average balance is above RM1,000",
+        "account_opening": "100% online",
+        "introducer_required": false,
+        "standout_features": [
+          "Fully digital application with eKYC — no branch visit, no printed forms, no document couriering",
+          "Available to Malaysian- and Singaporean-owned businesses",
+          "Designed for businesses with no more than two directors or partners"
+        ]
+      },
+      "documents_required": {
+        "eligibility": [
+          "All businesses must be registered with SSM",
+          "All directors / sole proprietors / partners must be citizens of Malaysia",
+          "Must have a sole proprietor or up to 2 partners / directors",
+          "SSM report must be updated with the latest list of sole proprietor, partners, directors, shareholders",
+          "For businesses with more than 2 partners / directors, apply for MYR Business Current Account instead"
+        ],
+        "account_opening_steps": [
+          "Have your Business Registration Number (BRN) ready",
+          "Fill in the online application form with your business details",
+          "Sign digitally or upload your signature(s)",
+          "Verify your identity via eKYC portal by scanning front and back of MyKad and taking a selfie video",
+          "Receive confirmation email/SMS within 1–2 working days once account is successfully opened"
+        ],
+        "fees_at_opening": [
+          "Initial deposit: RM500",
+          "OCBC Velocity (Business Internet Banking): Monthly fee waived",
+          "OCBC Velocity online training: RM20 (one-time charge)",
+          "OCBC OneToken (digital security token): 2 complementary tokens; RM40 for each subsequent token",
+          "Half-yearly service charge: RM10 if average account balance falls below RM1,000"
+        ],
+        "note": "Identity verification is completed digitally via eKYC — no physical document submission required for eligible applicants. Cheque book available upon request at any OCBC branch."
+      }
+    },
+    {
+      "id": 4,
+      "bank_name": "Hong Leong Bank",
+      "account_name": "PrimeBiz Current Account",
+      "best_for": "SMEs at any stage – from early-stage startups to established businesses – that want an award-recognised banking partner",
+      "key_features": {
+        "initial_deposit": "RM100",
+        "service_charge": "Half-yearly charge applies if average balance falls below threshold; rebates available when monthly average balance is RM15,000 or above",
+        "account_opening": "Partially online",
+        "introducer_required": false,
+        "standout_features": [
+          "iStart@HLB bundles a business account with financing access and digital tools for new businesses",
+          "Named Euromoney's Best SME Bank in Malaysia for two consecutive years (most recently 2025)"
+        ]
+      },
+      "documents_required": {
+        "sdn_bhd": [
+          "Certified SSM company profile / SSM extracts (company info, directors/shareholders, and registered address details)",
+          "Company Constitution (if applicable)",
+          "Board resolution authorising the account opening and naming authorised signatories",
+          "Identity cards (MyKad) or passports for all directors and authorised signatories",
+          "Proof of registered business address (tenancy agreement or utility bill)",
+          "Business licence or permit (where applicable)",
+          "Initial deposit of RM500"
+        ],
+        "sole_proprietorship_and_partnership": [
+          "Business Registration Certificate issued by SSM (or Enterprise Registration)",
+          "Identity card (MyKad) of the proprietor or all partners",
+          "Partnership deed (if applicable)",
+          "Business licence (if applicable)",
+          "Initial deposit of RM500"
+        ]
+      }
+    },
+    {
+      "id": 5,
+      "bank_name": "RHB",
+      "account_name": "Business Current Account",
+      "best_for": "SMEs that want their banking connected to accounting, HR, and operational tools",
+      "key_features": {
+        "initial_deposit": "RM1,000 for sole proprietors; RM3,000 for companies and other business entities",
+        "service_charge": "Half-yearly charge applies if average balance falls below threshold",
+        "account_opening": "Partially online",
+        "introducer_required": true,
+        "standout_features": [
+          "RHB Reflex Premium Plus integrates directly with Financio for accounting",
+          "Integration with Kakitangan or Talenox for HR and payroll",
+          "Bank transactions, expense tracking, and statutory payments (EPF, SOCSO) manageable from a single platform"
+        ]
+      },
+      "documents_required": {
+        "note": "An introducer who is an existing RHB customer is required to provide a declaration as part of the application",
+        "sdn_bhd": [
+          "Certified SSM company profile / SSM extracts (company info, directors/shareholders, and registered address details)",
+          "Company Constitution (if applicable)",
+          "Board resolution authorising the account opening and naming authorised signatories",
+          "Identity cards (MyKad) or passports for all directors and authorised signatories",
+          "Proof of registered business address (tenancy agreement or utility bill)",
+          "Business licence or permit (where applicable)",
+          "Introducer declaration from an existing RHB customer",
+          "Initial deposit of RM3,000"
+        ],
+        "sole_proprietorship_and_partnership": [
+          "Business Registration Certificate issued by SSM (or Enterprise Registration)",
+          "Identity card (MyKad) of the proprietor or all partners",
+          "Partnership deed (if applicable)",
+          "Business licence (if applicable)",
+          "Introducer declaration from an existing RHB customer",
+          "Initial deposit of RM1,000"
+        ]
+      }
+    },
+    {
+      "id": 6,
+      "bank_name": "UOB",
+      "account_name": "Basic Current Account",
+      "best_for": "New businesses and startups that need a straightforward MYR current account with digital banking access",
+      "key_features": {
+        "initial_deposit": "Not disclosed",
+        "service_charge": "Half-yearly charge applies if average balance falls below threshold",
+        "account_opening": "100% online",
+        "introducer_required": true,
+        "standout_features": [
+          "Full access to UOB Infinity and the UOB SME app for account management, payments, and transfers",
+          "No-frills option designed for new businesses and startups"
+        ]
+      },
+      "documents_required": {
+        "note": "An introducer who is an existing UOB current account holder in good standing is required",
+        "account_opening_steps": [
+          "Verify your identity via the UOB SME App",
+          "Click 'Continue on mobile' to proceed to the online form; ensure all applicants complete MyKad verification and review the application",
+          "Complete the online form with your business details; you will receive a courtesy call within 1–3 working days after successful submission",
+          "Receive an email with your account number; activate the account by completing a DuitNow Transfer"
+        ],
+        "sdn_bhd": [
+          "Certified SSM company profile / SSM extracts (company info, directors/shareholders, and registered address details)",
+          "Company Constitution (if applicable)",
+          "Board resolution authorising the account opening and naming authorised signatories",
+          "Identity cards (MyKad) or passports for all directors and authorised signatories — verified via UOB SME App",
+          "Proof of registered business address (tenancy agreement or utility bill)",
+          "Business licence or permit (where applicable)",
+          "Introducer declaration from an existing UOB current account holder in good standing"
+        ],
+        "sole_proprietorship_and_partnership": [
+          "Business Registration Certificate issued by SSM (or Enterprise Registration)",
+          "Identity card (MyKad) of the proprietor or all partners — verified via UOB SME App",
+          "Partnership deed (if applicable)",
+          "Business licence (if applicable)",
+          "Introducer declaration from an existing UOB current account holder in good standing"
+        ]
+      }
+    },
+    {
+      "id": 7,
+      "bank_name": "Public Bank",
+      "account_name": "PLUS Current Account",
+      "best_for": "Businesses that prefer a long-established bank and already have an existing relationship with Public Bank",
+      "key_features": {
+        "initial_deposit": "RM500 for sole traders; RM1,000 for companies",
+        "service_charge": "RM10 per half-year — no balance-based waiver applies",
+        "account_opening": "Partially online",
+        "introducer_required": true,
+        "standout_features": [
+          "Available to both resident and non-resident business owners",
+          "One of Malaysia's longest-running banks (since 1966) with over 250 branches nationwide",
+          "Cheque facilities included"
+        ]
+      },
+      "documents_required": {
+        "introducer_criteria": [
+          "The introducer can be an individual or non-individual (e.g., company, partnership) with good knowledge of the applicant and must be present at the account opening branch",
+          "Must maintain an active Current Account-i with Public Islamic Bank for more than 12 months",
+          "Must maintain a good track record without any Internal-Dishonoured Cheques (I-DCHEQS) offence and no frequent representation of cheques",
+          "Must not have committed any act of bankruptcy or been subject to any resolution or petition for winding up or insolvency"
+        ],
+        "individuals": [
+          "Identification document (e.g., MyKad, MyTentera, Passport) of all individuals operating the account",
+          "For non-resident individuals: valid work permit and employer confirmation letter, OR valid student pass and referral letter from College/Institute, OR valid Marriage Certificate if married to a Malaysian"
+        ],
+        "sole_proprietorship_and_partnership": [
+          "Business Registration Certificate / Perakuan Pendaftaran (Form D)",
+          "Identification document (e.g., MyKad, Passport) of the sole-proprietor or all partners",
+          "Business License Forms (2 pages): Business Information / Maklumat Perniagaan (Page 1) and Latest Owner Information / Maklumat Pemilik Masa Kini (Page 2)",
+          "Initial deposit of RM500"
+        ],
+        "private_limited_company_companies_act_2016": [
+          "Section 17 – Notice of Registration",
+          "Section 14 – Application For Registration Of A Company",
+          "Section 58 & 236(2) – Notification of Appointment of the First Company Secretary",
+          "Company's Constitution (Memorandum & Articles of Association — mandatory for companies limited by guarantee)",
+          "Identification document (e.g., MyKad, Passport) of the directors/signatories",
+          "Resolution of the Company's Board of Directors (duly certified by Chairman and Secretary) covering: appointment of bank and branch, names and specimen signatures of signatories, mode of operation, authority to overdraw, specimen company stamp, undertaking to notify bank of future changes, authority to transfer funds",
+          "Initial deposit of RM1,000"
+        ],
+        "private_limited_company_companies_act_1965": [
+          "Certified Copy of Certificate of Incorporation (Form 9) — original to be sighted by bank",
+          "Certified Copy of Memorandum & Articles of Association",
+          "Certified Copy of Latest Form 24 (Companies Act, 1965) — Allotment of Shares",
+          "Certified Copy of Latest Form 49 (Companies Act, 1965) — Particulars of Directors, Managers and Secretaries",
+          "Identification document (e.g., MyKad, Passport) of the directors/signatories",
+          "Resolution of the Company's Board of Directors (duly certified by Chairman and Secretary) covering: appointment of bank and branch, names and specimen signatures of signatories, mode of operation, authority to overdraw, specimen company stamp, undertaking to notify bank of future changes, authority to transfer funds",
+          "Initial deposit of RM1,000"
+        ],
+        "limited_liability_partnership": [
+          "Notice of Registration of the LLP / Perakuan Pendaftaran issued by Registrar of LLP",
+          "Register of the names, particulars and address of each Partner and Compliance Officer",
+          "Approval Letter from the Professional governing body to form an LLP and a valid Professional Indemnity Certificate (for Professional Practice LLP only)",
+          "Identification document (e.g., MyKad, Passport) of the partners/signatories",
+          "Resolution passed according to the LLP Agreement OR by majority of partners covering: appointment of bank and branch, names and specimen signatures of authorised signatories, method of signing (mode of operation)"
+        ]
+      }
+    },
+    {
+      "id": 8,
+      "bank_name": "Alliance Bank",
+      "account_name": "Business Current Account / Business Current Account-i",
+      "best_for": "SMEs that want hands-on support from a dedicated relationship manager",
+      "key_features": {
+        "initial_deposit": "RM100",
+        "service_charge": "Half-yearly charge applies if average balance falls below threshold",
+        "account_opening": "Doorstep service (relationship manager visits business premises)",
+        "introducer_required": false,
+        "standout_features": [
+          "Doorstep onboarding — relationship manager visits your premises to complete biometric verification",
+          "Alliance BizSmart platform with multi-user access, customisable approval limits, and transaction scheduling up to 30 days in advance",
+          "Collateral-free SME financing of up to RM1 million via Alliance Digital SME Cash Flow Financing"
+        ]
+      },
+      "documents_required": {
+        "note": "Fill in and submit the application form online. An Alliance Relationship Manager will contact you within 1 working day to check documents and schedule biometric IC verification — either at a branch or at your business premises.",
+        "account_opening_steps": [
+          "Prepare supporting documents based on your business entity type",
+          "Apply online at alliancebank.com.my and submit the application form",
+          "Alliance Relationship Manager contacts you within 1 working day to verify documents and schedule biometric IC verification",
+          "Relationship Manager can visit your business premises for on-site verification at your convenience",
+          "Deposit minimum RM500 to generate your Alliance BCA account number"
+        ],
+        "documents_by_entity": {
+          "sole_proprietorship": [
+            "Application Form signed by Business Owner",
+            "MyKad / Passport for Business Owner",
+            "Borang A – Business Certificate of Registration",
+            "Borang B – Change of Particulars of Sole Proprietor (if applicable)",
+            "Borang D – Annual Renewal Certificate",
+            "Trading Licence (Sabah & Sarawak only)",
+            "Licensing Authority / Practising Certificate (for professionals governed by specific legislation)"
+          ],
+          "partnership": [
+            "Application Form signed by Partners / Authorised Signatories",
+            "MyKad / Passport for all Partners",
+            "Borang A – Business Certificate of Registration",
+            "Borang B – Change of Particulars of Partners (if applicable)",
+            "Borang D – Annual Renewal Certificate",
+            "Partnership's Deed / Agreement (if applicable)",
+            "Trading Licence (Sabah & Sarawak only)",
+            "Licensing Authority / Practising Certificate (for professionals governed by specific legislation)"
+          ],
+          "llp": [
+            "Application Form signed by Authorised Signatories",
+            "MyKad / Passport for all Partners",
+            "Notice of Registration under Akta LLP 2012",
+            "Certificate of Incorporation",
+            "Letter of Authorisation to indicate intention to open account and manner of operating the account",
+            "Partnership's Deed / Agreement (if applicable)",
+            "Trading Licence (Sabah & Sarawak only)",
+            "Licensing Authority / Practising Certificate (for professionals governed by specific legislation)"
+          ],
+          "sdn_bhd": [
+            "Application Form signed by Authorised Signatories",
+            "MyKad / Passport for all Authorised Signatories, Identified Beneficiary Owners, and all Directors who are not Authorised Signatories",
+            "Certificate of Incorporation",
+            "Board / Extract of Resolution",
+            "Memorandum & Articles of Association / Constitution (if applicable)",
+            "Application of Registration of a Company (if applicable)",
+            "List of Directors & Secretary / Notification of Appointment of the first Company Secretary / Notification of Change in the Register of Directors, Managers and Secretaries (if applicable)",
+            "Shareholding / Issue & Paid up Capital / Return for allotment of share (if applicable)",
+            "Registered Office / Notification of Change in the Registered Address (if applicable)",
+            "Certificate of Change of Name (if applicable)",
+            "Latest Annual Return (if applicable)"
+          ],
+          "bhd": [
+            "Application Form signed by Authorised Signatories",
+            "MyKad / Passport for all Authorised Signatories, Identified Beneficiary Owners, and all Directors who are not Authorised Signatories",
+            "Certificate of Incorporation",
+            "Board / Extract of Resolution",
+            "Memorandum & Articles of Association / Constitution (if applicable)",
+            "Application of Registration of a Company (if applicable)",
+            "Certificate for Commencement of Business (if applicable)",
+            "List of Directors & Secretary / Notification of Appointment of the first Company Secretary / Notification of Change in the Register of Directors, Managers and Secretaries (if applicable)",
+            "Shareholding / Issue & Paid up Capital / Return for allotment of share (if applicable)",
+            "Registered Office / Notification of Change in the Registered Address (if applicable)",
+            "Certificate of Change of Name (if applicable)",
+            "Latest Annual Return (if applicable)"
+          ]
+        }
+      }
+    },
+    {
+      "id": 9,
+      "bank_name": "AmBank",
+      "account_name": "BizSmart Account / Business Current Account-i",
+      "best_for": "SMEs that want a no-fuss digital business account",
+      "key_features": {
+        "initial_deposit": "Not disclosed",
+        "service_charge": "Half-yearly, waived if monthly average balance is RM1,000 or above",
+        "account_opening": "100% online",
+        "introducer_required": false,
+        "standout_features": [
+          "Fully digital account opening via the AmAccess Biz app with no branch visit needed",
+          "AmAccess Biz app handles day-to-day payments, transfers, and account management"
+        ]
+      },
+      "documents_required": {
+        "note": "All documents submitted digitally via the AmAccess Biz app — no branch visit required",
+        "sdn_bhd": [
+          "Certified SSM company profile / SSM extracts (company info, directors/shareholders, and registered address details)",
+          "Company Constitution (if applicable)",
+          "Board resolution authorising the account opening and naming authorised signatories",
+          "Identity cards (MyKad) or passports for all directors and authorised signatories",
+          "Proof of registered business address (tenancy agreement or utility bill)",
+          "Business licence or permit (where applicable)",
+          "Initial deposit amount (not disclosed)"
+        ],
+        "sole_proprietorship_and_partnership": [
+          "Business Registration Certificate issued by SSM (or Enterprise Registration)",
+          "Identity card (MyKad) of the proprietor or all partners",
+          "Partnership deed (if applicable)",
+          "Business licence (if applicable)",
+          "Initial deposit amount (not disclosed)"
+        ]
+      }
+    },
+    {
+      "id": 10,
+      "bank_name": "GXBank",
+      "account_name": "Biz Account",
+      "best_for": "Sole proprietors that want 100% digital banking with no fees and daily interest on balances",
+      "key_features": {
+        "initial_deposit": "None required",
+        "service_charge": "None",
+        "account_opening": "100% online",
+        "introducer_required": false,
+        "standout_features": [
+          "Malaysia's first digital bank, licensed by Bank Negara Malaysia",
+          "Daily interest on balances at 2.50% p.a., calculated daily and posted at end of each day",
+          "No minimum balance, no monthly fee, no transaction fees",
+          "Biz FlexiLoan provides a credit line of up to RM150,000 with instant approval and 24/7 drawdown",
+          "Available to sole proprietors only; apply via GXBank app using MyKad and Business Registration Number"
+        ]
+      },
+      "documents_required": {
+        "note": "Available to sole proprietors only. All verification is done digitally via the GXBank app — no branch visit, no paperwork, no initial deposit required.",
+        "sole_proprietorship_only": [
+          "Valid MyKad (Malaysian identity card)",
+          "Business Registration Number (BRN) issued by SSM",
+          "Malaysian-registered mobile number",
+          "Email address",
+          "An existing personal bank account with another bank in Malaysia",
+          "Latest 1-month business or personal bank statement used to run daily business operations"
+        ]
+      }
+    }
+  ]
+}

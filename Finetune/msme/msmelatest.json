@@ -1,0 +1,410 @@
+{
+  "startup_roadmap": {
+    "title": "SME Startup Process (Malaysia)",
+    "steps": [
+      {
+        "id": 1,
+        "step": "Solve Problem Statement",
+        "description": "Conduct market research to validate pain points in Malaysia. Attend networking events to get direct feedback from experienced entrepreneurs to refine your direction."
+      },
+      {
+        "id": 2,
+        "step": "Vision & Mission",
+        "description": "Align your team with a 3-5 year strategic plan and KPIs. Use the mission to guide decisions and the vision to set long-term goals."
+      },
+      {
+        "id": 3,
+        "step": "Business & Financial Planning",
+        "description": "Define products and revenue models (recurring vs one-off). Calculate startup capital, monthly burn rate, and emergency funds for market validation."
+      },
+      {
+        "id": 4,
+        "step": "Structure & Registration",
+        "description": "Choose a structure based on liability and tax. Register via SSM Ezbiz: Name search, Entity selection, and Document submission.",
+        "options": ["Sole Prop", "Partnership", "Sdn Bhd", "LLP"]
+      },
+      {
+        "id": 5,
+        "step": "Build the Right Team",
+        "description": "Hire for cultural fit and technical skill. Define clear roles/SOPs and align the team with KPIs for accounting, HR, and operations."
+      },
+      {
+        "id": 6,
+        "step": "Outsource to Save Costs",
+        "description": "Outsource non-core areas like financial accounting and payroll to maintain a lean operation and professional financial reporting."
+      },
+      {
+        "id": 7,
+        "step": "Lean Technology Adoption",
+        "description": "Utilize cloud accounting and digital tools to gain accurate, transparent financial data for better growth decisions."
+      },
+      {
+        "id": 8,
+        "step": "Compliance & Policy",
+        "description": "Prepare for E-Invoicing (Mandatory July 2025). Align with Malaysia's Annual Budget for tax incentives (15%-24% SME tax brackets)."
+      },
+      {
+        "id": 9,
+        "step": "Monitor & Grow",
+        "description": "Use dashboards and cloud software (e.g., Xero) to track performance and forecast cash flow regularly.",
+        "metrics": ["Revenue growth", "Customer acquisition cost", "Ops efficiency"]
+      },
+      {
+        "id": 10,
+        "step": "Establish Authority (The Wow Factor)",
+        "description": "Become a niche authority to build customer trust. Focus on outstanding service and sustainability, as SMEs drive 98.5% of the Malaysian economy."
+      }
+    ]
+  },
+  "financing_guide": {
+    "title": "Startup Financing & Loan Process",
+    "steps": [
+      {
+        "id": 1,
+        "step": "Determine Amount & Purpose",
+        "description": "Identify specific needs (e.g., working capital, equipment) and tenure to choose the right financing type."
+      },
+      {
+        "id": 2,
+        "step": "Prepare Documentation",
+        "description": "Gather all required documents before approaching a lender.",
+        "required_docs": [
+          "SSM Registration & Operating License",
+          "Latest 6 months bank statements",
+          "Management or Audited Accounts",
+          "NRIC of Directors/Shareholders",
+          "Latest 3 years Income Tax Return"
+        ]
+      },
+      {
+        "id": 3,
+        "step": "Choose Lender/Scheme",
+        "description": "Select the most suitable financing channel based on your needs and eligibility.",
+        "options": ["Traditional Bank Loans", "Digital Financing (Alliance/Maybank)", "P2P Lending Platforms"]
+      },
+      {
+        "id": 4,
+        "step": "Submit & Approve",
+        "description": "Digital options typically approve within 24 hours to 3 working days. Process involves an online/in-branch application followed by a potential virtual interview."
+      },
+      {
+        "id": 5,
+        "step": "Disbursement",
+        "description": "Upon signing the Letter of Offer, funds are typically disbursed within 3-5 business days."
+      }
+    ]
+  },
+  "ssm_registration_sole_prop": {
+    "platform": "SSM EzBiz Online (24/7)",
+    "eligibility": "Malaysian Citizen or Permanent Resident (PR)",
+    "fee_structure": [
+      {
+        "type": "Personal Name",
+        "fee_annually": 30,
+        "note": "Uses owner's IC name"
+      },
+      {
+        "type": "Trade Name",
+        "fee_annually": 60,
+        "note": "Recommended for professional branding/banking"
+      },
+      {
+        "type": "Branch Office",
+        "fee_annually": 5,
+        "note": "Per branch registered"
+      }
+    ],
+    "steps": [
+      {
+        "id": 1,
+        "step": "Online Submission",
+        "description": "Create account on EzBiz, fill in business details, and pay the registration fee."
+      },
+      {
+        "id": 2,
+        "step": "Physical Verification",
+        "description": "Visit any SSM branch for one-time biometric (thumbprint) ID confirmation to activate the account."
+      },
+      {
+        "id": 3,
+        "step": "Document Retrieval",
+        "description": "Download Form A and Business Registration Certificate (Form D) via the EzBiz portal."
+      }
+    ],
+    "banking_setup": {
+      "process": "Initiate online (e.g., Maybank/CIMB), visit branch within 10 days for biometric verification.",
+      "requirement": "Business registration documents (Form A & D) and IC of owner.",
+      "tip": "Choose a branch near your home/office for easier future document verification."
+    },
+    "recommended_tools": {
+      "branding": "Canva (Logo & Name Cards)",
+      "accounting": "Cloud-based software (e.g., Bukku or Xero) for financial management."
+    }
+  },
+  "employer_compliance_malaysia": {
+    "summary": "Mandatory registrations for hiring employees in Malaysia (EPF, SOCSO/EIS, LHDN).",
+    "agencies": [
+      {
+        "name": "KWSP (EPF)",
+        "purpose": "Retirement savings",
+        "registration_deadline": "Within 7 days of hiring",
+        "contribution_deadline": "15th of every month",
+        "platform": "i-Akaun (Majikan)",
+        "required_docs": ["Form KWSP 1", "SSM Superform", "Director NRIC/Passport"]
+      },
+      {
+        "name": "PERKESO (SOCSO) & EIS",
+        "purpose": "Injury/Unemployment insurance",
+        "registration_deadline": "Within 30 days of hiring",
+        "contribution_deadline": "15th of every month",
+        "platform": "ASSIST Portal",
+        "required_docs": ["Form 1 (Employer)", "Form 2 (Employee)", "SSM Certificates"]
+      },
+      {
+        "name": "LHDN (PCB/MTD)",
+        "purpose": "Monthly Tax Deduction",
+        "registration_deadline": "Before first salary deduction",
+        "contribution_deadline": "15th of every month",
+        "platform": "e-Daftar Portal",
+        "required_docs": ["SSM Form 9", "SSM Form 49", "SSM Form 13 (if applicable)"]
+      }
+    ],
+    "critical_compliance_tips": [
+      "Registration certificate must be displayed at business premises.",
+      "LHDN documents must be uploaded within 14 days of online application to avoid cancellation.",
+      "Submit Form 1A to SOCSO within 30 days if an employee leaves or business ceases.",
+      "Late payments for any agency usually result in automatic fines or interest (Late Payment Interest)."
+    ]
+  },
+  "hrd_corp_registration_guide": {
+    "agency": "HRD Corp (Human Resource Development Corporation)",
+    "portal": "hrdcorp.gov.my",
+    "purpose": "Mandatory registration for companies with 10+ Malaysian employees to fund workforce upskilling.",
+    "steps": [
+      {
+        "id": 1,
+        "step": "Visit Official Portal",
+        "description": "Go to hrdcorp.gov.my, navigate to the 'Employers' section, and select 'Registration'."
+      },
+      {
+        "id": 2,
+        "step": "Review Guidelines",
+        "description": "Download and read the Employer Registration guidelines to understand the PSMB Act 2001 requirements."
+      },
+      {
+        "id": 3,
+        "step": "Prepare Supporting Documents",
+        "description": "Gather all required documents before proceeding with the online submission.",
+        "required_docs": [
+          "SSM Registration Documents (Section 14/SuperForm/Form 9)",
+          "Latest EPF (KWSP) Statement (to verify Malaysian employee count)",
+          "Company Profile or latest Financial Audit Report (to verify business activity/sector)"
+        ]
+      },
+      {
+        "id": 4,
+        "step": "Submit Form 1",
+        "description": "Complete Form 1 (Employer Registration Form) online via the e-TRiS system and upload all supporting documents."
+      },
+      {
+        "id": 5,
+        "step": "Verification & Approval",
+        "description": "HRD Corp officers will review the application (typically within 30 days). You will receive an approval email with your e-TRiS User ID and Password."
+      }
+    ],
+    "critical_notes": {
+      "compliance": "Registration is mandated by law under the PSMB Act 2001. Failure to register when eligible can lead to fines up to RM20,000.",
+      "epf_source": "The 'EPF Statement' is used as the official proof of how many local employees you currently employ.",
+      "onboarding": "Newly registered employers are usually invited to an online onboarding session to learn how to claim training grants."
+    }
+  },
+  "myipo_patent_process": {
+    "description": "MyIPO Patent Filing & Digital Certificate Workflow: A comprehensive technical guide for securing a Malaysian patent via the IP Online system, covering account creation, digital authentication, and document submission.",
+    "steps": [
+      {
+        "id": 1,
+        "step": "User Registration",
+        "description": "Create an account on the MyIPO IP Online system and set up your user profile.",
+        "sub_steps": [
+          "Access MyIPO Home Page.",
+          "Select 'Becoming a registered user'.",
+          "Choose the appropriate user category (Individual/Company/Agent).",
+          "Enter email activation code (if available).",
+          "If no code, fill in required details and click 'Submit'.",
+          "Verify message: 'Your private profile has been created'.",
+          "Proceed to create a public account.",
+          "Enter mandatory information.",
+          "Verify message: 'Client successfully created'.",
+          "System will perform automatic login to the home page."
+        ]
+      },
+      {
+        "id": 2,
+        "step": "Digital Certificate Setup",
+        "description": "Set up a POS Digicert digital certificate for authenticated document signing.",
+        "provider": "POS Digicert",
+        "sub_steps": [
+          "Login > My Account > Maintain Individual/Company.",
+          "Search for profile and select 'Edit'.",
+          "Click 'Request/Renew Certificate' for Digicert application.",
+          "Select package, upload NRIC/SSM documents, and pay via 1CRS portal.",
+          "Post 'AP APPROVED' status: Set up PIN and Challenge Response.",
+          "Ensure status is 'DELIVERED/ISSUED' and 'ACTIVE' for signing."
+        ]
+      },
+      {
+        "id": 3,
+        "step": "Document Preparation",
+        "description": "Prepare all mandatory documents in the required formats prior to submission.",
+        "mandatory_formats": "All attachments must be in PDF format.",
+        "required_docs": [
+          "Description (Technical disclosure)",
+          "Claims (Legal scope/boundaries)",
+          "Abstract (Brief summary)",
+          "Drawings (If applicable)",
+          "Sequence Listing (For biotech, if applicable)"
+        ],
+        "administrative_forms": "Prepare Priority Data, Form 17 (Agent appointment), and Form 22 as required."
+      },
+      {
+        "id": 4,
+        "step": "Submission & Payment",
+        "description": "Submit the application via the IP Online portal and complete payment.",
+        "agent_protocol": "Registered agents must upload Form 17 during the filing process.",
+        "payment_gateways": ["FPX (Online Banking)", "Credit Card"],
+        "notifications": "System triggers automatic generation of Patent Forms and email confirmations post-submission.",
+        "resources": "Detailed instructions and tutorials are available on the official MyIPO IP Online portal."
+      }
+    ]
+  },
+  "myipo_trademark_master": {
+    "description": "Trademark Registration Guide for MyIPO: A strategic manual for brand protection in Malaysia, covering prerequisites, the 45 Nice Classes, and the 12-18 month registration lifecycle.",
+    "phases": [
+      {
+        "id": 1,
+        "phase": "Eligibility & Distinctiveness",
+        "description": "Verify that the applicant and the mark meet MyIPO's eligibility requirements.",
+        "applicant_criteria": "Malaysian citizens, locally incorporated bodies/corporations, or persons domiciled in Malaysia.",
+        "mark_requirements": [
+          "Must be distinctive (logos, slogans, shapes, or combinations).",
+          "Must not be identical/similar to existing registered marks.",
+          "Must be non-descriptive (cannot describe quality, purpose, or origin directly)."
+        ]
+      },
+      {
+        "id": 2,
+        "phase": "Pre-Filing Strategy",
+        "description": "Conduct research and classification before submitting the application.",
+        "trademark_search": "Mandatory recommendation to search the MyIPO IP Online database to avoid conflicts.",
+        "classification": "Goods and services must be categorized using the 45 'Nice Classification' classes."
+      },
+      {
+        "id": 3,
+        "phase": "Registration Workflow",
+        "description": "Follow the formal registration process from filing through to certification.",
+        "timeline": "Estimated 12 to 18 months from filing to certification.",
+        "steps": [
+          {
+            "id": 1,
+            "step": "Filing",
+            "description": "Submit Form TMA2A (Pre-approved) or TMA2B (Custom) via IP Online Portal."
+          },
+          {
+            "id": 2,
+            "step": "Examination",
+            "duration": "6-8 months",
+            "description": "Formality and substantive checks for uniqueness by MyIPO."
+          },
+          {
+            "id": 3,
+            "step": "Publication",
+            "duration": "2 months",
+            "description": "Gazetted for public opposition; third parties may object within this window."
+          },
+          {
+            "id": 4,
+            "step": "Certification",
+            "description": "Issuance of the Certificate of Registration if no opposition is filed."
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "phase": "Cost Structure (MYR)",
+        "description": "Overview of fees involved in the trademark registration process.",
+        "fees": {
+          "application_pre_approved": 950,
+          "application_customized": 1100,
+          "publication_fee": 650,
+          "registration_certificate": 50,
+          "renewal_10_years": 1200
+        }
+      },
+      {
+        "id": 5,
+        "phase": "Documentation Checklist",
+        "description": "Prepare the following documents before initiating the application.",
+        "required_docs": {
+          "entity_info": "Applicant name, address, or company registration details.",
+          "visual_assets": "Softcopy of logo/design (JPEG/PDF).",
+          "translations": "Certified transliteration required if the mark is not in Roman characters, English, or BM.",
+          "legal": "Statutory declaration (if requested)."
+        }
+      },
+      {
+        "id": 6,
+        "phase": "Validity & Rights",
+        "description": "Understanding the legal rights and obligations after successful registration.",
+        "tenure": "Valid for 10 years; renewable indefinitely every 10 years.",
+        "usage_rule": "Subject to revocation if not used in good faith within 3 years.",
+        "privilege": "Legal right to use the ® symbol upon successful registration."
+      }
+    ]
+  },
+  "copyright_voluntary_notification_malaysia": {
+    "description": "Malaysian Copyright Voluntary Notification Guide: A strategic framework for SMEs to formally record ownership of creative and literary assets with MyIPO.",
+    "eligibility_criteria": {
+      "originality": "Work must demonstrate sufficient effort, skill, and labor.",
+      "material_form": "Work must be fixed in a tangible medium (written, recorded, or digital).",
+      "qualified_person": "Author must be a Malaysian citizen/resident or a Malaysian incorporated body.",
+      "protected_categories": ["Literary (Software, Manuals)", "Musical", "Artistic (Logos, Designs)", "Films", "Sound Recordings", "Derivative Works"]
+    },
+    "steps": [
+      {
+        "id": 1,
+        "step": "Document Preparation",
+        "description": "Prepare all required forms and supporting materials before submission.",
+        "requirements": [
+          "Form CR-1: Application for Voluntary Notification.",
+          "Form CR-3: Required if using a representative/agent.",
+          "Deposit of Work: Physical or softcopy (CD/DVD/USB) of the full work.",
+          "Company Docs: Certified True Copy of Section 14 (Incorporation) & Section 58 (Directors).",
+          "Statutory Declaration: Recommended legal confirmation of ownership."
+        ]
+      },
+      {
+        "id": 2,
+        "step": "Submission & Payment",
+        "description": "Submit via MyIPO online portal or physical counter. Fees are generally lower than Patents/Trademarks."
+      },
+      {
+        "id": 3,
+        "step": "Examination Phase",
+        "description": "MyIPO verifies completeness and records the notification.",
+        "timeline": "6 to 12 months"
+      },
+      {
+        "id": 4,
+        "step": "Certification",
+        "description": "Issuance of the 'Notice of Recordal of Copyright Voluntary Notification' and formal certificate."
+      }
+    ],
+    "strategic_benefits": {
+      "legal_evidence": "Provides prima facie evidence of ownership in IP infringement lawsuits.",
+      "commercial_value": "Essential for licensing, franchising, and asset valuation during funding rounds.",
+      "protection_duration": "Generally valid for the life of the author plus 50 years (No renewal fees required).",
+      "international_scope": "Protection is automatic in 180+ countries via the Berne Convention, though the MyIPO certificate is specific to Malaysia."
+    },
+    "expert_note": "While registration is 'voluntary' (protection exists automatically upon creation), formal notification is highly recommended for SMEs to deter unauthorized copying and simplify enforcement."
+  }
+}
