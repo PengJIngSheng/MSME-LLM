@@ -1790,21 +1790,30 @@ h1,h2,h3,h4,h5,h6 {
     transform: rotate(180deg);
 }
 
+/* ── iOS Liquid Glass Connector Panel ───────────────────────────────────── */
 .connector-dropdown {
     position: absolute;
-    bottom: calc(100% + 8px);
-    left: 0;
-    width: 280px;
-    background: #ffffff;
-    border: 1px solid rgba(0,0,0,0.09);
-    border-radius: 16px;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06);
-    padding: 10px;
+    bottom: calc(100% + 12px);
+    right: 0;
+    left: auto;
+    width: 268px;
+    /* iOS-style liquid glass */
+    background: rgba(255, 255, 255, 0.78);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.65);
+    border-radius: 20px;
+    box-shadow:
+        0 2px 8px rgba(0,0,0,0.06),
+        0 12px 32px rgba(0,0,0,0.10),
+        inset 0 1px 0 rgba(255,255,255,0.9);
+    padding: 8px;
     opacity: 0;
     pointer-events: none;
-    transform: translateY(6px) scale(0.98);
-    transform-origin: bottom left;
-    transition: opacity 0.18s ease, transform 0.18s cubic-bezier(0.16,1,0.3,1);
+    transform: translateY(8px) scale(0.97);
+    transform-origin: bottom right;
+    transition: opacity 0.22s cubic-bezier(0.16,1,0.3,1),
+                transform 0.22s cubic-bezier(0.34,1.56,0.64,1);
     z-index: 100;
 }
 
@@ -1815,34 +1824,35 @@ h1,h2,h3,h4,h5,h6 {
 }
 
 .connector-dropdown-header {
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.09em;
     text-transform: uppercase;
-    color: var(--primary-dim);
-    padding: 2px 6px 8px;
+    color: rgba(0,0,0,0.38);
+    padding: 6px 10px 6px;
 }
 
 .connector-item {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px 10px;
-    border-radius: 10px;
+    padding: 10px 10px;
+    border-radius: 12px;
     cursor: default;
-    transition: background 0.15s;
-    font-size: 0.88rem;
+    transition: background 0.14s;
+    font-size: 0.9rem;
+    font-weight: 500;
     color: var(--on-surface);
 }
 
 .connector-item:hover {
-    background: rgba(0,0,0,0.04);
+    background: rgba(0,0,0,0.045);
 }
 
 .connector-icon-name {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 11px;
     font-weight: 500;
 }
 
@@ -2045,8 +2055,9 @@ h1,h2,h3,h4,h5,h6 {
     to   { opacity: 1; transform: translateY(0);   }
 }
 
+/* Note: connector-dropdown is intentionally excluded — it has its own
+   opacity/transform transition tied to .open class and must start hidden. */
 .user-menu-popup,
-.connector-dropdown,
 .history-search-results,
 .modal-overlay > div,
 .delete-dialog {
