@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Verify Identity - MSME.AI</title>
+    <title>Verify Identity - Ministry of Finance</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet">
     <script>
@@ -42,11 +42,9 @@
 
         let currentLang = 'en';
         (function() {
-            const browserLang = (navigator.language || navigator.userLanguage || 'en').toLowerCase();
-            const defaultLang = browserLang.startsWith('zh') ? 'zh' : (browserLang.startsWith('ms') || browserLang.includes('my') ? 'ms' : 'en');
-            const savedTheme = localStorage.getItem('pepperTheme') || 'light';
+            const savedTheme = localStorage.getItem('pepperTheme') || 'dark';
             document.documentElement.setAttribute('data-theme', savedTheme);
-            currentLang = localStorage.getItem('pepperLang') || defaultLang;
+            currentLang = localStorage.getItem('pepperLang') || 'en';
         })();
     </script>
     <style>
@@ -113,7 +111,7 @@
 
     <div class="split-left">
         <div class="top-nav">
-            <div class="logo-container"><a href="/"><img src="/static/Main%20Logo.png" alt="MSME.AI Logo"></a></div>
+            <div class="logo-container"><a href="/"><img src="/static/MOF_Logo.png" alt="MOF Logo"></a></div>
         </div>
         
         <div class="auth-container">

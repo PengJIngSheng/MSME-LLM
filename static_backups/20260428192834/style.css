@@ -261,8 +261,8 @@ h1,h2,h3,h4,h5,h6 {
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    padding: 16px 1rem 10px;
-    min-height: 56px;
+    padding: 1.5rem 1rem 1.5rem;
+    min-height: 84px;
 }
 
 .home-link {
@@ -1311,8 +1311,6 @@ h1,h2,h3,h4,h5,h6 {
     font-weight: 700;
     color: var(--on-surface);
     letter-spacing: -0.02em;
-    line-height: 1.2;
-    text-align: center;
 }
 
 #logoContainer {
@@ -1329,16 +1327,16 @@ h1,h2,h3,h4,h5,h6 {
 }
 
 .logo-text {
-    font-size: 1.42rem;
+    font-size: 1.4rem;
     font-weight: 900;
-    letter-spacing: 0.055em;
+    letter-spacing: 0.05em;
     margin: 0;
-    background: linear-gradient(90deg, #141414 0%, #5f6065 24%, #b9a86f 45%, #f4f0df 55%, #55575c 72%, #141414 100%);
-    background-size: 220% auto;
+    background: linear-gradient(90deg, #ff3b30, #ff9500, #ffcc00, #8e8e93, #ff3b30, #ff9500);
+    background-size: 200% auto;
     color: transparent;
     -webkit-background-clip: text;
     background-clip: text;
-    animation: textShine 12s linear infinite;
+    animation: textShine 10s linear infinite;
 }
 
 @keyframes textShine {
@@ -4968,121 +4966,6 @@ html:not([data-theme="dark"]) .account-delete-cancel {
     }
 }
 
-@media (max-width: 760px) {
-    body {
-        overflow: hidden;
-    }
-
-    .page-wrapper {
-        width: 100vw;
-    }
-
-    .mobile-header {
-        display: flex;
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 58px;
-        padding: 10px 16px;
-        background: color-mix(in srgb, var(--surface) 86%, transparent);
-        border-bottom: 1px solid var(--outline-variant);
-        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.04);
-    }
-
-    .sidebar {
-        position: fixed;
-        top: 10px;
-        left: 10px;
-        bottom: 10px;
-        width: min(82vw, 300px);
-        margin: 0;
-        z-index: 1200;
-        transform: translateX(0);
-        transition: transform 0.28s ease, opacity 0.28s ease;
-        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.18), inset 0 0 0 1px rgba(255,255,255,0.7);
-    }
-
-    .page-wrapper.sidebar-collapsed .sidebar {
-        width: min(82vw, 300px);
-        transform: translateX(calc(-100% - 24px));
-        opacity: 0;
-        pointer-events: none;
-    }
-
-    .page-wrapper.sidebar-collapsed .sidebar-top .home-link,
-    .page-wrapper.sidebar-collapsed .nav-text,
-    .page-wrapper.sidebar-collapsed .history-group-title,
-    .page-wrapper.sidebar-collapsed .history-item,
-    .page-wrapper.sidebar-collapsed .nav-divider,
-    .page-wrapper.sidebar-collapsed .sidebar-user-btn {
-        display: initial;
-        opacity: 1;
-    }
-
-    .page-wrapper.sidebar-collapsed .nav-menu-btn {
-        width: 100%;
-        height: auto;
-        padding: 8px 14px;
-        justify-content: flex-start;
-        aspect-ratio: auto;
-    }
-
-    .main-content {
-        width: 100vw;
-        min-width: 0;
-    }
-
-    .guest-header {
-        top: 58px;
-        padding: 10px 14px 0;
-    }
-
-    .guest-nav {
-        gap: 6px;
-    }
-
-    .guest-nav-login,
-    .guest-nav-register {
-        min-height: 36px;
-        padding: 7px 13px;
-        font-size: 0.82rem;
-    }
-
-    .app-container,
-    .app-container.centered-landing {
-        max-width: 100%;
-        padding: 104px 14px 0;
-    }
-
-    .app-container.centered-landing .chat-area {
-        margin-bottom: 1.2rem;
-    }
-
-    .greeting-container h2 {
-        font-size: clamp(1.55rem, 8vw, 2.05rem);
-        line-height: 1.16;
-    }
-
-    .logo-text {
-        font-size: clamp(1rem, 4.5vw, 1.28rem);
-    }
-
-    .input-wrapper {
-        left: 10px;
-        right: 10px;
-        bottom: max(10px, env(safe-area-inset-bottom));
-    }
-
-    .liquid-glass-input {
-        border-radius: 26px;
-    }
-
-    .messages {
-        gap: 1rem;
-    }
-}
-
 @media (max-width: 900px) {
     .account-page-overlay {
         overflow-y: auto;
@@ -6124,255 +6007,4 @@ html:not([data-theme="dark"]) .account-edit-cancel {
 html:not([data-theme="dark"]) .account-edit-save {
     background: #111111;
     color: #ffffff;
-}
-
-/* =========================================================================
-   MSME.AI Brand + Refined Chat Surface
-   ========================================================================= */
-.main-logo-img {
-    display: block;
-    width: auto;
-    max-width: 118px;
-    height: 38px;
-    object-fit: contain;
-}
-
-.sidebar-top .home-link {
-    width: 128px;
-    height: 42px;
-}
-
-.account-brand img {
-    width: auto;
-    height: 38px;
-    max-width: 132px;
-    object-fit: contain;
-}
-
-.logo-container img {
-    height: 40px;
-    width: auto;
-    object-fit: contain;
-}
-
-.sidebar-nav-menu {
-    gap: 2px;
-    margin-bottom: 0.55rem;
-}
-
-.nav-menu-btn {
-    min-height: 38px;
-    padding-top: 7px;
-    padding-bottom: 7px;
-}
-
-[data-theme="dark"],
-[data-theme="dark"] body {
-    background: #000000;
-    color: #ffffff;
-}
-
-[data-theme="dark"] .main-content,
-[data-theme="dark"] .app-container,
-[data-theme="dark"] .chat-area {
-    background: #000000;
-}
-
-[data-theme="dark"] .sidebar {
-    background: #000000;
-    border-color: rgba(255, 255, 255, 0.12);
-    box-shadow: none;
-}
-
-[data-theme="dark"] .mobile-header {
-    background: #000000;
-    border-bottom-color: transparent;
-    box-shadow: none;
-}
-
-[data-theme="dark"] .liquid-glass-input {
-    background: #000000 !important;
-    border: 1.5px solid #ffffff !important;
-    box-shadow: none !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-}
-
-[data-theme="dark"] .liquid-glass-input::after {
-    display: none !important;
-}
-
-[data-theme="dark"] .liquid-glass-input textarea {
-    color: #ffffff;
-    background: transparent;
-}
-
-[data-theme="dark"] .liquid-glass-input textarea::placeholder {
-    color: rgba(255, 255, 255, 0.54);
-}
-
-[data-theme="dark"] .submit-btn {
-    background: #ffffff !important;
-    color: #000000 !important;
-    border: 1px solid #ffffff !important;
-    box-shadow: none !important;
-}
-
-[data-theme="dark"] .toggle-switch,
-[data-theme="dark"] .connector-trigger,
-[data-theme="dark"] .icon-btn {
-    background: #000000 !important;
-    border: 1px solid rgba(255, 255, 255, 0.82) !important;
-    color: #ffffff !important;
-    box-shadow: none !important;
-}
-
-[data-theme="dark"] .toggle-switch:hover,
-[data-theme="dark"] .connector-trigger:hover,
-[data-theme="dark"] .icon-btn:hover {
-    background: #111111 !important;
-}
-
-[data-theme="dark"] #webToggle.active,
-[data-theme="dark"] #thinkToggle.active,
-[data-theme="dark"] .toggle-switch.active {
-    background: #ffffff !important;
-    color: #000000 !important;
-    border-color: #ffffff !important;
-}
-
-[data-theme="dark"] .guest-nav-login,
-[data-theme="dark"] .guest-nav-register {
-    background: #ffffff;
-    color: #000000;
-    border-color: #ffffff;
-    box-shadow: none;
-}
-
-@media (max-width: 760px) {
-    .main-logo-img {
-        height: 34px;
-        max-width: 104px;
-    }
-
-    .mobile-header {
-        height: 60px;
-        padding: 12px 18px;
-        background: var(--surface);
-        border-bottom: 0;
-        box-shadow: none;
-    }
-
-    .mobile-logo-text {
-        font-size: 1.02rem;
-        font-weight: 700;
-    }
-
-    .guest-header {
-        top: 8px;
-        left: auto;
-        right: 10px;
-        padding: 0;
-        width: auto;
-        z-index: 1050;
-    }
-
-    .guest-nav {
-        width: auto;
-        gap: 7px;
-    }
-
-    .guest-nav-gear {
-        display: none;
-    }
-
-    .guest-nav-login,
-    .guest-nav-register {
-        min-height: 40px;
-        padding: 8px 16px;
-        font-size: 0.86rem;
-        border-radius: 999px;
-    }
-
-    .guest-nav-register {
-        display: none;
-    }
-
-    .app-container,
-    .app-container.centered-landing {
-        padding: 76px 16px 0;
-    }
-
-    .app-container.centered-landing {
-        justify-content: center;
-        min-height: 100%;
-    }
-
-    .app-container.centered-landing .chat-area {
-        margin-bottom: clamp(7rem, 23vh, 13rem);
-    }
-
-    .greeting-container h2 {
-        font-size: clamp(1.7rem, 7.6vw, 2.15rem);
-        font-weight: 500;
-        letter-spacing: 0;
-    }
-
-    .logo-text {
-        font-size: clamp(0.98rem, 4.4vw, 1.22rem);
-    }
-
-    .input-wrapper {
-        left: 14px;
-        right: 14px;
-        bottom: max(18px, env(safe-area-inset-bottom));
-    }
-
-    .liquid-glass-input {
-        min-height: 58px;
-        border-radius: 30px;
-    }
-
-    .input-top-row {
-        min-height: 56px;
-        padding: 0.66rem 0.78rem;
-        align-items: center;
-    }
-
-    .input-bottom-row {
-        padding: 0 0.72rem 0.68rem;
-    }
-
-    .toggles-container {
-        gap: 6px;
-    }
-
-    .toggle-switch,
-    .connector-trigger {
-        width: 38px;
-        height: 38px;
-        padding: 0;
-        justify-content: center;
-        border-radius: 50%;
-    }
-
-    .submit-btn {
-        width: 42px;
-        height: 42px;
-        flex: 0 0 42px;
-    }
-
-    .liquid-glass-input textarea {
-        min-height: 34px;
-        padding-top: 5px;
-        font-size: 1rem;
-    }
-
-    [data-theme="dark"] .page-wrapper,
-    [data-theme="dark"] .main-content,
-    [data-theme="dark"] .app-container,
-    [data-theme="dark"] .chat-area,
-    [data-theme="dark"] .mobile-header {
-        background: #000000;
-    }
 }
