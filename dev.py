@@ -15,8 +15,9 @@ import subprocess
 import signal
 
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
-WATCH_EXTS  = (".py",)
+WATCH_EXTS   = (".py",)
 POLL_INTERVAL = 1.5   # seconds between file-change checks
+PORT = 8000
 
 def _snapshot() -> dict[str, float]:
     """Return {filepath: mtime} for every watched file in the project."""
@@ -32,6 +33,37 @@ def _snapshot() -> dict[str, float]:
                 except OSError:
                     pass
     return state
+
+def _free_port(port: int):
+    """Kill any process currently listening on `port`."""
+    try:
+        result = subprocess.run(
+            ["lsof", "-ti", f"tcp:{port}"],
+            capture_output=True, text=True
+        )
+        pids = result.stdout.strip().split()
+        if not pids:
+            return
+        print(f"🔫  Found stale process(es) on :{port} — killing {', '.join(pids)}")
+        for pid in pids:
+            try:
+                os.kill(int(pid), signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+        time.sleep(1.0)   # give sockets time to close
+        # Force-kill anything still alive
+        for pid in pids:
+            try:
+                os.kill(int(pid), signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+    except FileNotFoundError:
+        # lsof not available — fall back to fuser
+        try:
+            subprocess.run(["fuser", "-k", f"{port}/tcp"], capture_output=True)
+            time.sleep(1.0)
+        except FileNotFoundError:
+            pass
 
 def _start_server() -> subprocess.Popen:
     cmd = [
@@ -57,6 +89,7 @@ def _stop_server(proc: subprocess.Popen):
 
 def main():
     print("👀  MSME.AI dev server — watching for .py changes…")
+    _free_port(PORT)
     snapshot = _snapshot()
     proc = _start_server()
 
@@ -67,6 +100,7 @@ def main():
             # Restart if server died on its own
             if proc.poll() is not None:
                 print("\n⚠️  Server exited unexpectedly, restarting…")
+                _free_port(PORT)
                 proc = _start_server()
                 snapshot = _snapshot()
                 continue
