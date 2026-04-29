@@ -140,9 +140,32 @@ function getUiCopy() {
     };
 }
 
+function getTimeGreeting(lang) {
+    const h = new Date().getHours();
+    if (lang === 'zh') {
+        if (h < 5)  return '深夜了，还在忙吗？';
+        if (h < 12) return '早上好，今天有什么计划？';
+        if (h < 14) return '中午好，今天进展如何？';
+        if (h < 18) return '下午好，有什么需要我帮忙的吗？';
+        if (h < 22) return '晚上好，今天有什么计划？';
+        return '夜深了，有什么我能帮到你的？';
+    }
+    if (lang === 'ms') {
+        if (h < 12) return 'Selamat pagi! Apa yang boleh saya bantu?';
+        if (h < 18) return 'Selamat petang! Ada apa yang anda perlukan?';
+        return 'Selamat malam! Ada apa yang boleh saya bantu?';
+    }
+    if (h < 12) return 'Good morning. What\'s on your mind?';
+    if (h < 18) return 'Good afternoon. How can I help?';
+    return 'Good evening. What can I help you with?';
+}
+
 function getNormalLandingMarkup() {
     const copy = getUiCopy();
-    return `<h2><span class="logo-text">MSME.AI</span><br/>${copy.greeting || 'How can I help you today?'}</h2>`;
+    const isMobileGuest = !currentUserId && window.innerWidth <= 760;
+    const lang = getPreferredLanguage();
+    const greeting = isMobileGuest ? getTimeGreeting(lang) : (copy.greeting || 'How can I help you today?');
+    return `<h2><span class="logo-text">MSME.AI</span><br/>${greeting}</h2>`;
 }
 
 function updateGuestLimitBannerCopy() {

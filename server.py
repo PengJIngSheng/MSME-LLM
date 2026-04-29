@@ -84,6 +84,12 @@ _mem_spec = _ilu.spec_from_file_location("memory_agent", _mem_path)
 memory_agent = _ilu.module_from_spec(_mem_spec)
 _mem_spec.loader.exec_module(memory_agent)
 
+# Load knowledge_agent via importlib
+_knowledge_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "AI agent", "knowledge_agent.py")
+_knowledge_spec = _ilu.spec_from_file_location("knowledge_agent", _knowledge_path)
+knowledge_agent = _ilu.module_from_spec(_knowledge_spec)
+_knowledge_spec.loader.exec_module(knowledge_agent)
+
 mongo_client = MongoClient(cfg.mongo_uri)
 db = mongo_client[cfg.mongo_database]
 chats_col = db["chats"]
@@ -763,6 +769,13 @@ async def stream_generator(
             _active_document_id if agent_mode else None,
         )
 
+    knowledge_injection = ""
+    if not (agent_mode and has_pdf):
+        knowledge_injection = await asyncio.to_thread(
+            knowledge_agent.retrieve_knowledge_context,
+            latest_user_msg,
+        )
+
     final_messages = inference_messages
     raw_accum_text = ""
     initial_phase  = None
@@ -928,6 +941,8 @@ async def stream_generator(
             _web_additions.append(agent_system_context)
         if memory_injection:
             _web_additions.append(memory_injection)
+        if knowledge_injection:
+            _web_additions.append(knowledge_injection)
         if _web_additions and len(final_messages) > 0 and final_messages[0]["role"] == "system":
             final_messages[0]["content"] = "\n\n".join(_web_additions) + "\n\n" + final_messages[0]["content"]
     else:
@@ -956,6 +971,8 @@ async def stream_generator(
             system_instruction = f"{agent_system_context}\n\n{system_instruction}"
         if memory_injection:
             system_instruction = f"{memory_injection}\n\n{system_instruction}"
+        if knowledge_injection:
+            system_instruction = f"{knowledge_injection}\n\n{system_instruction}"
 
         final_messages = [{"role": "system", "content": system_instruction}] + list(inference_messages)
 

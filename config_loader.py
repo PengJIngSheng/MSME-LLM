@@ -167,6 +167,13 @@ _DEFAULTS = {
             "google.com", "bing.com", "yahoo.com",
         ],
     },
+    "knowledge_rag": {
+        "enabled": True,
+        "collection": "mof_finetune_knowledge",
+        "top_k": 5,
+        "score_threshold": 0.82,
+        "max_context_chars": 6500,
+    },
 }
 
 
@@ -328,6 +335,27 @@ class _Config:
     @property
     def pgvector_collection(self) -> str:
         return str(self._env("PGVECTOR_COLLECTION", "database.pgvector.collection", "users_memory"))
+
+    # Knowledge RAG
+    @property
+    def knowledge_rag_enabled(self) -> bool:
+        return _as_bool(self._env("KNOWLEDGE_RAG_ENABLED", "knowledge_rag.enabled", True))
+
+    @property
+    def knowledge_rag_collection(self) -> str:
+        return str(self._env("KNOWLEDGE_RAG_COLLECTION", "knowledge_rag.collection", "mof_finetune_knowledge"))
+
+    @property
+    def knowledge_rag_top_k(self) -> int:
+        return int(self._env("KNOWLEDGE_RAG_TOP_K", "knowledge_rag.top_k", 5))
+
+    @property
+    def knowledge_rag_score_threshold(self) -> float:
+        return float(self._env("KNOWLEDGE_RAG_SCORE_THRESHOLD", "knowledge_rag.score_threshold", 0.82))
+
+    @property
+    def knowledge_rag_max_context_chars(self) -> int:
+        return int(self._env("KNOWLEDGE_RAG_MAX_CONTEXT_CHARS", "knowledge_rag.max_context_chars", 6500))
 
     # Services
     @property

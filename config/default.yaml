@@ -94,3 +94,10 @@ search:
     - "google.com"
     - "bing.com"
     - "yahoo.com"
+
+knowledge_rag:
+  enabled: true
+  collection: "mof_finetune_knowledge"
+  top_k: 5
+  score_threshold: 0.82
+  max_context_chars: 6500
