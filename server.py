@@ -436,6 +436,7 @@ class ChatRequest(BaseModel):
     agent_mode: bool = False
     max_tokens: Optional[int] = None   # override MAX_NEW_TOKENS per request
     user_timezone: Optional[str] = ""
+    regenerate_pdf: bool = False
 
 class SettingsRequest(BaseModel):
     max_new_tokens: Optional[int] = None
@@ -652,7 +653,7 @@ async def rename_chat(chat_id: str, req: RenameChatRequest):
 
 
 
-async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=False, max_tokens_override=None, agent_mode=False, attachments=None, user_timezone="", client_request=None):
+async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=False, max_tokens_override=None, agent_mode=False, attachments=None, user_timezone="", client_request=None, regenerate_pdf=False):
     async def _client_gone():
         if client_request is None:
             return False
@@ -677,6 +678,9 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
         if msg.get("role") == "user":
             latest_user_msg = msg.get("content", "")
             break
+    agent_user_msg = latest_user_msg
+    if regenerate_pdf:
+        agent_user_msg = (agent_user_msg + "\n\nRegenerate the current PDF report and produce a new downloadable PDF.").strip()
     user_lang = detect_language(latest_user_msg)
     has_pdf = any(
         att.get("saved_path", "").lower().endswith(".pdf")
@@ -730,7 +734,7 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
 
         # Run in thread so SSE stream stays alive during heavy PDF extraction
         agent_inst, agent_ctx = await asyncio.to_thread(
-            pdf_agent.process_agent_request, chat_id, latest_user_msg, attachments, messages
+            pdf_agent.process_agent_request, chat_id, agent_user_msg, attachments, messages
         )
         _agent_state = pdf_agent.agent_memory.get(chat_id, {})
         if _agent_state.get("new_source_loaded"):
@@ -1276,6 +1280,7 @@ async def chat_endpoint(req: ChatRequest, request: Request):
             attachments=req.attachments,
             user_timezone=req.user_timezone or "",
             client_request=request,
+            regenerate_pdf=req.regenerate_pdf,
         ):
             yield chunk
 

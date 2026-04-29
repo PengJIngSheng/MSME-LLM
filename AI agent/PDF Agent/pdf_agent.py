@@ -762,6 +762,19 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list, hi
                 instruction = _prompts.build_template_regeneration_instruction(
                     state["template_data"], reply_lang
                 )
+            elif _is_regenerate_request(user_message):
+                layout_report, table_structures = _parse_template_layout(new_attachments)
+                state["template_data"]   = layout_report + "\n\n[Template Table Structures]:\n" + table_structures
+                state["stage"]           = "generate"
+                state["generate_pdf_now"]= True
+                state["use_fast_model"]  = False
+                state["generation_question_pending"] = False
+                state["generation_question_asked"] = True
+                state["generation_choice_answered"] = True
+                _log(f"[agent] New template + regenerate request in done stage → generate")
+                instruction = _prompts.build_done_template_regeneration_instruction(
+                    doc_type, _prompts.get_structure(doc_type), reply_lang
+                )
             elif not _is_regenerate_request(user_message):
                 # It's a brand-new source PDF! Reset to init for a fresh analysis cycle
                 state["source_data"]     = new_text
@@ -778,18 +791,7 @@ def process_agent_request(chat_id: str, user_message: str, attachments: list, hi
                 doc_list = ", ".join(new_names) or "the uploaded document"
                 dtype    = state["doc_type"].replace("_", " ").title()
                 _log(f"[agent] New source PDF in done stage → reset to wait_template for fresh analysis")
-            instruction = _prompts.build_new_source_analysis_instruction(routing_q, reply_lang)
-
-        # Case 2: User uploaded a new TEMPLATE PDF with regeneration intent
-        elif new_text and _is_regenerate_request(user_message):
-            state["template_data"]   = new_text
-            state["stage"]           = "generate"
-            state["generate_pdf_now"]= True
-            state["use_fast_model"]  = False
-            _log(f"[agent] New template + regenerate request in done stage → generate")
-            instruction = _prompts.build_done_template_regeneration_instruction(
-                doc_type, _prompts.get_structure(doc_type), reply_lang
-            )
+                instruction = _prompts.build_new_source_analysis_instruction(routing_q, reply_lang)
 
         # Case 3: User explicitly asked to regenerate/update PDF (no new file)
         elif _is_regenerate_request(user_message) or _is_pdf_generation_request(user_message):

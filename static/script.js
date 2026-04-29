@@ -1167,6 +1167,7 @@ function createActionButtons(wrapper, msgIndex, feedbackVal, isAssistant, msgTex
         regenBtn.innerHTML = '<i class="fa-solid fa-rotate-right"></i>';
         regenBtn.onclick = () => {
             if (isGenerating) return;
+            const targetAssistantMsg = chatMessages[msgIndex];
             let prevUserMsg = chatMessages[msgIndex - 1];
             if (!prevUserMsg || prevUserMsg.role !== 'user') return;
             
@@ -1186,6 +1187,9 @@ function createActionButtons(wrapper, msgIndex, feedbackVal, isAssistant, msgTex
                 // Wait, handleSend expects them in pendingFiles, but pendingFiles are File objects.
                 // Instead, we can inject a temporary flag so handleSend knows to reuse them.
                 window._regenerateAttachments = prevUserMsg.attachments;
+            }
+            if (isAgentMode && targetAssistantMsg?.pdf_url) {
+                window._forceRegeneratePdf = true;
             }
             
             handleSend();
@@ -1710,6 +1714,8 @@ async function handleSend(isResume = false, resumeIndex = null) {
     let gmailPreviewRendered = false;
     let gmailActionsRendered = false;
     const attachmentsPayload = isResume ? [] : (chatMessages[chatMessages.length - 1]?.attachments || []);
+    const forceRegeneratePdf = !!window._forceRegeneratePdf;
+    window._forceRegeneratePdf = false;
     console.log('DEBUG SEND payload:', attachmentsPayload, isAgentMode);
 
     try {
@@ -1727,6 +1733,7 @@ async function handleSend(isResume = false, resumeIndex = null) {
                 is_resume: isResume,
                 agent_mode: isAgentMode,
                 user_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
+                regenerate_pdf: forceRegeneratePdf,
             }),
             signal: currentAbortController.signal,
         });
