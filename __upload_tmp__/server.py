@@ -129,42 +129,43 @@ def _response_profile(text: str, agent_mode: bool = False, web_mode: bool = Fals
     if agent_mode:
         return {
             "depth": "agent",
-            "max_predict": 8192 if has_pdf or score >= 3 else 6144,
-            "ctx": cfg.ollama_num_ctx_cap if has_pdf else min(cfg.ollama_num_ctx_cap, 12288),
+            "max_predict": 6144 if has_pdf or score >= 3 else 4096,
+            "ctx": cfg.ollama_num_ctx_cap if has_pdf else min(cfg.ollama_num_ctx_cap, 8192),
             "instruction": (
                 "ANSWER DEPTH: Agent mode should be action-oriented and complete. "
                 "Be concise while planning, but provide a substantial final result with clear sections, "
-                "tables when useful, and no filler."
+                "tables when useful, and no filler. Verify names, dates, and numbers against the available context."
             ),
         }
     if web_mode:
         return {
             "depth": "web_deep" if score >= 2 else "web_standard",
-            "max_predict": 4096 if score >= 2 else 2560,
-            "ctx": min(cfg.ollama_num_ctx_cap, 8192),
+            "max_predict": 3072 if score >= 2 else 2048,
+            "ctx": min(cfg.ollama_num_ctx_cap, 6144),
             "instruction": (
                 "ANSWER DEPTH: Use the live sources to produce a grounded answer. "
                 "For simple lookup questions, answer briefly with citations. "
-                "For business, legal, financial, or comparison questions, synthesize the evidence thoroughly."
+                "For business, legal, financial, or comparison questions, synthesize the evidence thoroughly. "
+                "Do not invent sources, dates, prices, or legal requirements."
             ),
         }
     if score <= 0:
         return {
             "depth": "short",
-            "max_predict": 1536,
+            "max_predict": 1024,
             "ctx": min(cfg.ollama_num_ctx_cap, 4096),
             "instruction": "ANSWER DEPTH: This appears simple. Answer directly, but include enough context to be genuinely useful.",
         }
     if score <= 2:
         return {
             "depth": "standard",
-            "max_predict": 2560,
+            "max_predict": 2048,
             "ctx": min(cfg.ollama_num_ctx_cap, 6144),
             "instruction": "ANSWER DEPTH: Give a balanced, high-quality answer with concrete examples or steps when useful.",
         }
     return {
         "depth": "deep",
-        "max_predict": 4096,
+        "max_predict": 3072,
         "ctx": min(cfg.ollama_num_ctx_cap, 8192),
         "instruction": "ANSWER DEPTH: This is complex. Provide a high-quality structured answer with reasoning, examples, and tables where useful.",
     }
@@ -199,7 +200,6 @@ def _generate_search_query_response(messages) -> str:
                         "num_gpu": cfg.ollama_num_gpu,
                         "num_thread": cfg.ollama_num_thread,
                         "use_mmap": True,
-                        "use_mlock": False,
                     },
                 )
                 msg = resp.get("message") if isinstance(resp, dict) else getattr(resp, "message", None)
@@ -840,6 +840,8 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
             f"ROLE: You are a highly capable AI assistant.\n"
             f"RULES:\n"
             f"- Answer directly and specifically.\n"
+            f"- Prefer accuracy over sounding confident; say when information is uncertain or missing.\n"
+            f"- For factual claims involving dates, prices, laws, policies, or companies, be conservative and precise.\n"
             f"- Use the best format: paragraphs, lists, tables, or code — whatever is clearest.\n"
             f"- For technical or math questions, be precise and include examples.\n\n"
             f"{response_profile['instruction']}\n\n"
@@ -911,21 +913,26 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
         else:
             _max_predict = min(max_new_tok, response_profile["max_predict"]) + _think_budget
 
+        _is_gemma4 = "gemma4" in (_ollama_model or "").lower()
+        _temperature = 0.42 if _is_gemma4 else ms.TEMPERATURE
+        _top_p = 0.90 if _is_gemma4 else ms.TOP_P
+        _min_p = 0.03 if _is_gemma4 else 0.05
+        _repeat_penalty = 1.08 if _is_gemma4 else ms.REPETITION_PENALTY
+        _num_batch = 1024 if _ctx <= 8192 else 512
+
         _ollama_opts = {
-            "temperature":    ms.TEMPERATURE if ms.DO_SAMPLE else 0.0,
-            "top_p":          ms.TOP_P if ms.DO_SAMPLE else 1.0,
+            "temperature":    _temperature if ms.DO_SAMPLE else 0.0,
+            "top_p":          _top_p if ms.DO_SAMPLE else 1.0,
             "top_k":          40,
-            "min_p":          0.05,
-            "repeat_penalty": ms.REPETITION_PENALTY,
-            "repeat_last_n":  64,
+            "min_p":          _min_p,
+            "repeat_penalty": _repeat_penalty,
+            "repeat_last_n":  128,
             "num_predict":    _max_predict,
             "num_ctx":        _ctx,
-            "num_batch":      512,        # 默认批次 — 避免 prefill 占用过多显存
+            "num_batch":      _num_batch,
             "num_gpu":        cfg.ollama_num_gpu,
             "num_thread":     cfg.ollama_num_thread,
-            "f16_kv":         True,       # fp16 KV cache → KV 显存占用减半
             "use_mmap":       True,
-            "use_mlock":      False,
         }
 
         _gen_started = time.perf_counter()
@@ -935,7 +942,7 @@ async def stream_generator(chat_id, messages, think_mode, web_mode, is_resume=Fa
             messages=final_messages,
             stream=True,
             options=_ollama_opts,
-            keep_alive="30m",
+            keep_alive="45m",
         )
 
         gguf_all   = ""

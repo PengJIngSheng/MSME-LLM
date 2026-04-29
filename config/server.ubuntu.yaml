@@ -11,6 +11,10 @@ model:
 
 generation:
   max_new_tokens: 8192
+  temperature: 0.42
+  top_p: 0.9
+  repetition_penalty: 1.08
+  do_sample: true
 
 server:
   host: "127.0.0.1"
@@ -29,7 +33,7 @@ database:
 services:
   ollama:
     base_url: "http://127.0.0.1:11434"
-    num_ctx_cap: 32768
+    num_ctx_cap: 16384
     num_gpu: 99
     num_thread: 8
 
