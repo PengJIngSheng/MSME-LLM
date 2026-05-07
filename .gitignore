@@ -27,6 +27,7 @@ models/
 # Application Data
 user_uploads/
 data/finetune/
+Finetune/
 debug_pdf.log
 *.log
 

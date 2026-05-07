@@ -10,7 +10,7 @@ model:
   context_length: 12288
 
 generation:
-  max_new_tokens: 6144
+  max_new_tokens: 10240
   temperature: 0.6
   top_p: 0.95
   repetition_penalty: 1.05
@@ -36,7 +36,7 @@ services:
   ollama:
     base_url: "http://localhost:11434"
     embedding_model: "nomic-embed-text"
-    num_ctx_cap: 8192
+    num_ctx_cap: 12288
     num_gpu: 99
     num_thread: 4
   smtp:
@@ -98,6 +98,6 @@ search:
 knowledge_rag:
   enabled: true
   collection: "mof_finetune_knowledge"
-  top_k: 5
-  score_threshold: 0.82
-  max_context_chars: 6500
+  top_k: 8
+  score_threshold: 0.70
+  max_context_chars: 5000

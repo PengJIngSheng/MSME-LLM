@@ -189,20 +189,20 @@ def _response_profile(text: str, agent_mode: bool = False, web_mode: bool = Fals
     if score <= 0:
         return {
             "depth": "short",
-            "max_predict": 1024,
+            "max_predict": 2048,
             "ctx": min(cfg.ollama_num_ctx_cap, 4096),
             "instruction": "ANSWER DEPTH: This appears simple. Answer directly, but include enough context to be genuinely useful.",
         }
     if score <= 2:
         return {
             "depth": "standard",
-            "max_predict": 2048,
+            "max_predict": 4096,
             "ctx": min(cfg.ollama_num_ctx_cap, 6144),
             "instruction": "ANSWER DEPTH: Give a balanced, high-quality answer with concrete examples or steps when useful.",
         }
     return {
         "depth": "deep",
-        "max_predict": 3072,
+        "max_predict": 6144,
         "ctx": min(cfg.ollama_num_ctx_cap, 8192),
         "instruction": "ANSWER DEPTH: This is complex. Provide a high-quality structured answer with reasoning, examples, and tables where useful.",
     }
