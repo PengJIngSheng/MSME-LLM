@@ -9,7 +9,7 @@ Architecture:
 Result: browser-quality PDF with full CSS3, system CJK fonts,
         colored sections, financial tables, gradients, shadows.
 """
-import os, re, sys, uuid, subprocess, markdown as _md_lib
+import os, re, sys, uuid, subprocess, json, math, html as _html, markdown as _md_lib
 from datetime import datetime
 
 # Process isolation solves Event Loop bugs under Uvicorn/Windows.
@@ -164,7 +164,7 @@ body {{
 .content {{
   margin-top: 1.8cm;   /* clear fixed header */
   margin-bottom: 1.4cm; /* clear fixed footer */
-  padding: 0.3cm 1.8cm;
+  padding: 0.25cm 0;
 }}
 
 /* ── Headings ───────────────────────────────────────── */
@@ -210,10 +210,15 @@ table {{
   width: 100%;
   border-collapse: collapse;
   margin: 10pt 0 14pt 0;
-  font-size: 9.5pt;
-  page-break-inside: avoid;
+  font-size: 9pt;
+  table-layout: auto;
+  page-break-inside: auto;
+  break-inside: auto;
   box-shadow: 0 1px 4px #0f204422;
 }}
+thead {{ display: table-header-group; }}
+tfoot {{ display: table-footer-group; }}
+tr {{ page-break-inside: avoid; break-inside: avoid; }}
 thead tr {{
   background: #0f2044 !important;
   color: #fff !important;
@@ -225,6 +230,10 @@ thead th {{
   border-bottom: 3px solid {accent};
   font-size: 9pt;
   letter-spacing: 0.02em;
+}}
+th, td {{
+  overflow-wrap: anywhere;
+  word-break: normal;
 }}
 tbody tr:nth-child(even)  {{ background: {accent_lt}; }}
 tbody tr:nth-child(odd)   {{ background: #fff; }}
@@ -245,6 +254,29 @@ tbody td[data-text="true"] {{
 /* Positive/negative colouring done in JS below */
 .num-pos {{ color: #059669; font-weight: 600; }}
 .num-neg {{ color: #dc2626; font-weight: 600; }}
+
+/* ── Charts ────────────────────────────────────────── */
+.chart-card {{
+  margin: 14pt 0 18pt 0;
+  padding: 12pt 14pt;
+  border: 1px solid #dbe4f0;
+  border-left: 4px solid {accent};
+  border-radius: 6px;
+  background: #fff;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}}
+.chart-title {{
+  font-size: 10.5pt;
+  font-weight: 700;
+  color: #0f2044;
+  margin-bottom: 8pt;
+}}
+.chart-card svg {{
+  width: 100%;
+  height: auto;
+  display: block;
+}}
 
 /* ── Lists ──────────────────────────────────────────── */
 ul {{
@@ -311,7 +343,7 @@ hr {{
 .page-break {{ page-break-after: always; }}
 @page {{
   size: A4;
-  margin: 2.2cm 2cm 1.8cm 2cm;
+  margin: 2cm 1.25cm 1.55cm 1.25cm;
 }}
 @media print {{
   .no-print {{ display: none !important; }}
@@ -497,7 +529,7 @@ body {{
 .content {{
   margin-top: 1.8cm;   /* clear fixed header */
   margin-bottom: 1.4cm; /* clear fixed footer */
-  padding: 0.3cm 1.8cm;
+  padding: 0.25cm 0;
 }}
 
 /* ── Headings ───────────────────────────────────────── */
@@ -542,11 +574,16 @@ table {{
   width: 100%;
   border-collapse: collapse;
   margin: 14pt 0 18pt 0;
-  font-size: 9.5pt;
-  page-break-inside: avoid;
+  font-size: 9pt;
+  table-layout: auto;
+  page-break-inside: auto;
+  break-inside: auto;
   border-top: 2px solid #000;
   border-bottom: 2px solid #000;
 }}
+thead {{ display: table-header-group; }}
+tfoot {{ display: table-footer-group; }}
+tr {{ page-break-inside: avoid; break-inside: avoid; }}
 thead tr {{
   background: transparent !important;
   color: #000 !important;
@@ -558,6 +595,10 @@ thead th {{
   border-bottom: 1px solid #000;
   font-size: 9pt;
   vertical-align: bottom;
+}}
+th, td {{
+  overflow-wrap: anywhere;
+  word-break: normal;
 }}
 tbody tr {{ background: transparent !important; }}
 tbody td {{
@@ -576,6 +617,29 @@ tbody td[data-text="true"] {{
 /* No positive/negative colours in strict monochrome */
 .num-pos {{ color: #000; }}
 .num-neg {{ color: #000; }}
+
+/* ── Charts ────────────────────────────────────────── */
+.chart-card {{
+  margin: 14pt 0 18pt 0;
+  padding: 12pt 14pt;
+  border: 1px solid #000;
+  border-left: 4px solid #000;
+  border-radius: 4px;
+  background: #fff;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}}
+.chart-title {{
+  font-size: 10.5pt;
+  font-weight: 700;
+  color: #000;
+  margin-bottom: 8pt;
+}}
+.chart-card svg {{
+  width: 100%;
+  height: auto;
+  display: block;
+}}
 
 /* ── Lists ──────────────────────────────────────────── */
 ul {{
@@ -642,7 +706,7 @@ hr {{
 .page-break {{ page-break-after: always; }}
 @page {{
   size: A4;
-  margin: 2.2cm 2cm 1.8cm 2cm;
+  margin: 2cm 1.25cm 1.55cm 1.25cm;
 }}
 @media print {{
   .no-print {{ display: none !important; }}
@@ -746,10 +810,178 @@ def _clean_residual_placeholders(text: str) -> str:
     text = re.sub(r'\[[^\]]{3,60}/[^\]]{3,60}\]', 'N/A', text)
     return text
 
+_CHART_COLORS = ["#2563eb", "#16a34a", "#f59e0b", "#dc2626", "#7c3aed", "#0891b2", "#db2777", "#64748b"]
+
+def _chart_num(value) -> float:
+    if isinstance(value, (int, float)):
+        return float(value)
+    cleaned = re.sub(r"[^0-9.\-]", "", str(value or ""))
+    try:
+        return float(cleaned) if cleaned not in ("", "-", ".", "-.") else 0.0
+    except ValueError:
+        return 0.0
+
+def _svg_text(text: str) -> str:
+    return _html.escape(str(text or ""), quote=False)
+
+def _normalise_chart_spec(spec: dict) -> dict:
+    chart_type = str(spec.get("type") or "bar").lower().strip()
+    labels = [str(x) for x in (spec.get("labels") or [])]
+    raw_series = spec.get("series") or []
+    if not raw_series and spec.get("values") is not None:
+        raw_series = [{"name": spec.get("name") or "Value", "values": spec.get("values")}]
+    series = []
+    for item in raw_series:
+        if not isinstance(item, dict):
+            continue
+        values = item.get("values") or []
+        if not isinstance(values, list):
+            values = [values]
+        series.append({
+            "name": str(item.get("name") or "Value"),
+            "values": [_chart_num(v) for v in values],
+        })
+    if not labels and series:
+        labels = [str(i + 1) for i in range(len(series[0]["values"]))]
+    return {
+        "type": chart_type if chart_type in {"bar", "pie", "line"} else "bar",
+        "title": str(spec.get("title") or "Chart"),
+        "labels": labels,
+        "series": series,
+    }
+
+def _render_bar_chart(chart: dict) -> str:
+    labels, series = chart["labels"], chart["series"][:4]
+    if not labels or not series:
+        return ""
+    width, height = 760, 360
+    left, right, top, bottom = 58, 24, 24, 58
+    plot_w, plot_h = width - left - right, height - top - bottom
+    max_val = max([0.0] + [v for s in series for v in s["values"]])
+    max_val = max_val or 1.0
+    group_w = plot_w / max(len(labels), 1)
+    bar_w = min(34, group_w / max(len(series), 1) * 0.68)
+    parts = [f'<svg viewBox="0 0 {width} {height}" role="img" aria-label="{_svg_text(chart["title"])}">']
+    parts.append(f'<line x1="{left}" y1="{top + plot_h}" x2="{left + plot_w}" y2="{top + plot_h}" stroke="#94a3b8" stroke-width="1"/>')
+    parts.append(f'<line x1="{left}" y1="{top}" x2="{left}" y2="{top + plot_h}" stroke="#94a3b8" stroke-width="1"/>')
+    for gi, label in enumerate(labels):
+        base_x = left + gi * group_w + group_w / 2
+        for si, serie in enumerate(series):
+            value = serie["values"][gi] if gi < len(serie["values"]) else 0
+            bar_h = max(0, value / max_val * plot_h)
+            x = base_x - (len(series) * bar_w) / 2 + si * bar_w
+            y = top + plot_h - bar_h
+            color = _CHART_COLORS[si % len(_CHART_COLORS)]
+            parts.append(f'<rect x="{x:.1f}" y="{y:.1f}" width="{bar_w - 2:.1f}" height="{bar_h:.1f}" rx="3" fill="{color}"/>')
+        parts.append(f'<text x="{base_x:.1f}" y="{height - 31}" font-size="12" text-anchor="middle" fill="#334155">{_svg_text(label[:14])}</text>')
+    for si, serie in enumerate(series):
+        lx = left + si * 150
+        ly = height - 10
+        color = _CHART_COLORS[si % len(_CHART_COLORS)]
+        parts.append(f'<rect x="{lx}" y="{ly - 10}" width="10" height="10" fill="{color}"/>')
+        parts.append(f'<text x="{lx + 15}" y="{ly}" font-size="12" fill="#334155">{_svg_text(serie["name"][:20])}</text>')
+    parts.append(f'<text x="{left - 8}" y="{top + 6}" font-size="11" text-anchor="end" fill="#64748b">{max_val:,.0f}</text>')
+    parts.append("</svg>")
+    return "".join(parts)
+
+def _render_line_chart(chart: dict) -> str:
+    labels, series = chart["labels"], chart["series"][:4]
+    if not labels or not series:
+        return ""
+    width, height = 760, 360
+    left, right, top, bottom = 58, 24, 24, 58
+    plot_w, plot_h = width - left - right, height - top - bottom
+    values = [v for s in series for v in s["values"]]
+    min_val, max_val = min(values or [0]), max(values or [1])
+    if min_val == max_val:
+        min_val = 0
+        max_val = max_val or 1
+    def pt(idx, value):
+        x = left + (idx / max(len(labels) - 1, 1)) * plot_w
+        y = top + plot_h - ((value - min_val) / (max_val - min_val)) * plot_h
+        return x, y
+    parts = [f'<svg viewBox="0 0 {width} {height}" role="img" aria-label="{_svg_text(chart["title"])}">']
+    parts.append(f'<line x1="{left}" y1="{top + plot_h}" x2="{left + plot_w}" y2="{top + plot_h}" stroke="#94a3b8" stroke-width="1"/>')
+    parts.append(f'<line x1="{left}" y1="{top}" x2="{left}" y2="{top + plot_h}" stroke="#94a3b8" stroke-width="1"/>')
+    for si, serie in enumerate(series):
+        coords = [pt(i, serie["values"][i] if i < len(serie["values"]) else 0) for i in range(len(labels))]
+        color = _CHART_COLORS[si % len(_CHART_COLORS)]
+        points = " ".join(f"{x:.1f},{y:.1f}" for x, y in coords)
+        parts.append(f'<polyline points="{points}" fill="none" stroke="{color}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>')
+        for x, y in coords:
+            parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3.5" fill="{color}"/>')
+        lx = left + si * 150
+        parts.append(f'<rect x="{lx}" y="{height - 20}" width="10" height="10" fill="{color}"/>')
+        parts.append(f'<text x="{lx + 15}" y="{height - 10}" font-size="12" fill="#334155">{_svg_text(serie["name"][:20])}</text>')
+    for i, label in enumerate(labels):
+        x, _ = pt(i, min_val)
+        parts.append(f'<text x="{x:.1f}" y="{height - 31}" font-size="12" text-anchor="middle" fill="#334155">{_svg_text(label[:14])}</text>')
+    parts.append(f'<text x="{left - 8}" y="{top + 6}" font-size="11" text-anchor="end" fill="#64748b">{max_val:,.0f}</text>')
+    parts.append("</svg>")
+    return "".join(parts)
+
+def _pie_slice_path(cx, cy, r, start_angle, end_angle):
+    x1, y1 = cx + r * math.cos(start_angle), cy + r * math.sin(start_angle)
+    x2, y2 = cx + r * math.cos(end_angle), cy + r * math.sin(end_angle)
+    large = 1 if end_angle - start_angle > math.pi else 0
+    return f"M {cx} {cy} L {x1:.1f} {y1:.1f} A {r} {r} 0 {large} 1 {x2:.1f} {y2:.1f} Z"
+
+def _render_pie_chart(chart: dict) -> str:
+    labels = chart["labels"]
+    values = chart["series"][0]["values"] if chart["series"] else []
+    if not labels or not values:
+        return ""
+    pairs = [(labels[i], max(0, values[i] if i < len(values) else 0)) for i in range(len(labels))]
+    total = sum(v for _, v in pairs) or 1
+    width, height = 760, 340
+    cx, cy, r = 210, 165, 115
+    angle = -math.pi / 2
+    parts = [f'<svg viewBox="0 0 {width} {height}" role="img" aria-label="{_svg_text(chart["title"])}">']
+    for i, (label, value) in enumerate(pairs[:10]):
+        span = (value / total) * 2 * math.pi
+        color = _CHART_COLORS[i % len(_CHART_COLORS)]
+        parts.append(f'<path d="{_pie_slice_path(cx, cy, r, angle, angle + span)}" fill="{color}" stroke="#fff" stroke-width="2"/>')
+        pct = value / total * 100
+        ly = 50 + i * 24
+        parts.append(f'<rect x="390" y="{ly - 11}" width="12" height="12" fill="{color}"/>')
+        parts.append(f'<text x="410" y="{ly}" font-size="13" fill="#334155">{_svg_text(label[:28])} ({pct:.1f}%)</text>')
+        angle += span
+    parts.append("</svg>")
+    return "".join(parts)
+
+def _render_chart_spec(spec: dict) -> str:
+    chart = _normalise_chart_spec(spec)
+    if chart["type"] == "pie":
+        svg = _render_pie_chart(chart)
+    elif chart["type"] == "line":
+        svg = _render_line_chart(chart)
+    else:
+        svg = _render_bar_chart(chart)
+    if not svg:
+        return ""
+    return (
+        '<figure class="chart-card">'
+        f'<figcaption class="chart-title">{_svg_text(chart["title"])}</figcaption>'
+        f'{svg}'
+        '</figure>'
+    )
+
+def _render_chart_blocks(md_text: str) -> str:
+    def repl(match):
+        raw = match.group(1).strip()
+        try:
+            spec = json.loads(raw)
+        except json.JSONDecodeError:
+            return ""
+        return "\n\n" + _render_chart_spec(spec) + "\n\n"
+    return re.sub(r"```chart\s*(\{.*?\})\s*```", repl, md_text, flags=re.DOTALL | re.IGNORECASE)
+
 # ─── Markdown → HTML (body only) ─────────────────────────────────────────────
 def _md_to_html_body(md_text: str) -> str:
     # Strip <think> blocks
     md_text = re.sub(r"<think>.*?</think>", "", md_text, flags=re.DOTALL).strip()
+    # Convert supported chart code fences into inline SVG before Markdown parsing.
+    md_text = _render_chart_blocks(md_text)
     # Convert LaTeX math symbols to Unicode before Markdown parsing
     md_text = _convert_latex_symbols(md_text)
     # Replace residual bracket placeholders
@@ -892,6 +1124,3 @@ async def markdown_to_pdf(markdown_text: str, doc_type: str = "general", is_temp
             os.remove(tmp_html_path)
 
     return "", filename
-
-
-

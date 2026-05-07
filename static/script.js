@@ -1969,6 +1969,20 @@ async function handleSend(isResume = false, resumeIndex = null) {
                         }
                         continue;
                     }
+                    if (data.status === 'parsing_data' && thinkHeader) {
+                        thinkWrapper.style.display = 'block';
+                        thinkHeader.querySelector('.think-label').innerText = 'Parsing financial data...';
+                        thinkHeader.querySelector('.think-icon').innerHTML = '<i class="fa-solid fa-file-csv fa-spin"></i>';
+                        if (!hasStartedTimer) {
+                            thinkStartTime = Date.now();
+                            thinkTimerInterval = setInterval(() => {
+                                const s = ((Date.now() - thinkStartTime) / 1000).toFixed(0);
+                                if (thinkDurationEl) thinkDurationEl.innerText = `${s}s`;
+                            }, 1000);
+                            hasStartedTimer = true;
+                        }
+                        continue;
+                    }
                     if (data.status === 'searching' && thinkHeader) {
                         thinkHeader.querySelector('.think-label').innerText = 'Searching the web...';
                         thinkHeader.querySelector('.think-icon').innerHTML = '<i class="fa-solid fa-globe fa-spin"></i>';
@@ -2181,6 +2195,23 @@ const fileInput = document.getElementById('fileInput');
 const uploadBtn = document.getElementById('uploadBtn');
 const attachmentsPreview = document.getElementById('attachmentsPreview');
 
+function formatFileSize(bytes) {
+    const size = Number(bytes || 0);
+    if (size < 1024) return `${size} B`;
+    if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+    return `${(size / 1024 / 1024).toFixed(2)} MB`;
+}
+
+function getAttachmentIcon(name = '', type = '') {
+    const lower = String(name || '').toLowerCase();
+    if (type.startsWith('image/')) return { iconClass: 'fa-file-image', iconColor: '#4c8de2' };
+    if (type === 'application/pdf' || lower.endsWith('.pdf')) return { iconClass: 'fa-file-pdf', iconColor: '#e2574c' };
+    if (lower.endsWith('.csv') || lower.endsWith('.tsv')) return { iconClass: 'fa-file-csv', iconColor: '#16a34a' };
+    if (lower.endsWith('.xlsx') || lower.endsWith('.xls')) return { iconClass: 'fa-file-excel', iconColor: '#15803d' };
+    if (lower.endsWith('.json') || lower.endsWith('.jsonl')) return { iconClass: 'fa-file-code', iconColor: '#7c3aed' };
+    return { iconClass: 'fa-file-lines', iconColor: 'var(--primary-dim)' };
+}
+
 uploadBtn.addEventListener('click', () => {
     if (!currentUserId && isAgentMode) {
         showGuestLoginPrompt(true);
@@ -2213,12 +2244,8 @@ function renderAttachmentsPreview() {
     pendingFiles.forEach((f, idx) => {
         const pill = document.createElement('div');
         pill.className = 'file-pill';
-        
-        let iconClass = 'fa-file-lines';
-        if (f.type.startsWith('image/')) iconClass = 'fa-file-image';
-        else if (f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')) iconClass = 'fa-file-pdf';
-
-        const sizeStr = (f.size / 1024 / 1024).toFixed(2) + ' MB';
+        const { iconClass } = getAttachmentIcon(f.name, f.type || '');
+        const sizeStr = formatFileSize(f.size);
         
         pill.innerHTML = `
             <i class="fa-solid ${iconClass}"></i>
@@ -2240,19 +2267,12 @@ function renderMessageAttachments(attachmentsArr) {
 function createAttachmentCard(att) {
     const card = document.createElement('div');
     card.className = 'user-msg-attachment-card';
-    
-    let iconClass = 'fa-file-lines';
-    let iconColor = 'var(--primary-dim)';
+    const attName = att.original_name || 'file';
+    const icon = getAttachmentIcon(attName, att.content_type || '');
+    let iconClass = icon.iconClass;
+    let iconColor = icon.iconColor;
     const isPdf = att.content_type === 'application/pdf' || (att.original_name && att.original_name.toLowerCase().endsWith('.pdf'));
-    if (att.content_type && att.content_type.startsWith('image/')) {
-        iconClass = 'fa-file-image';
-        iconColor = '#4c8de2';
-    } else if (isPdf) {
-        iconClass = 'fa-file-pdf';
-        iconColor = '#e2574c';
-    }
-    
-    const sizeStr = att.size ? (att.size / 1024 / 1024).toFixed(2) + ' MB' : '';
+    const sizeStr = att.size ? formatFileSize(att.size) : '';
     
     card.innerHTML = `
         <div class="att-icon" style="color:${iconColor}">

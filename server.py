@@ -34,6 +34,12 @@ _gen_spec = _ilu.spec_from_file_location("pdf_generator", _pdf_gen_path)
 pdf_generator = _ilu.module_from_spec(_gen_spec)
 _gen_spec.loader.exec_module(pdf_generator)
 
+# Load the CSV/structured-data agent separately from the PDF Agent.
+_fin_data_agent_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "AI agent", "Financial Data Agent", "financial_data_agent.py")
+_fin_data_spec = _ilu.spec_from_file_location("financial_data_agent", _fin_data_agent_path)
+financial_data_agent = _ilu.module_from_spec(_fin_data_spec)
+_fin_data_spec.loader.exec_module(financial_data_agent)
+
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "interface functions"))
 from auth import auth_router
 
@@ -607,6 +613,17 @@ def _latest_exportable_assistant_text(messages: list) -> str:
         return content
     return ""
 
+def _latest_pdf_filename_from_messages(messages: list) -> str:
+    """Find the newest generated or uploaded PDF filename in chat messages."""
+    for msg in reversed(messages or []):
+        if msg.get("pdf_name"):
+            return msg["pdf_name"]
+        for att in reversed(msg.get("attachments", []) or []):
+            saved_path = att.get("saved_path", "")
+            if saved_path.lower().endswith(".pdf"):
+                return os.path.basename(saved_path.replace("\\", "/"))
+    return ""
+
 def _extract_pdf(path: str, max_chars: int = 50000) -> str:
     """Extract text from PDF with increased context limit."""
     import pymupdf
@@ -790,7 +807,20 @@ async def stream_generator(
         att.get("saved_path", "").lower().endswith(".pdf")
         for att in (attachments or [])
     )
-    response_profile = _response_profile(latest_user_msg, agent_mode=agent_mode, web_mode=web_mode, has_pdf=has_pdf)
+    has_financial_data_upload = bool(
+        agent_mode and financial_data_agent.has_supported_data_attachment(attachments or [])
+    )
+    has_financial_data_context = bool(
+        agent_mode and not has_pdf and (
+            has_financial_data_upload or financial_data_agent.has_active_data(chat_id)
+        )
+    )
+    response_profile = _response_profile(
+        latest_user_msg,
+        agent_mode=agent_mode,
+        web_mode=web_mode,
+        has_pdf=(has_pdf or has_financial_data_context),
+    )
 
     # --- History compression: summarise old turns, then apply sliding window ---
     if agent_mode:
@@ -803,10 +833,17 @@ async def stream_generator(
     _stream_user_id = _chat_doc.get("user_id") if _chat_doc else None
     _pre_agent_state = pdf_agent.agent_memory.get(chat_id, {}) if agent_mode else {}
     _active_document_id = _pre_agent_state.get("active_document_id") if _pre_agent_state else None
+    route_financial_data_agent = bool(
+        agent_mode
+        and has_financial_data_context
+        and not _pre_agent_state.get("source_data")
+        and not _pre_agent_state.get("template_data")
+        and not _pre_agent_state.get("active_document_id")
+    )
 
     # Memory Retrieval (Run in thread to avoid blocking loop)
     memory_injection = ""
-    if _stream_user_id and not (agent_mode and has_pdf):
+    if _stream_user_id and not (agent_mode and (has_pdf or route_financial_data_agent)):
         memory_injection = await asyncio.to_thread(
             memory_agent.retrieve_memory_context,
             _stream_user_id,
@@ -816,7 +853,7 @@ async def stream_generator(
         )
 
     knowledge_injection = ""
-    if not (agent_mode and has_pdf):
+    if not (agent_mode and (has_pdf or route_financial_data_agent)):
         knowledge_injection = await asyncio.to_thread(
             knowledge_agent.retrieve_knowledge_context,
             latest_user_msg,
@@ -830,12 +867,22 @@ async def stream_generator(
         if think_mode:
             initial_phase = "answering" if "</think>" in raw_accum_text else "thinking"
 
-    if not agent_mode and not is_resume and _is_plain_pdf_export_request(latest_user_msg):
+    if (
+        agent_mode
+        and not is_resume
+        and not has_pdf
+        and not has_financial_data_upload
+        and not _pre_agent_state.get("source_data")
+        and not _pre_agent_state.get("template_data")
+        and not _pre_agent_state.get("active_document_id")
+        and _is_plain_pdf_export_request(latest_user_msg)
+    ):
         export_source = _latest_exportable_assistant_text(messages)
         if export_source:
             yield _sse({"status": "model_starting"})
             try:
                 _, pdf_filename = await pdf_generator.markdown_to_pdf(export_source, "general", is_template=False)
+                pdf_agent.agent_memory.setdefault(chat_id, {})["last_generated_pdf"] = pdf_filename
                 ready_text = "Done. I created the PDF from the previous response."
                 yield _sse({"text": ready_text})
                 yield _sse({
@@ -854,7 +901,10 @@ async def stream_generator(
                                 "pdf_name": pdf_filename,
                             }
                         },
-                        "$set": {"updated_at": datetime.utcnow()},
+                        "$set": {
+                            "updated_at": datetime.utcnow(),
+                            "last_generated_pdf": pdf_filename,
+                        },
                     },
                 )
             except Exception as pdf_err:
@@ -879,16 +929,24 @@ async def stream_generator(
         if has_pdf:
             # Signal UI immediately — PDF parsing is CPU-heavy (15-30s for large files)
             yield _sse({"status": "parsing_pdf"})
+        elif route_financial_data_agent and has_financial_data_upload:
+            yield _sse({"status": "parsing_data"})
 
         # ── Pre-flight: If a fresh source PDF arrives, wipe old per-document state first. ──
         if has_pdf and pdf_agent.should_reset_for_new_pdf(chat_id, latest_user_msg, attachments):
             pdf_agent.reset_for_new_source(chat_id)
 
-        # Run in thread so SSE stream stays alive during heavy PDF extraction
-        agent_inst, agent_ctx = await asyncio.to_thread(
-            pdf_agent.process_agent_request, chat_id, agent_user_msg, attachments, messages
-        )
-        _agent_state = pdf_agent.agent_memory.get(chat_id, {})
+        # Run in thread so SSE stream stays alive during heavy extraction
+        if route_financial_data_agent:
+            agent_inst, agent_ctx = await asyncio.to_thread(
+                financial_data_agent.process_agent_request, chat_id, agent_user_msg, attachments, messages
+            )
+            _agent_state = {}
+        else:
+            agent_inst, agent_ctx = await asyncio.to_thread(
+                pdf_agent.process_agent_request, chat_id, agent_user_msg, attachments, messages
+            )
+            _agent_state = pdf_agent.agent_memory.get(chat_id, {})
         if _agent_state.get("new_source_loaded"):
             _agent_state["document_context_start_index"] = max(len(messages) - 1, 0)
             _agent_state["new_source_loaded"] = False
@@ -921,13 +979,14 @@ async def stream_generator(
             _agent_mem_pdf = pdf_agent.agent_memory.get(chat_id, {}).get("last_generated_pdf", None)
             if not _agent_mem_pdf:
                 _agent_mem_pdf = pdf_agent.agent_memory.get(chat_id, {}).get("last_pdf", None)
+            if not _agent_mem_pdf and _chat_doc:
+                _agent_mem_pdf = _chat_doc.get("last_generated_pdf", None)
             # Also check recent chat messages for a PDF attachment
             if not _agent_mem_pdf:
-                for m in reversed(messages[-10:]):
-                    if m.get("pdf_name"):
-                        _agent_mem_pdf = m["pdf_name"]
-                        break
-            
+                _agent_mem_pdf = _latest_pdf_filename_from_messages(messages[-10:])
+            if not _agent_mem_pdf and _chat_doc:
+                _agent_mem_pdf = _latest_pdf_filename_from_messages((_chat_doc.get("messages") or [])[-10:])
+
             # The file logic is handled dynamically now directly from MongoDB in google_agent/google_workspace_tools
             # We don't need to resolve real physical directories anymore.
             _out = await google_agent.process_google_request(
