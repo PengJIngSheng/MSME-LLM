@@ -561,6 +561,52 @@ def _prune_agent_generation_history(messages: list, max_items: int = 10) -> list
         return messages[-2:] if len(messages) >= 2 else list(messages)
     return kept[-max_items:]
 
+def _is_plain_pdf_export_request(text: str) -> bool:
+    """Detect normal-chat requests to turn the previous answer into a PDF."""
+    low = (text or "").lower()
+    if "pdf" not in low:
+        return False
+    compact = re.sub(r"\s+", " ", low).strip()
+    patterns = [
+        r"\b(generate|create|make|export|download|convert|save|produce|prepare)\b.{0,60}\bpdf\b",
+        r"\b(turn|put)\b.{0,40}\b(into|to)\b.{0,20}\bpdf\b",
+        r"\bpdf\b.{0,40}\b(file|version|copy|download|report)\b",
+        r"\b(jana|buat|hasilkan|muat turun)\b.{0,60}\bpdf\b",
+        r"(生成|制作|导出|下载|转换).{0,20}pdf",
+    ]
+    return any(re.search(pattern, compact) for pattern in patterns)
+
+def _strip_internal_markers(text: str) -> str:
+    cleaned = re.sub(r"<think>.*?</think>", "", text or "", flags=re.DOTALL | re.IGNORECASE)
+    cleaned = re.sub(r"\[GMAIL_PREVIEW:[A-Za-z0-9_-]+={0,2}\]", "", cleaned)
+    cleaned = cleaned.replace("[GMAIL_CONFIRM_PENDING]", "")
+    return cleaned.strip()
+
+def _latest_exportable_assistant_text(messages: list) -> str:
+    """Find the latest useful assistant answer to export, skipping PDF/refusal messages."""
+    bad_markers = (
+        "cannot directly generate or provide a downloadable .pdf",
+        "do not have a file-hosting system",
+        "print-ready master copy",
+        "copy and paste it into microsoft word",
+        "save as pdf",
+        "pdf generation failed",
+        "your pdf report is ready",
+    )
+    for msg in reversed(messages or []):
+        if msg.get("role") != "assistant":
+            continue
+        if msg.get("pdf_url") or msg.get("pdf_name"):
+            continue
+        content = _strip_internal_markers(msg.get("content", ""))
+        if len(content) < 80:
+            continue
+        low = content.lower()
+        if any(marker in low for marker in bad_markers):
+            continue
+        return content
+    return ""
+
 def _extract_pdf(path: str, max_chars: int = 50000) -> str:
     """Extract text from PDF with increased context limit."""
     import pymupdf
@@ -783,6 +829,47 @@ async def stream_generator(
         raw_accum_text = messages[-1].get("content", "")
         if think_mode:
             initial_phase = "answering" if "</think>" in raw_accum_text else "thinking"
+
+    if not agent_mode and not is_resume and _is_plain_pdf_export_request(latest_user_msg):
+        export_source = _latest_exportable_assistant_text(messages)
+        if export_source:
+            yield _sse({"status": "model_starting"})
+            try:
+                _, pdf_filename = await pdf_generator.markdown_to_pdf(export_source, "general", is_template=False)
+                ready_text = "Done. I created the PDF from the previous response."
+                yield _sse({"text": ready_text})
+                yield _sse({
+                    "pdf_ready": True,
+                    "pdf_url": f"/api/download_pdf/{pdf_filename}",
+                    "pdf_name": pdf_filename,
+                })
+                chats_col.update_one(
+                    {"_id": chat_id},
+                    {
+                        "$push": {
+                            "messages": {
+                                "role": "assistant",
+                                "content": ready_text,
+                                "pdf_url": f"/api/download_pdf/{pdf_filename}",
+                                "pdf_name": pdf_filename,
+                            }
+                        },
+                        "$set": {"updated_at": datetime.utcnow()},
+                    },
+                )
+            except Exception as pdf_err:
+                print(f"[Normal PDF Export Error] {pdf_err}")
+                err_text = f"PDF generation failed: {pdf_err}"
+                yield _sse({"text": err_text})
+                chats_col.update_one(
+                    {"_id": chat_id},
+                    {
+                        "$push": {"messages": {"role": "assistant", "content": err_text}},
+                        "$set": {"updated_at": datetime.utcnow()},
+                    },
+                )
+            yield "data: [DONE]\n\n"
+            return
 
     # Resolve effective max tokens
     max_new_tok = max_tokens_override if max_tokens_override else ms.MAX_NEW_TOKENS

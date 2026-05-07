@@ -955,6 +955,60 @@ function renderMd(text) {
     return html;
 }
 
+function normalizePdfUrl(pdfUrl) {
+    if (!pdfUrl) return '';
+    try {
+        return new URL(pdfUrl, window.location.origin).href;
+    } catch {
+        return pdfUrl;
+    }
+}
+
+function createPdfDownloadCard(pdfUrl, pdfName = 'PepperReport.pdf', title = 'Your PDF Report is Ready!') {
+    const resolvedUrl = normalizePdfUrl(pdfUrl);
+    const dlCard = document.createElement('div');
+    dlCard.className = 'pdf-download-card';
+    dlCard.innerHTML = `
+        <div class="pdf-card-icon"><i class="fa-solid fa-file-pdf"></i></div>
+        <div class="pdf-card-text">
+            <span class="pdf-card-title">${escapeAttr(title)}</span>
+            <span class="pdf-card-sub">${escapeAttr(pdfName)}</span>
+        </div>
+        <button class="pdf-dl-btn" type="button">
+            <i class="fa-solid fa-download"></i> Download PDF
+        </button>
+    `;
+
+    const btn = dlCard.querySelector('.pdf-dl-btn');
+    btn.addEventListener('click', async () => {
+        const originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Downloading...';
+        try {
+            const res = await fetch(resolvedUrl, { cache: 'no-store' });
+            if (!res.ok) throw new Error(`PDF_HTTP_${res.status}`);
+            const blob = await res.blob();
+            const objectUrl = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = objectUrl;
+            a.download = pdfName;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
+            btn.innerHTML = '<i class="fa-solid fa-check"></i> Downloaded!';
+            btn.style.background = '#16a34a';
+        } catch (err) {
+            console.error('PDF download failed', err);
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+            showToast('PDF download failed. Please generate it again.', true);
+        }
+    });
+
+    return dlCard;
+}
+
 const GMAIL_PREVIEW_RE = /\[GMAIL_PREVIEW:([A-Za-z0-9_-]+={0,2})\]/;
 
 function decodeGmailPreviewPayload(text) {
@@ -1431,27 +1485,8 @@ function appendMessage(text, role, msgObj = null, msgIndex = null, feedbackVal =
 
         // Re-render PDF download card if this message generated a PDF
         if (msgObj && msgObj.pdf_url) {
-            const pdfUrl  = window.location.origin + msgObj.pdf_url;
             const pdfName = msgObj.pdf_name || 'PepperReport.pdf';
-            const dlCard  = document.createElement('div');
-            dlCard.className = 'pdf-download-card';
-            dlCard.innerHTML = `
-                <div class="pdf-card-icon"><i class="fa-solid fa-file-pdf"></i></div>
-                <div class="pdf-card-text">
-                    <span class="pdf-card-title">PDF Report Available</span>
-                    <span class="pdf-card-sub">${pdfName}</span>
-                </div>
-                <button class="pdf-dl-btn">
-                    <i class="fa-solid fa-download"></i> Download PDF
-                </button>
-            `;
-            const btn = dlCard.querySelector('.pdf-dl-btn');
-            btn.addEventListener('click', () => {
-                // Simplest possible download: let browser handle it natively
-                window.open(pdfUrl, '_blank');
-                btn.innerHTML = '<i class="fa-solid fa-check"></i> Downloaded!';
-                btn.style.background = '#16a34a';
-            });
+            const dlCard = createPdfDownloadCard(msgObj.pdf_url, pdfName, 'PDF Report Available');
             wrapper.appendChild(dlCard);
         }
 
@@ -1513,8 +1548,18 @@ async function handleSend(isResume = false, resumeIndex = null) {
 
     let rawAccumText = '';
     let currentSources = [];
+    let generatedPdf = null;
     let frontendThinkAccum = '';
     let frontendAnswerAccum = '';
+
+    const makeAssistantMsgStore = () => {
+        const msgStore = { role: 'assistant', content: rawAccumText, sources: currentSources };
+        if (generatedPdf && generatedPdf.pdf_url) {
+            msgStore.pdf_url = generatedPdf.pdf_url;
+            msgStore.pdf_name = generatedPdf.pdf_name || 'PepperReport.pdf';
+        }
+        return msgStore;
+    };
 
     if (!isResume) {
 
@@ -1823,7 +1868,7 @@ async function handleSend(isResume = false, resumeIndex = null) {
                         }
                     }
                     
-                    const msgStore = { role: 'assistant', content: rawAccumText, sources: currentSources };
+                    const msgStore = makeAssistantMsgStore();
                     if (isResume && resumeIndex !== null) {
                         chatMessages[resumeIndex] = msgStore;
                         createActionButtons(assistantWrapper, resumeIndex, 0, true, rawAccumText);
@@ -2026,31 +2071,9 @@ async function handleSend(isResume = false, resumeIndex = null) {
 
                     // === PDF READY — show download card ===
                     if (data.pdf_ready && data.pdf_url) {
-                        const pdfUrl  = window.location.origin + data.pdf_url;
                         const pdfName = data.pdf_name || 'PepperReport.pdf';
-
-                        const dlCard = document.createElement('div');
-                        dlCard.className = 'pdf-download-card';
-                        dlCard.innerHTML = `
-                            <div class="pdf-card-icon"><i class="fa-solid fa-file-pdf"></i></div>
-                            <div class="pdf-card-text">
-                                <span class="pdf-card-title">Your PDF Report is Ready!</span>
-                                <span class="pdf-card-sub">${pdfName}</span>
-                            </div>
-                            <button class="pdf-dl-btn" id="dlBtn_${Date.now()}">
-                                <i class="fa-solid fa-download"></i> Download PDF
-                            </button>
-                        `;
-
-                        // Use fetch→Blob to force save-as dialog (avoids "file wasn't available" browser error)
-                        const btn = dlCard.querySelector('.pdf-dl-btn');
-                        btn.addEventListener('click', () => {
-                            // Simplest possible download: let browser handle it natively
-                            window.open(pdfUrl, '_blank');
-                            btn.innerHTML = '<i class="fa-solid fa-check"></i> Downloaded!';
-                            btn.style.background = '#16a34a';
-                        });
-
+                        generatedPdf = { pdf_url: data.pdf_url, pdf_name: pdfName };
+                        const dlCard = createPdfDownloadCard(data.pdf_url, pdfName);
                         assistantWrapper.appendChild(dlCard);
                         scrollToBottom();
                         continue;
@@ -2096,7 +2119,7 @@ async function handleSend(isResume = false, resumeIndex = null) {
                 : '<br><em style="color:var(--primary-dim); font-size: 0.9em;"><i class="fa-solid fa-pause"></i> Generation paused by user</em>';
             contentBox.appendChild(wrap);
             
-            const msgStore = { role: 'assistant', content: rawAccumText, sources: currentSources };
+            const msgStore = makeAssistantMsgStore();
             let savedIndex = null;
             if (isResume && resumeIndex !== null) {
                 chatMessages[resumeIndex] = msgStore;
@@ -2116,7 +2139,7 @@ async function handleSend(isResume = false, resumeIndex = null) {
                 wrap.className = 'markdown-content';
                 wrap.innerHTML = '<br><em style="color:var(--primary-dim); font-size: 0.9em;"><i class="fa-solid fa-triangle-exclamation"></i> Response interrupted. Click resume to continue.</em>';
                 contentBox.appendChild(wrap);
-                const msgStore = { role: 'assistant', content: rawAccumText, sources: currentSources };
+                const msgStore = makeAssistantMsgStore();
                 let savedIndex = null;
                 if (isResume && resumeIndex !== null) {
                     chatMessages[resumeIndex] = msgStore;
