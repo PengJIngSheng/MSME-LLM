@@ -669,7 +669,6 @@ if (composerInput) {
 // ============ Toggles ============
 function updateTogglesUI() {
     if (thinkToggle) thinkToggle.classList.toggle('active', supportsThinkMode && isThinkMode);
-    if (webToggle) webToggle.classList.toggle('active', isWebMode);
 }
 updateTogglesUI();
 applyThinkModeAvailability();
@@ -678,7 +677,12 @@ thinkToggle.addEventListener('click', () => {
     isThinkMode = !isThinkMode;
     updateTogglesUI();
 });
-webToggle.addEventListener('click', () => { isWebMode = !isWebMode; updateTogglesUI(); });
+const searchModeSelect = document.getElementById('searchModeSelect');
+if (searchModeSelect) {
+    searchModeSelect.addEventListener('change', () => {
+        isWebMode = searchModeSelect.value === 'web';
+    });
+}
 
 // ============ Connectors ============
 const connectorBtn = document.getElementById('connectorBtn');
@@ -2247,6 +2251,30 @@ uploadBtn.addEventListener('click', () => {
     fileInput.click();
 });
 
+const imgUploadBtn = document.getElementById('imgUploadBtn');
+const imageInput = document.getElementById('imageInput');
+if (imgUploadBtn && imageInput) {
+    imgUploadBtn.addEventListener('click', () => {
+        if (!currentUserId) {
+            showGuestLoginPrompt(false);
+            return;
+        }
+        imageInput.click();
+    });
+    imageInput.addEventListener('change', (e) => {
+        const newFiles = Array.from(e.target.files);
+        newFiles.forEach(f => {
+            if (f.size > 5 * 1024 * 1024) {
+                alert(`Image ${f.name} is too large. Max 5MB per image.`);
+                return;
+            }
+            pendingFiles.push(f);
+        });
+        renderAttachmentsPreview();
+        imageInput.value = '';
+    });
+}
+
 fileInput.addEventListener('change', (e) => {
     const newFiles = Array.from(e.target.files);
     newFiles.forEach(f => {
@@ -2381,6 +2409,24 @@ userInput.addEventListener('keydown', (e) => {
         e.preventDefault();
         handleSend(false, null);
     }
+});
+userInput.addEventListener('paste', (e) => {
+    const items = e.clipboardData && e.clipboardData.items;
+    if (!items) return;
+    for (const item of items) {
+        if (!item.type.startsWith('image/')) continue;
+        const file = item.getAsFile();
+        if (!file) continue;
+        if (!currentUserId) { showGuestLoginPrompt(false); return; }
+        if (file.size > 5 * 1024 * 1024) {
+            alert(`Pasted image is too large. Max 5MB.`);
+            return;
+        }
+        const ext = file.type.split('/')[1] || 'png';
+        const named = new File([file], `pasted-image-${Date.now()}.${ext}`, { type: file.type });
+        pendingFiles.push(named);
+    }
+    renderAttachmentsPreview();
 });
 resizeComposer();
 

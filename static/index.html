@@ -24,9 +24,6 @@
         <!-- Sidebar -->
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-top">
-                <a href="/" class="home-link" title="Home" aria-label="MSME.AI home">
-                    <img src="/static/Main%20Logo.png" alt="MSME.AI" class="main-logo-img">
-                </a>
                 <button class="icon-toggle-btn" id="sidebarCloseBtn" title="Close sidebar">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
@@ -178,11 +175,9 @@
 
                         <div class="input-top-row composer-main-row">
                             <div class="toggles-container">
+                                <button class="img-upload-btn" id="imgUploadBtn" title="Upload image" aria-label="Upload image">+</button>
                                 <button class="toggle-switch" id="thinkToggle" title="Think Mode" aria-label="Think Mode" style="display:none">
                                     <i class="fa-solid fa-brain"></i>
-                                </button>
-                                <button class="toggle-switch" id="webToggle" title="Search Mode" aria-label="Search Mode">
-                                    <i class="fa-solid fa-globe"></i>
                                 </button>
                             </div>
                             <textarea id="userInput" placeholder="What do you want to know?" data-i18n-placeholder="placeholder"
@@ -254,9 +249,14 @@
                             <div class="submit-group">
                                 <input type="file" id="fileInput" multiple accept=".pdf,.csv,.tsv,.xlsx,.xls,.json,.jsonl,.txt,.md,image/*"
                                     style="display: none;" />
+                                <input type="file" id="imageInput" multiple accept="image/*" style="display: none;" />
                                 <button class="icon-btn" title="Upload files" id="uploadBtn" style="display: none;">
                                     <i class="fa-solid fa-paperclip"></i>
                                 </button>
+                                <select id="searchModeSelect" class="search-mode-select">
+                                    <option value="normal">Normal</option>
+                                    <option value="web">Web Search</option>
+                                </select>
                                 <button class="submit-btn" id="submitBtn" title="Send (Enter)">
                                     <i class="fa-solid fa-arrow-up"></i>
                                 </button>

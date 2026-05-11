@@ -1122,6 +1122,29 @@ async def stream_generator(
 
         final_messages = [{"role": "system", "content": system_instruction}] + list(inference_messages)
 
+    # === Inject images from attachments into the last user message ===
+    image_attachments = [
+        att for att in (attachments or [])
+        if att.get("content_type", "").startswith("image/")
+    ]
+    if image_attachments:
+        import base64
+        encoded_images = []
+        for att in image_attachments:
+            try:
+                saved_path = att.get("saved_path") or (att.get("file_id", "") + os.path.splitext(att.get("original_name", ""))[1])
+                file_doc = fs.find_one({"filename": saved_path})
+                if file_doc:
+                    encoded_images.append(base64.b64encode(file_doc.read()).decode("utf-8"))
+            except Exception as e:
+                print(f"[IMAGE] Failed to load image attachment: {e}")
+        if encoded_images:
+            for i in range(len(final_messages) - 1, -1, -1):
+                if final_messages[i].get("role") == "user":
+                    final_messages[i] = dict(final_messages[i])
+                    final_messages[i]["images"] = encoded_images
+                    break
+
     if model is None:
         yield _sse({'text': 'Error: Model not loaded.'})
         yield "data: [DONE]\n\n"
