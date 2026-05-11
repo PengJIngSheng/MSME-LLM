@@ -990,6 +990,7 @@ async def unlink_google(request: Request):
                 "google_creds_docs": "",
                 "google_creds_calendar": "",
                 "google_creds_meet": "",
+                "google_creds_sheets": "",
                 "google_token": "",
                 "google_refresh_token": "",
                 "google_scopes": "",

@@ -67,47 +67,52 @@
         })();
     </script>
     <style>
+        @font-face { font-family: 'universalSans'; src: url('/static/fonts/UniversalSans_Text_400.p.8e69d71d.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
+        @font-face { font-family: 'universalSans'; src: url('/static/fonts/UniversalSans_Text_550.p.8ed2b378.woff2') format('woff2'); font-weight: 550; font-style: normal; font-display: swap; }
+        @font-face { font-family: 'universalSansDisplay'; src: url('/static/fonts/UniversalSans_Display_400.p.f3921f1a.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
+        @font-face { font-family: 'universalSansDisplay'; src: url('/static/fonts/UniversalSans_Display_550.p.643f1127.woff2') format('woff2'); font-weight: 550; font-style: normal; font-display: swap; }
+
         /* Core Variables (Dark Mode Default) */
         :root {
-            --bg-left: #050508;
-            --bg-right: #030305;
-            --text-main: #ffffff;
-            --text-dim: #888888;
-            --border-color: rgba(255,255,255,0.1);
-            --focus-glow: rgba(255, 255, 255, 0.1);
-            --input-bg: rgba(255, 255, 255, 0.02);
-            --font-family: 'Inter', 'Poppins', sans-serif;
-            
-            --btn-primary-bg: #ffffff;
-            --btn-primary-text: #000000;
-            --btn-primary-hover: #e0e0e0;
-            
+            --bg-left: #1e1f22;
+            --bg-right: #1e1f22;
+            --text-main: #e8e8e8;
+            --text-dim: #8e8e8e;
+            --border-color: rgba(255,255,255,0.09);
+            --focus-glow: rgba(255, 255, 255, 0.08);
+            --input-bg: rgba(255, 255, 255, 0.04);
+            --font-family: 'universalSans', 'Inter', -apple-system, sans-serif;
+
+            --btn-primary-bg: #e8e8e8;
+            --btn-primary-text: #1e1f22;
+            --btn-primary-hover: #ffffff;
+
             --btn-secondary-bg: transparent;
-            --btn-secondary-border: rgba(255,255,255,0.15);
+            --btn-secondary-border: rgba(255,255,255,0.12);
             --btn-secondary-hover: rgba(255,255,255,0.05);
-            
-            --shadow-subtle: 0 8px 30px rgba(0,0,0,0.6);
+
+            --shadow-subtle: 0 8px 30px rgba(0,0,0,0.5);
         }
 
         /* Light Mode Variables */
         html[data-theme="light"] {
             --bg-left: #ffffff;
-            --bg-right: #f4f5f8;
-            --text-main: #121212;
-            --text-dim: #666666;
-            --border-color: rgba(0,0,0,0.1);
-            --focus-glow: rgba(0, 0, 0, 0.05);
+            --bg-right: #f9f8f7;
+            --text-main: #0a0a0a;
+            --text-dim: #6b6b6b;
+            --border-color: rgba(0,0,0,0.08);
+            --focus-glow: rgba(0, 0, 0, 0.04);
             --input-bg: rgba(0, 0, 0, 0.02);
-            
+
             --btn-primary-bg: #000000;
             --btn-primary-text: #ffffff;
             --btn-primary-hover: #222222;
-            
+
             --btn-secondary-bg: transparent;
-            --btn-secondary-border: rgba(0,0,0,0.15);
+            --btn-secondary-border: rgba(0,0,0,0.12);
             --btn-secondary-hover: rgba(0,0,0,0.03);
-            
-            --shadow-subtle: 0 12px 40px rgba(0,0,0,0.05);
+
+            --shadow-subtle: 0 12px 40px rgba(0,0,0,0.04);
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -163,7 +168,7 @@
             margin-bottom: 2.2rem;
             text-align: center;
             color: var(--text-main);
-            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-family: 'universalSansDisplay', 'universalSans', 'Inter', sans-serif;
             letter-spacing: -0.015em;
         }
 
@@ -183,7 +188,7 @@
             padding: 13px;
             border-radius: 9px;
             font-size: 0.92rem;
-            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-family: 'universalSansDisplay', 'universalSans', 'Inter', sans-serif;
             font-weight: 600;
             cursor: pointer;
             display: flex;
@@ -272,7 +277,7 @@
             border-radius: 9px;
             font-size: 0.95rem;
             font-weight: 600;
-            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-family: 'universalSansDisplay', 'universalSans', 'Inter', sans-serif;
             cursor: pointer;
             transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
             margin-top: 1rem;

@@ -8,7 +8,7 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>MSME.AI</title>
-    <!-- Modern Typography: Inter -->
+    <!-- Inter as fallback for universalSans -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -34,18 +34,18 @@
 
             <div class="sidebar-nav-menu">
                 <button class="nav-menu-btn active" title="Chat" id="newChatBtn"><i class="fa-regular fa-pen-to-square"></i> <span
-                        class="nav-text">Chat</span></button>
+                        class="nav-text" data-i18n="navChat">Chat</span></button>
                 <button class="nav-menu-btn" title="Search History" id="openSearchModalBtn"><i
-                        class="fa-solid fa-magnifying-glass"></i> <span class="nav-text">Search</span></button> <button
+                        class="fa-solid fa-magnifying-glass"></i> <span class="nav-text" data-i18n="navSearch">Search</span></button> <button
                     class="nav-menu-btn" title="AI Agent" id="agentModeBtn"><i class="fa-solid fa-wand-magic-sparkles"></i> <span
-                        class="nav-text">Agent</span></button>
+                        class="nav-text" data-i18n="navAgent">Agent</span></button>
             </div>
 
             <div class="sidebar-content">
-                <div class="history-dropdown-header" id="historyToggleBtn"><span class="nav-text">History</span> <i
+                <div class="history-dropdown-header" id="historyToggleBtn"><span class="nav-text" data-i18n="navHistory">History</span> <i
                         class="fa-solid fa-chevron-down nav-text"></i></div>
                 <ul class="history-list" id="historyList">
-                    <li class="history-placeholder"><span class="nav-text">Loading history...</span></li>
+                    <li class="history-placeholder"><span class="nav-text" data-i18n="loadingHistory">Loading history...</span></li>
                 </ul>
             </div>
             <div class="sidebar-footer">
@@ -63,16 +63,16 @@
                     <!-- Expandable Context Menu -->
                     <div class="user-context-menu" id="userContextMenu">
                         <button class="ctx-menu-item" id="ctxSettingsMenuBtn">
-                            <i class="fa-solid fa-gear"></i> <span data-i18n="settings" style="flex:1;">设置 / Settings</span> <i class="fa-solid fa-chevron-down" style="font-size: 0.7rem; width: auto;" id="ctxSettingsIcon"></i>
+                            <i class="fa-solid fa-gear"></i> <span data-i18n="ctxSettings" style="flex:1;">Settings</span> <i class="fa-solid fa-chevron-down" style="font-size: 0.7rem; width: auto;" id="ctxSettingsIcon"></i>
                         </button>
-                        
+
                         <div class="ctx-settings-block" id="ctxSettingsBlock">
-                            <div class="ctx-settings-header">Theme</div>
+                            <div class="ctx-settings-header" data-i18n="ctxTheme">Theme</div>
                             <div class="theme-toggle-group" id="ctxThemeToggleGroup">
                                 <button class="theme-btn active" data-theme="light" title="Light"><i class="fa-solid fa-sun"></i></button>
                                 <button class="theme-btn" data-theme="dark" title="Dark"><i class="fa-solid fa-moon"></i></button>
                             </div>
-                            <div class="ctx-settings-header" style="margin-top:4px;">Language</div>
+                            <div class="ctx-settings-header" style="margin-top:4px;" data-i18n="ctxLang">Language</div>
                             <div class="lang-selector" id="ctxLangSelector">
                                 <button class="lang-btn active" data-lang="en">EN</button>
                                 <button class="lang-btn" data-lang="zh">中文</button>
@@ -80,10 +80,10 @@
                             </div>
                         </div>
 
-                        <button class="ctx-menu-item" id="ctxFilesBtn"><i class="fa-solid fa-file"></i> <span>文件 / Files</span></button>
-                        <button class="ctx-menu-item" id="ctxAccountBtn"><i class="fa-solid fa-user"></i> <span>账户 / Account</span></button>
+                        <button class="ctx-menu-item" id="ctxFilesBtn"><i class="fa-solid fa-file"></i> <span data-i18n="ctxFiles">Files</span></button>
+                        <button class="ctx-menu-item" id="ctxAccountBtn"><i class="fa-solid fa-user"></i> <span data-i18n="ctxAccount">Account</span></button>
                         <div class="ctx-divider"></div>
-                        <button class="ctx-menu-item text-danger" id="ctxLogoutBtn"><i class="fa-solid fa-arrow-right-from-bracket"></i> <span>退出登录 / Logout</span></button>
+                        <button class="ctx-menu-item text-danger" id="ctxLogoutBtn"><i class="fa-solid fa-arrow-right-from-bracket"></i> <span data-i18n="ctxLogout">Logout</span></button>
                     </div>
                 </div>
             </div>
@@ -106,12 +106,18 @@
 
                 <!-- Guest Navigation Bar (top-right, visible when not logged in) -->
                 <header class="guest-header" id="guestHeader">
+                    <a href="/" class="guest-logo-link" aria-label="MSME.AI home">
+                        <img src="/static/Main%20Logo.png" alt="MSME.AI" class="guest-logo-img">
+                    </a>
                     <nav class="guest-nav" id="guestNav">
-                        <button class="guest-nav-gear" id="settingsGearBtn" title="Settings">
-                            <i class="fa-solid fa-gear"></i>
+                        <button class="guest-nav-gear" id="settingsGearBtn" title="Settings" aria-label="Settings">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke-width="2">
+                                <path stroke="currentColor" d="M13.5 3h-3C9.408 5.913 8.024 6.711 4.956 6.201l-1.5 2.598c1.976 2.402 1.976 4 0 6.402l1.5 2.598c3.068-.51 4.452.288 5.544 3.201h3c1.092-2.913 2.476-3.711 5.544-3.2l1.5-2.599c-1.976-2.402-1.976-4 0-6.402l-1.5-2.598c-3.068.51-4.452-.288-5.544-3.201Z"></path>
+                                <circle cx="12" cy="12" r="2.5" fill="currentColor"></circle>
+                            </svg>
                         </button>
-                        <button class="guest-nav-login" id="guestLoginBtn">登录</button>
-                        <button class="guest-nav-register" id="guestRegisterBtn">注册</button>
+                        <a class="guest-nav-login" id="guestLoginBtn" href="/static/login.html" data-i18n="loginBtn">Sign in</a>
+                        <a class="guest-nav-register" id="guestRegisterBtn" href="/static/register.html" data-i18n="registerBtn">Sign up</a>
 
                         <!-- Settings Dropdown Panel -->
                         <div class="settings-dropdown" id="settingsDropdown">
@@ -127,7 +133,7 @@
                             </div>
                             <div class="settings-divider"></div>
                             <div class="settings-section">
-                                <span class="settings-label">语言</span>
+                                <span class="settings-label" data-i18n="settingsLabel">Language</span>
                                 <div class="lang-selector" id="langSelector">
                                     <button class="lang-btn active" data-lang="en">EN</button>
                                     <button class="lang-btn" data-lang="zh">中文</button>
@@ -165,7 +171,7 @@
                             </button>
                         </div>
                     </div>
-                    <div class="liquid-glass-input">
+                    <div class="composer-input">
 
                         <!-- Attachments preview bar -->
                         <div id="attachmentsPreview" class="attachments-preview"></div>
@@ -179,7 +185,7 @@
                                     <i class="fa-solid fa-globe"></i>
                                 </button>
                             </div>
-                            <textarea id="userInput" placeholder="What do you want to know?"
+                            <textarea id="userInput" placeholder="What do you want to know?" data-i18n-placeholder="placeholder"
                                 autocomplete="off" rows="1"></textarea>
                             <!-- Connectors Dropdown (Agent Mode Only) -->
                             <div class="connectors-container" id="connectorsContainer" style="display: none;">
@@ -213,6 +219,15 @@
                                         </div>
                                         <label class="liquid-glass-switch" id="switch-docs" data-service="docs">
                                             <input type="checkbox" id="checkbox-docs">
+                                            <span class="slider"></span>
+                                        </label>
+                                    </div>
+                                    <div class="connector-item" data-service="sheets">
+                                        <div class="connector-icon-name">
+                                            <i class="fa-solid fa-table-cells" style="color:#0f9d58;"></i> Google Sheets
+                                        </div>
+                                        <label class="liquid-glass-switch" id="switch-sheets" data-service="sheets">
+                                            <input type="checkbox" id="checkbox-sheets">
                                             <span class="slider"></span>
                                         </label>
                                     </div>
@@ -696,8 +711,11 @@
     <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
     <!-- Markdown -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- i18n: i18next + http backend (loads /static/locales/*.json) -->
+    <script src="https://cdn.jsdelivr.net/npm/i18next@23.15.1/dist/umd/i18next.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/i18next-http-backend@2.6.1/i18nextHttpBackend.min.js"></script>
     <!-- Application Scripts -->
-    <script src="/static/script.js?v=5.2.0"></script>
+    <script src="/static/script.js?v=5.4.0"></script>
 </body>
 
 </html>

@@ -5,6 +5,7 @@ import json
 import base64
 import logging
 import html
+import re
 from urllib.parse import urlparse
 from fastapi import APIRouter, HTTPException, Depends, Header
 from pydantic import BaseModel
@@ -43,7 +44,8 @@ SCOPES = [
     'https://www.googleapis.com/auth/drive.file',
     'https://www.googleapis.com/auth/gmail.send',
     'https://www.googleapis.com/auth/documents',
-    'https://www.googleapis.com/auth/calendar.events'
+    'https://www.googleapis.com/auth/calendar.events',
+    'https://www.googleapis.com/auth/spreadsheets'
 ]
 
 def _email_body_to_html(body: str, subject: str = "") -> str:
@@ -242,6 +244,7 @@ async def clear_all_connectors(user_id: str = Depends(get_current_user)):
             "google_creds_docs": "",
             "google_creds_calendar": "",
             "google_creds_meet": "",
+            "google_creds_sheets": "",
             # Legacy fields
             "google_token": "",
             "google_refresh_token": "",
@@ -265,6 +268,7 @@ async def get_status(user_id: str = Depends(get_current_user)):
         "docs": "documents",
         "calendar": "calendar.events",
         "meet": "calendar.events",
+        "sheets": "spreadsheets",
     }
     status_map = {service: {"granted": False, "active": False} for service in scope_markers}
 
@@ -898,6 +902,166 @@ def tool_docs_create(user_id: str, title: str, content: str, lang: str = "zh") -
             return f"⚠️ Ralat tidak dijangka: {str(e)}"
         return f"⚠️ 发生未知错误：{str(e)}"
 
+def _rows_from_sheet_content(content: str) -> list:
+    """Convert markdown/CSV/plain text into rows suitable for Sheets values.update."""
+    import csv
+    from io import StringIO
+
+    text = (content or "").strip()
+    if not text:
+        return [["Content"], [""]]
+
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    table_lines = [line for line in lines if line.startswith("|") and line.endswith("|")]
+    if table_lines:
+        rows = []
+        for line in table_lines:
+            cells = [cell.strip() for cell in line.strip("|").split("|")]
+            # Skip markdown separator rows like | --- | :---: |
+            if cells and all(re.fullmatch(r":?-{3,}:?", cell.replace(" ", "")) for cell in cells):
+                continue
+            rows.append(cells)
+        if rows:
+            return rows
+
+    delimiter = "\t" if any("\t" in line for line in lines) else ","
+    if any(delimiter in line for line in lines):
+        try:
+            parsed = list(csv.reader(StringIO("\n".join(lines)), delimiter=delimiter))
+            rows = [[cell.strip() for cell in row] for row in parsed if row]
+            if rows:
+                return rows
+        except Exception:
+            pass
+
+    return [["Content"], *[[line] for line in lines]]
+
+def _sheet_cell_value(value):
+    if value is None:
+        return ""
+    if isinstance(value, (str, int, float, bool)):
+        return value
+    return json.dumps(value, ensure_ascii=False)
+
+def _normalize_sheet_rows(rows, content: str = "") -> list:
+    if isinstance(rows, str):
+        try:
+            rows = json.loads(rows)
+        except Exception:
+            return _rows_from_sheet_content(rows)
+
+    if isinstance(rows, list) and rows:
+        if all(isinstance(row, dict) for row in rows):
+            headers = []
+            for row in rows:
+                for key in row.keys():
+                    if key not in headers:
+                        headers.append(key)
+            return [headers] + [[_sheet_cell_value(row.get(header, "")) for header in headers] for row in rows]
+
+        normalized = []
+        for row in rows:
+            if isinstance(row, list):
+                normalized.append([_sheet_cell_value(cell) for cell in row])
+            elif isinstance(row, dict):
+                normalized.append([json.dumps(row, ensure_ascii=False)])
+            else:
+                normalized.append([_sheet_cell_value(row)])
+        if normalized:
+            return normalized
+
+    return _rows_from_sheet_content(content)
+
+def tool_sheets_create(user_id: str, title: str, rows=None, content: str = "", sheet_name: str = "Sheet1", lang: str = "zh") -> str:
+    from googleapiclient.errors import HttpError
+    try:
+        creds = get_google_creds_offline(user_id, "sheets")
+        required_scope = 'https://www.googleapis.com/auth/spreadsheets'
+        if not creds.scopes or required_scope not in creds.scopes:
+            if lang == "en":
+                return "⚠️ Operation blocked: You are missing Google Sheets access permissions. 👉 Please enable the Sheets switch in the sidebar to authorize."
+            elif lang == "ms":
+                return "⚠️ Operasi disekat: Anda kehilangan kebenaran akses Google Sheets. 👉 Sila hidupkan suis Sheets di bar sisi untuk memberi kebenaran."
+            return "⚠️ 操作被拦截：您缺少 Google Sheets 访问权限。👉 请在侧边栏中开启 Sheets 开关以授权。"
+
+        service = build('sheets', 'v4', credentials=creds)
+        safe_title = title or "AI Generated Spreadsheet"
+        safe_sheet_name = re.sub(r"[:\\/?*\[\]]", "_", sheet_name or "Sheet1")[:100] or "Sheet1"
+        range_sheet_name = safe_sheet_name.replace("'", "''")
+        spreadsheet = service.spreadsheets().create(
+            body={
+                "properties": {"title": safe_title},
+                "sheets": [{"properties": {"title": safe_sheet_name}}],
+            },
+            fields="spreadsheetId,spreadsheetUrl,sheets.properties.sheetId"
+        ).execute()
+
+        spreadsheet_id = spreadsheet.get("spreadsheetId")
+        sheet_id = spreadsheet.get("sheets", [{}])[0].get("properties", {}).get("sheetId", 0)
+        values = _normalize_sheet_rows(rows, content)
+        if values:
+            service.spreadsheets().values().update(
+                spreadsheetId=spreadsheet_id,
+                range=f"'{range_sheet_name}'!A1",
+                valueInputOption="USER_ENTERED",
+                body={"values": values}
+            ).execute()
+
+            header_range = {
+                "sheetId": sheet_id,
+                "startRowIndex": 0,
+                "endRowIndex": 1,
+                "startColumnIndex": 0,
+                "endColumnIndex": max(len(row) for row in values),
+            }
+            service.spreadsheets().batchUpdate(
+                spreadsheetId=spreadsheet_id,
+                body={"requests": [{
+                    "repeatCell": {
+                        "range": header_range,
+                        "cell": {"userEnteredFormat": {"textFormat": {"bold": True}}},
+                        "fields": "userEnteredFormat.textFormat.bold"
+                    }
+                }, {
+                    "autoResizeDimensions": {
+                        "dimensions": {
+                            "sheetId": sheet_id,
+                            "dimension": "COLUMNS",
+                            "startIndex": 0,
+                            "endIndex": max(len(row) for row in values),
+                        }
+                    }
+                }]}
+            ).execute()
+
+        sheet_link = spreadsheet.get("spreadsheetUrl") or f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/edit"
+        if lang == "en":
+            return f"✅ Spreadsheet created successfully: {sheet_link}"
+        elif lang == "ms":
+            return f"✅ Hamparan berjaya dicipta: {sheet_link}"
+        return f"✅ 表格已创建完成: {sheet_link}"
+    except HttpError as error:
+        if error.resp.status in [401, 403]:
+            users_col.update_one({"_id": user_id}, {"$unset": {"google_creds_sheets": ""}})
+            if lang == "en":
+                return "⚠️ Spreadsheet creation failed: API permission denied. Sidebar switch has been reset, please re-enable it."
+            elif lang == "ms":
+                return "⚠️ Penciptaan hamparan gagal: Kebenaran API ditolak. Suis bar sisi telah ditetapkan semula."
+            return "⚠️ 创建表格失败：API 权限验证未通过。侧边栏开关已被清理，请重新开启开关授权。"
+
+        err_reason = getattr(error, 'reason', str(error))
+        if lang == "en":
+            return f"⚠️ Spreadsheet creation failed. Reason: {err_reason}"
+        elif lang == "ms":
+            return f"⚠️ Penciptaan hamparan gagal. Sebab: {err_reason}"
+        return f"⚠️ 创建表格失败，原因：{err_reason}"
+    except Exception as e:
+        if lang == "en":
+            return f"⚠️ Unexpected error: {str(e)}"
+        elif lang == "ms":
+            return f"⚠️ Ralat tidak dijangka: {str(e)}"
+        return f"⚠️ 发生未知错误：{str(e)}"
+
 def tool_calendar_create(user_id: str, title: str, date_iso: str, lang: str = "zh",
                          description: str = "", duration_minutes: int = 60, location: str = "",
                          user_timezone: str = "") -> str:
@@ -1146,6 +1310,30 @@ GOOGLE_WORKSPACE_TOOLS_SCHEMA = [
                     "content": {"type": "string"}
                 },
                 "required": ["title", "content"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "sheets_create",
+            "description": "Create a new Google Sheet and write table data into it. Use when the user asks to create, save, export, or write data/table/analysis into Google Sheets. If writing the PREVIOUS analysis or report, set 'content' to 'USE_PREVIOUS_ANALYSIS'. For new structured data, prefer 'rows' as an array of arrays where the first row is headers.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string"},
+                    "sheet_name": {"type": "string"},
+                    "rows": {
+                        "type": "array",
+                        "items": {
+                            "type": "array",
+                            "items": {"type": ["string", "number", "boolean", "null"]}
+                        },
+                        "description": "2D table values. First row should be headers when possible."
+                    },
+                    "content": {"type": "string", "description": "Markdown table, CSV, TSV, plain text, or USE_PREVIOUS_ANALYSIS."}
+                },
+                "required": ["title"]
             }
         }
     },

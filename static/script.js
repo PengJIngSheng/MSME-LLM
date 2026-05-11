@@ -14,6 +14,14 @@ let isFirstMessage = true;
 let isAgentMode = false;
 let currentUserId = localStorage.getItem('pepperUserId') || null;
 let currentUsername = localStorage.getItem('pepperUsername') || null;
+
+// Hide sidebar immediately if not logged in (before any async auth)
+(function() {
+    const token = localStorage.getItem('pepperJwt');
+    if (!token) {
+        document.body.classList.add('is-guest');
+    }
+})();
 let currentAbortController = null;
 let isPaused = false;
 let pausedMsgIndex = null;
@@ -29,7 +37,7 @@ const guestLimitLoginBtn = document.getElementById('guestLimitLoginBtn');
 const guestLimitRegisterBtn = document.getElementById('guestLimitRegisterBtn');
 const appContainer = document.querySelector('.app-container');
 const inputWrapper = document.querySelector('.input-wrapper');
-const liquidGlassInput = document.querySelector('.liquid-glass-input');
+const composerInput = document.querySelector('.composer-input');
 const COMPOSER_MAX_HEIGHT = 168;
 let googleOAuthClientId = '685645444928-ivt7lgsjiatv0ff0r68ckmbln1rdrrm4.apps.googleusercontent.com';
 
@@ -110,8 +118,8 @@ function resizeComposer() {
     const nextHeight = Math.min(userInput.scrollHeight, COMPOSER_MAX_HEIGHT);
     userInput.style.height = `${nextHeight}px`;
     userInput.style.overflowY = userInput.scrollHeight > COMPOSER_MAX_HEIGHT ? 'auto' : 'hidden';
-    if (liquidGlassInput) {
-        liquidGlassInput.classList.toggle('composer-expanded', nextHeight > 34);
+    if (composerInput) {
+        composerInput.classList.toggle('composer-expanded', nextHeight > 34);
     }
 }
 
@@ -132,8 +140,8 @@ function incrementGuestQuestionCount() {
 function getUiCopy() {
     return window._pepperLang || {
         greeting: 'How can I help you today?',
-        loginBtn: 'Login',
-        registerBtn: 'Register',
+        loginBtn: 'Sign in',
+        registerBtn: 'Sign up',
         guestLimitText: 'Get smarter responses, upload files and images, and unlock more features.',
         guestLimitRegisterBtn: 'Sign up for free',
         agentRequiresLogin: 'Login required for Agent mode'
@@ -292,8 +300,8 @@ function updateGuestInputUi() {
     if (appContainer) {
         appContainer.classList.toggle('guest-input-hidden', shouldHideNormalInput);
     }
-    if (liquidGlassInput) {
-        liquidGlassInput.classList.toggle('guest-agent-locked', shouldLockGuestAgent);
+    if (composerInput) {
+        composerInput.classList.toggle('guest-agent-locked', shouldLockGuestAgent);
     }
     if (userInput) {
         userInput.readOnly = shouldLockGuestAgent;
@@ -310,12 +318,12 @@ function pulseGuestLoginPrompt() {
     if (now - lastGuestPromptPulseAt < 220) return;
     lastGuestPromptPulseAt = now;
 
-    if (liquidGlassInput) {
-        liquidGlassInput.classList.remove('lock-tap');
-        void liquidGlassInput.offsetWidth;
-        liquidGlassInput.classList.add('lock-tap');
-        liquidGlassInput.addEventListener('animationend', () => {
-            liquidGlassInput.classList.remove('lock-tap');
+    if (composerInput) {
+        composerInput.classList.remove('lock-tap');
+        void composerInput.offsetWidth;
+        composerInput.classList.add('lock-tap');
+        composerInput.addEventListener('animationend', () => {
+            composerInput.classList.remove('lock-tap');
         }, { once: true });
     }
 
@@ -646,7 +654,7 @@ document.getElementById('agentModeBtn').addEventListener('click', () => {
 loadHistory();
 syncGuestAccessState();
 
-if (liquidGlassInput) {
+if (composerInput) {
     const lockedGuestAgentHandler = (e) => {
         if (!currentUserId && isAgentMode) {
             e.preventDefault();
@@ -654,8 +662,8 @@ if (liquidGlassInput) {
             pulseGuestLoginPrompt();
         }
     };
-    liquidGlassInput.addEventListener('pointerdown', lockedGuestAgentHandler, true);
-    liquidGlassInput.addEventListener('focusin', lockedGuestAgentHandler, true);
+    composerInput.addEventListener('pointerdown', lockedGuestAgentHandler, true);
+    composerInput.addEventListener('focusin', lockedGuestAgentHandler, true);
 }
 
 // ============ Toggles ============
@@ -729,74 +737,88 @@ async function fetchConnectorsStatus() {
 const googleClients = {};
 let pendingOAuthService = null;
 
+function buildGoogleClient(service) {
+    if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) {
+        return false;
+    }
+    if (!SCOPE_MAP[service]) {
+        console.warn(`Unknown Google connector service: ${service}`);
+        return false;
+    }
+
+    const loginHint = localStorage.getItem('pepperUsername');
+    const config = {
+        client_id: googleOAuthClientId,
+        scope: SCOPE_MAP[service],
+        include_granted_scopes: false,  // CRITICAL: Force strictly separate scope prompts
+        ux_mode: 'popup',
+        callback: async (response) => {
+            if (response && response.code) {
+                try {
+                    const jwt = localStorage.getItem('pepperJwt');
+                    if (!jwt) {
+                        showToast("Please login first.", true);
+                        return;
+                    }
+                    const res = await fetch('/api/connectors/exchange_code', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${jwt}`
+                        },
+                        body: JSON.stringify({
+                            auth_code: response.code,
+                            redirect_uri: window.location.origin,
+                            service_id: pendingOAuthService
+                        })
+                    });
+
+                    if (res.status === 401) {
+                        localStorage.removeItem('pepperJwt');
+                        localStorage.removeItem('pepperUserId');
+                        localStorage.removeItem('pepperDisplayName');
+                        showToast("Your session expired during auth. Please log in again.", true);
+                        setTimeout(() => window.location.href = '/static/login.html', 1500);
+                        return;
+                    }
+
+                    const data = await res.json();
+                    if (res.ok && data.status === "success") {
+                        const checkbox = document.getElementById(`checkbox-${pendingOAuthService}`);
+                        if (checkbox) checkbox.checked = true;
+                        fetchConnectorsStatus();
+                    } else {
+                        showToast("Connector Auth Failed: " + (data.detail || data.message || "Unknown error"), true);
+                        const checkbox = document.getElementById(`checkbox-${pendingOAuthService}`);
+                        if (checkbox) checkbox.checked = false;
+                    }
+                } catch (e) {
+                    showToast("Connector Network Error", true);
+                }
+            }
+        }
+    };
+
+    if (loginHint && loginHint.includes('@')) {
+        config.login_hint = loginHint;
+    }
+
+    try {
+        googleClients[service] = google.accounts.oauth2.initCodeClient(config);
+        return true;
+    } catch (err) {
+        console.warn(`Failed to initialize Google connector client for ${service}`, err);
+        return false;
+    }
+}
+
 function initGoogleClients() {
     if (typeof google === 'undefined') {
         setTimeout(initGoogleClients, 500);
         return;
     }
-    const loginHint = localStorage.getItem('pepperUsername');
-    
     Object.keys(SCOPE_MAP).forEach(service => {
-        let config = {
-            client_id: googleOAuthClientId,
-            scope: SCOPE_MAP[service],
-            include_granted_scopes: false,  // CRITICAL: Force strictly separate scope prompts
-            ux_mode: 'popup',
-            callback: async (response) => {
-            if (response && response.code) {
-                try {
-                        const jwt = localStorage.getItem('pepperJwt');
-                        if (!jwt) {
-                            showToast("Please login first.", true);
-                            return;
-                        }
-                        const res = await fetch('/api/connectors/exchange_code', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${jwt}`
-                            },
-                            body: JSON.stringify({
-                                auth_code: response.code,
-                                redirect_uri: window.location.origin,
-                                service_id: pendingOAuthService
-                            })
-                        });
-                        
-                        if (res.status === 401) {
-                            localStorage.removeItem('pepperJwt');
-                            localStorage.removeItem('pepperUserId');
-                            localStorage.removeItem('pepperDisplayName');
-                            showToast("Your session expired during auth. Please log in again.", true);
-                            setTimeout(() => window.location.href = '/static/login.html', 1500);
-                            return;
-                        }
-                        
-                        const data = await res.json();
-                        if (res.ok && data.status === "success") {
-                            const checkbox = document.getElementById(`checkbox-${pendingOAuthService}`);
-                            if (checkbox) checkbox.checked = true;
-                            fetchConnectorsStatus();
-                        } else {
-                            // Only pop up if there is an error
-                            showToast("Connector Auth Failed: " + (data.detail || data.message || "Unknown error"), true);
-                            
-                            // Revert toggle UI immediately visually
-                            const checkbox = document.getElementById(`checkbox-${pendingOAuthService}`);
-                            if(checkbox) checkbox.checked = false;
-                        }
-                    } catch (e) {
-                        showToast("Connector Network Error", true);
-                    }
-                }
-            }
-        };
-        
-        if (loginHint && loginHint.includes('@')) {
-            config.login_hint = loginHint;
-        }
-        
-        googleClients[service] = google.accounts.oauth2.initCodeClient(config);
+        buildGoogleClient(service);
     });
 }
 
@@ -804,6 +826,7 @@ const SCOPE_MAP = {
     'drive': 'https://www.googleapis.com/auth/drive.file',
     'gmail': 'https://www.googleapis.com/auth/gmail.send',
     'docs': 'https://www.googleapis.com/auth/documents',
+    'sheets': 'https://www.googleapis.com/auth/spreadsheets',
     'calendar': 'https://www.googleapis.com/auth/calendar.events',
     'meet': 'https://www.googleapis.com/auth/calendar.events'
 };
@@ -840,8 +863,12 @@ document.querySelectorAll('.liquid-glass-switch').forEach(switchLabel => {
             }
             // Turning ON always requires Google Auth window to retrieve/confirm scope
             if (!googleClients[service]) {
-                showToast("Google OAuth loading... please wait.", true);
-                return;
+                await publicConfigReady;
+                buildGoogleClient(service);
+                if (!googleClients[service]) {
+                    showToast("Google OAuth loading... please wait.", true);
+                    return;
+                }
             }
             if (connectorsContainer) connectorsContainer.classList.remove('open');
             pendingOAuthService = service;
@@ -2721,21 +2748,9 @@ async function loadChatPreview(chatId, title, liElement) {
         }
     });
 
-    // ── Login / Register buttons → redirect to dedicated pages ──
+    // ── Login / Register: now plain <a href>, no JS needed ──
     const guestLoginBtn = document.getElementById('guestLoginBtn');
     const guestRegisterBtn = document.getElementById('guestRegisterBtn');
-
-    if (guestLoginBtn) {
-        guestLoginBtn.addEventListener('click', () => {
-            window.location.href = '/static/login.html';
-        });
-    }
-
-    if (guestRegisterBtn) {
-        guestRegisterBtn.addEventListener('click', () => {
-            window.location.href = '/static/register.html';
-        });
-    }
 
     // ── Theme Toggle ──
     const savedTheme = getPreferredTheme();
@@ -2781,136 +2796,56 @@ async function loadChatPreview(chatId, title, liElement) {
     });
 
     function applyLang(lang) {
-        const translations = {
-            en: {
-                greeting: 'How can I help you today?',
-                placeholder: 'What do you want to know?',
-                thinkMode: 'Think Mode',
-                searchMode: 'Search Mode',
-                login: 'Login',
-                loginBtn: 'Login',
-                registerBtn: 'Register',
-                agentGreeting: 'Your personalize AI agent',
-                settingsLabel: 'Language',
-                navChat: 'Chat',
-                navSearch: 'Search',
-                navAgent: 'Agent',
-                navHistory: 'History',
-                loadingHistory: 'Loading history...',
-                guestLimitText: 'Get smarter responses, upload files and images, and unlock more features.',
-                guestLimitRegisterBtn: 'Sign up for free',
-                agentRequiresLogin: 'Login required for Agent mode',
-                ctxSettings: 'Settings',
-                ctxTheme: 'Theme',
-                ctxLang: 'Language',
-                ctxFiles: 'Files',
-                ctxAccount: 'Account',
-                ctxLogout: 'Logout'
-            },
-            zh: {
-                greeting: '今天有什么计划？',
-                placeholder: '您想了解什么？',
-                thinkMode: '思考模式',
-                searchMode: '联网搜索',
-                login: '登录',
-                loginBtn: '登录',
-                registerBtn: '注册',
-                agentGreeting: '您的专属 AI 智能助手',
-                settingsLabel: '语言',
-                navChat: '对话',
-                navSearch: '搜索',
-                navAgent: '深度分析',
-                navHistory: '历史记录',
-                loadingHistory: '加载历史中...',
-                guestLimitText: '获取更加智能的回复、上传文件和图片，并获享更多功能。',
-                guestLimitRegisterBtn: '免费注册',
-                agentRequiresLogin: 'Agent 模式需要先登录',
-                ctxSettings: '设置',
-                ctxTheme: '主题',
-                ctxLang: '语言',
-                ctxFiles: '文件',
-                ctxAccount: '账户',
-                ctxLogout: '退出登录'
-            },
-            ms: {
-                greeting: 'Apa yang boleh saya bantu hari ini?',
-                placeholder: 'Apa yang anda ingin tahu?',
-                thinkMode: 'Mod Pemikiran',
-                searchMode: 'Mod Carian',
-                login: 'Log Masuk',
-                loginBtn: 'Log Masuk',
-                registerBtn: 'Daftar',
-                agentGreeting: 'Ejen AI peribadi anda',
-                settingsLabel: 'Bahasa',
-                navChat: 'Sembang',
-                navSearch: 'Carian',
-                navAgent: 'Ejen',
-                navHistory: 'Sejarah',
-                loadingHistory: 'Memuatkan sejarah...',
-                guestLimitText: 'Dapatkan jawapan yang lebih pintar, muat naik fail dan imej, serta buka lebih banyak fungsi.',
-                guestLimitRegisterBtn: 'Daftar percuma',
-                agentRequiresLogin: 'Log masuk diperlukan untuk mod Agent',
-                ctxSettings: 'Tetapan',
-                ctxTheme: 'Tema',
-                ctxLang: 'Bahasa',
-                ctxFiles: 'Fail',
-                ctxAccount: 'Akaun',
-                ctxLogout: 'Log Keluar'
+        // Walk DOM and apply current i18next translations
+        const updateDOM = () => {
+            const tr = (key) => {
+                const v = i18next.t(key);
+                return (v && v !== key) ? v : null;
+            };
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const v = tr(el.dataset.i18n);
+                if (v != null) el.textContent = v;
+            });
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+                const v = tr(el.dataset.i18nPlaceholder);
+                if (v != null) el.placeholder = v;
+            });
+            document.querySelectorAll('[data-i18n-title]').forEach(el => {
+                const v = tr(el.dataset.i18nTitle);
+                if (v != null) el.title = v;
+            });
+            if (!currentUserId) {
+                const ud = document.getElementById('userDisplay');
+                const v = tr('login');
+                if (ud && v) ud.innerText = v;
             }
+            window._pepperLang = i18next.getResourceBundle(i18next.language, 'translation') || {};
+            window.applyPepperLang = applyLang;
+            document.documentElement.setAttribute('lang', i18next.language);
+            if (logoContainer && isFirstMessage && !isAgentMode) {
+                logoContainer.innerHTML = getNormalLandingMarkup();
+            }
+            updateGuestLimitBannerCopy();
         };
 
-        const t = translations[lang] || translations.en;
-        const inp = document.getElementById('userInput');
-        if (inp) inp.placeholder = t.placeholder;
-        const thinkSpan = document.querySelector('#thinkToggle span');
-        if (thinkSpan) thinkSpan.textContent = t.thinkMode;
-        const webSpan = document.querySelector('#webToggle span');
-        if (webSpan) webSpan.textContent = t.searchMode;
-        if (guestLoginBtn) guestLoginBtn.textContent = t.loginBtn;
-        if (guestRegisterBtn) guestRegisterBtn.textContent = t.registerBtn;
-        
-        // Update sidebar nav items
-        const chatTxt = document.querySelector('#newChatBtn .nav-text');
-        if (chatTxt) chatTxt.textContent = t.navChat;
-        const searchTxt = document.querySelector('#openSearchModalBtn .nav-text');
-        if (searchTxt) searchTxt.textContent = t.navSearch;
-        const agentTxt = document.querySelector('#agentModeBtn .nav-text');
-        if (agentTxt) agentTxt.textContent = t.navAgent;
-        const historyTxt = document.querySelector('#historyToggleBtn .nav-text');
-        if (historyTxt) historyTxt.textContent = t.navHistory;
-        const loadHist = document.querySelector('.history-placeholder .nav-text');
-        if (loadHist) loadHist.textContent = t.loadingHistory;
-
-        // Update settings label
-        const settingsLabel = nav.querySelector('.settings-label');
-        if (settingsLabel) settingsLabel.textContent = t.settingsLabel;
-
-        // Update User Context Menu
-        const ctxSettingsTxt = document.querySelector('#ctxSettingsMenuBtn span');
-        if (ctxSettingsTxt) ctxSettingsTxt.textContent = t.ctxSettings;
-        const ctxFilesTxt = document.querySelector('#ctxFilesBtn span');
-        if (ctxFilesTxt) ctxFilesTxt.textContent = t.ctxFiles;
-        const ctxAccountTxt = document.querySelector('#ctxAccountBtn span');
-        if (ctxAccountTxt) ctxAccountTxt.textContent = t.ctxAccount;
-        const ctxLogoutTxt = document.querySelector('#ctxLogoutBtn span');
-        if (ctxLogoutTxt) ctxLogoutTxt.textContent = t.ctxLogout;
-        
-        const ctxHeaders = document.querySelectorAll('.ctx-settings-header');
-        if (ctxHeaders.length >= 2) {
-            ctxHeaders[0].textContent = t.ctxTheme;
-            ctxHeaders[1].textContent = t.ctxLang;
+        if (!window._i18nReady) {
+            // First call: initialize i18next + http-backend (loads /static/locales/{{lng}}.json)
+            window._i18nReady = i18next
+                .use(i18nextHttpBackend)
+                .init({
+                    lng: lang,
+                    fallbackLng: 'en',
+                    supportedLngs: ['en', 'zh', 'ms'],
+                    backend: { loadPath: '/static/locales/{{lng}}.json' }
+                })
+                .then(updateDOM)
+                .catch(err => console.warn('i18next init failed', err));
+        } else {
+            // Subsequent calls: just switch language
+            window._i18nReady = i18next.changeLanguage(lang)
+                .then(updateDOM)
+                .catch(err => console.warn('i18next changeLanguage failed', err));
         }
-
-        if (!currentUserId) {
-            const ud = document.getElementById('userDisplay');
-            if (ud) ud.innerText = t.login;
-        }
-        window._pepperLang = t;
-        window.applyPepperLang = applyLang;
-        if (logoContainer && isFirstMessage && !isAgentMode) {
-            logoContainer.innerHTML = getNormalLandingMarkup();
-        }
-        updateGuestLimitBannerCopy();
     }
 })();
 loadUserPreferences();

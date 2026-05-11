@@ -32,9 +32,10 @@ _gwt_spec.loader.exec_module(_gwt)
 # Target nouns (the "what")
 _TARGETS = [
     "google docs", "google drive", "google doc", "gdocs", "gdrive",
+    "google sheets", "google sheet", "gsheets", "spreadsheet", "sheet",
     "gmail", "calendar", "google calendar", "email", "mail", "draft", "letter", "message",
-    "邮箱", "邮件", "云盘", "云端硬盘", "文档", "日历", "日程",
-    "docs", "drive",
+    "邮箱", "邮件", "云盘", "云端硬盘", "文档", "日历", "日程", "表格", "电子表格",
+    "docs", "drive", "sheets",
     "meeting", "appointment", "event", "schedule", "meet", "google meet", "video call", "video conference",
     "会议", "预约", "排期", "安排", "约会", "视频会议", "视频通话", "会议链接", "谷歌会议",
     "recipient", "subject", "body", "attachment", "content", "text",
@@ -75,7 +76,7 @@ def is_google_request(msg: str, user_id: str = None) -> bool:
         return True
 
     # Explicit branded phrases → immediate intercept
-    explicit_brands = ["google docs", "google doc", "google drive", "gdocs", "gdrive", "gmail", "google calendar", "google meet"]
+    explicit_brands = ["google docs", "google doc", "google drive", "gdocs", "gdrive", "google sheets", "google sheet", "gsheets", "gmail", "google calendar", "google meet"]
     if any(b in low for b in explicit_brands):
         return True
 
@@ -106,6 +107,7 @@ _SCOPE_TOOL_MAP = {
     "documents":       "docs_create",
     "calendar.events": "calendar_create",
     "meet":            "meet_create",
+    "spreadsheets":    "sheets_create",
 }
 
 def _build_enabled_schemas(active_scopes: str) -> list:
@@ -240,6 +242,9 @@ async def process_google_request(
         "YOU MUST generate the FULL email body text directly in the 'body' field.\n"
         "3. For docs_create: If the user asks to WRITE NEW content, "
         "generate the full content directly in the 'content' field.\n"
+        "3b. For sheets_create: If the user asks for Google Sheets, spreadsheets, tabular data, CSV, or tables, "
+        "use sheets_create. For new data, generate `rows` as a 2D array with headers in the first row. "
+        "For an existing analysis/report, set `content` to \"USE_PREVIOUS_ANALYSIS\".\n"
         "4. Output MUST be a valid JSON object with 'name' and 'arguments' keys.\n"
         "5. If user specifies a title/name/subject, use it. Otherwise pick a sensible default.\n"
         "6. If the user wants to SEND EMAIL or SEND PDF to someone, use gmail_send. "
@@ -271,8 +276,9 @@ async def process_google_request(
                 llm_messages = [
                     {"role": "system", "content": (
                         "Output ONLY a JSON object. No thinking, no explanation, no <think> tags.\n"
-                        "Available tools: docs_create, gmail_send, drive_upload, calendar_create, meet_create.\n"
+                        "Available tools: docs_create, sheets_create, gmail_send, drive_upload, calendar_create, meet_create.\n"
                         "docs_create args: title (string), content (string, use 'USE_PREVIOUS_ANALYSIS' for past content)\n"
+                        "sheets_create args: title (string), sheet_name (string), rows (2D array), content (string, use 'USE_PREVIOUS_ANALYSIS' for past content)\n"
                         "gmail_send args: recipient (string), subject (string), body (string)\n"
                         "drive_upload args: file_name (string)\n"
                         "calendar_create args: title (string), date_iso (string)\n"
@@ -410,6 +416,7 @@ _TOOL_TO_SERVICE = {
     "drive_upload":    "drive",
     "calendar_create": "calendar",
     "meet_create":     "meet",
+    "sheets_create":   "sheets",
 }
 
 _SERVICE_LABEL = {
@@ -418,6 +425,7 @@ _SERVICE_LABEL = {
     "drive":    "Google Drive",
     "calendar": "Google Calendar",
     "meet":     "Google Meet",
+    "sheets":   "Google Sheets",
 }
 
 def _check_connector_enabled(user_id: str, tool_name: str, lang: str = "en") -> str | None:
@@ -504,6 +512,21 @@ def _execute_tool(
                 content = _extract_previous_analysis(messages)
             title = args.get("title", "AI Generated Document")
             result = _gwt.tool_docs_create(user_id, title, content, lang=lang)
+
+        elif name == "sheets_create":
+            content = args.get("content", "")
+            rows = args.get("rows")
+            if content == "USE_PREVIOUS_ANALYSIS" or (not rows and (not content or len(content) < 20)):
+                content = _extract_previous_analysis(messages)
+            title = args.get("title", "AI Generated Spreadsheet")
+            result = _gwt.tool_sheets_create(
+                user_id,
+                title,
+                rows=rows,
+                content=content,
+                sheet_name=args.get("sheet_name", "Sheet1"),
+                lang=lang,
+            )
 
         elif name == "gmail_send":
             # Allow empty bodies if the user explicitly cleared it.
@@ -648,4 +671,3 @@ def _extract_previous_analysis(messages: list) -> str:
             if len(text) > 50:
                 return text
     return "No previous analysis found in chat history."
-
