@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# The initial clean-history snapshot intentionally preserves existing source
+# formatting. Enforce whitespace checks for every subsequent commit.
+if git rev-parse --verify --quiet HEAD >/dev/null; then
+    git diff --cached --check
+fi
+
+while IFS= read -r path; do
+    case "$path" in
+        data/backups/*|*.pem|*.key|*client_secret.json)
+            echo "Blocked sensitive file: $path" >&2
+            exit 1
+            ;;
+        config/secrets*.env)
+            if [[ "$path" != "config/secrets.example.env" ]]; then
+                echo "Blocked secret configuration file: $path" >&2
+                exit 1
+            fi
+            ;;
+    esac
+done < <(git diff --cached --name-only --diff-filter=ACMR)

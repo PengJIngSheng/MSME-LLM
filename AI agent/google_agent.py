@@ -1,0 +1,928 @@
+"""
+google_agent.py — Intent-Driven Google Workspace Agent
+=======================================================
+Architecture:
+  1. server.py detects Google-related user intent via is_google_request()
+  2. If matched, bypasses the slow reasoning model entirely
+  3. Calls a fast LLM to extract structured JSON parameters
+  4. Executes the corresponding Google API tool directly
+  5. Returns the result to the chat stream
+
+This module is loaded via importlib (same pattern as pdf_agent)
+because the parent directory name "AI agent" contains a space
+and is NOT a valid Python package.
+"""
+import os
+import json
+import re
+import base64
+import importlib.util as _ilu
+
+# ── Load google_workspace_tools via importlib (space-safe) ────────────────────
+_gwt_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "google_workspace_tools.py")
+_gwt_spec = _ilu.spec_from_file_location("google_workspace_tools", _gwt_path)
+_gwt = _ilu.module_from_spec(_gwt_spec)
+_gwt_spec.loader.exec_module(_gwt)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  Intent Detection
+# ══════════════════════════════════════════════════════════════════════════════
+
+# Target nouns (the "what")
+_TARGETS = [
+    "google docs", "google drive", "google doc", "gdocs", "gdrive",
+    "google sheets", "google sheet", "gsheets", "spreadsheet", "sheet",
+    "google slides", "google slide", "gslides", "slide deck", "presentation", "powerpoint", "pptx", "ppt",
+    "gmail", "calendar", "google calendar", "email", "mail", "draft", "letter", "message",
+    "image", "photo", "picture", "logo", "poster", "png", "jpg", "jpeg",
+    "邮箱", "邮件", "云盘", "云端硬盘", "文档", "日历", "日程", "表格", "电子表格", "幻灯片", "演示文稿", "简报",
+    "图片", "图像", "照片", "相片", "海报", "标志",
+    "docs", "drive", "sheets", "slides",
+    "meeting", "appointment", "event", "schedule", "meet", "google meet", "video call", "video conference",
+    "会议", "预约", "排期", "安排", "约会", "视频会议", "视频通话", "会议链接", "谷歌会议",
+    "recipient", "subject", "body", "attachment", "content", "text",
+    "收件人", "主题", "正文", "内容", "附件",
+]
+
+# Action verbs (the "do")
+_VERBS = [
+    "发送", "发", "存进", "写入", "上传", "保存", "创建", "新建",
+    "写进", "写到", "同步", "导出", "传到", "放到", "存到",
+    "安排", "预约", "排", "加", "增加", "追加", "修改", "换", "更新", "换成",
+    "查找", "搜索", "找", "读取", "查看", "读", "列出", "导入", "转换",
+    "send", "upload", "save", "create", "write", "export",
+    "sync", "put", "move", "transfer", "compose", "draft", "import", "convert",
+    "schedule", "book", "set up", "arrange", "add", "append", "update", "change", "modify", "replace",
+    "find", "search", "read", "view", "list", "inspect", "check"
+]
+
+# Gmail confirmation pending storage is now handled persistently via MongoDB in _gwt.users_col
+
+# Special confirm/cancel message markers
+_CONFIRM_GMAIL = "[CONFIRM_GMAIL_SEND]"
+_CANCEL_GMAIL = "[CANCEL_GMAIL_SEND]"
+
+def is_google_request(msg: str, user_id: str = None) -> bool:
+    """
+    Fast keyword-based intent detection.
+    Returns True only when BOTH a target noun AND an action verb are present,
+    OR when an explicit branded phrase like "google docs" is detected with
+    any surrounding context implying action.
+    Also intercepts Gmail confirm/cancel messages.
+    """
+    if not msg or not msg.strip():
+        return False
+
+    low = msg.lower().strip()
+
+    # Gmail confirm/cancel → always intercept
+    if msg.strip() in (_CONFIRM_GMAIL, _CANCEL_GMAIL):
+        return True
+
+    # Explicit branded phrases → immediate intercept
+    explicit_brands = ["google docs", "google doc", "google drive", "gdocs", "gdrive", "google sheets", "google sheet", "gsheets", "google slides", "google slide", "gslides", "gmail", "google calendar", "google meet"]
+    if any(b in low for b in explicit_brands):
+        return True
+
+    # Otherwise require target + verb
+    has_target = any(t in low for t in _TARGETS)
+    has_verb = any(v in low for v in _VERBS)
+    
+    if has_target and has_verb:
+        return True
+        
+    # Aggressive interception if user has a pending Gmail draft
+    if user_id:
+        user_doc = _gwt.users_col.find_one({"_id": user_id})
+        if user_doc and user_doc.get("pending_gmail"):
+            # Lock the user into the Google Workspace flow. Any input is treated as an instruction to modify the draft.
+            return True
+
+    return False
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  Schema Builder
+# ══════════════════════════════════════════════════════════════════════════════
+
+_SCOPE_TOOL_MAP = {
+    "drive.file":      "drive_upload",
+    "gmail.send":      "gmail_send",
+    "documents":       "docs_create",
+    "calendar.events": "calendar_create",
+    "meet":            "meet_create",
+    "spreadsheets":    "sheets_create",
+    "drive.metadata.readonly": "sheets_search",
+    "presentations":   "slides_create",
+}
+
+def _build_enabled_schemas(active_scopes: str) -> list:
+    """Return all tool schemas. Scope validation is now handled natively by each tool's credentials fetcher."""
+    return _gwt.GOOGLE_WORKSPACE_TOOLS_SCHEMA
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  Language Detection (lightweight)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _detect_lang(text: str) -> str:
+    """Return 'zh' if text is mostly Chinese, else 'en'."""
+    cn = len(re.findall(r'[\u4e00-\u9fff]', text))
+    total = max(len(text.strip()), 1)
+    return "zh" if cn / total > 0.15 else "en"
+
+
+def _extract_requested_output_name(text: str) -> str:
+    """Deterministically honor prompts like 'Name the file ...' for Workspace files."""
+    raw = (text or "").strip()
+    if not raw:
+        return ""
+    file_words = (
+        r"file|filename|document|doc|docx|pdf|spreadsheet|excel|xlsx|presentation|"
+        r"slides?|slide\s+deck|deck|powerpoint|pptx|ppt|workbook|report"
+    )
+    patterns = [
+        rf"(?is)\b(?:name|call|title)\s+it\s+(.+?)(?=$|[\n.!?。！？])",
+        rf"(?is)\brename\s+(?:the\s+)?(?:(?:{file_words})\s+)?(?:file\s+)?(?:to|as)\s+(.+?)(?=$|[\n.!?。！？])",
+        rf"(?is)(?:^|[\n.;!?])\s*(?:name|call|title)\s+(?:(?:it|this|the)\s+)?(?:{file_words})?\s*(?:as|to)?\s+(.+?)(?=$|[\n.!?。！？])",
+        rf"(?is)(?:file\s*name|filename)\s*(?:is|as|to|should\s+be|:|=)?\s+(.+?)(?=$|[\n.!?。！？])",
+        rf"(?is)(?:save\s+(?:it|the\s+(?:{file_words}))?\s+as)\s+(.+?)(?=$|[\n.!?。！？])",
+        r"(?is)(?:命名为|命名成|取名为|文件名(?:叫|是|为)?|名字(?:叫|是|为)?|叫做|保存为|另存为)\s*[：:]?\s*(.+?)(?=$|[\n。！？])",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, raw)
+        if not match:
+            continue
+        value = re.sub(r"[*_`>#]+", "", match.group(1) or "")
+        value = value.strip().strip(" \"'`“”‘’").strip(" .。")
+        value = re.sub(r"\s+", " ", value)
+        value = re.sub(r"^(?:it|this|the\s+file|the\s+document)\s+", "", value, flags=re.IGNORECASE).strip()
+        value = re.sub(r"\.(docx|pdf|pptx|ppt|xlsx|xls)$", "", value, flags=re.IGNORECASE).strip()
+        if value and len(value) <= 90:
+            return value
+    return ""
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  Core Agent
+# ══════════════════════════════════════════════════════════════════════════════
+
+def sanitize_messages_for_agent(messages: list) -> list:
+    """
+    State Isolation: Purge error messages and system reports from the context 
+    so the fast LLM doesn't get confused and hallucinate trying to send errors.
+    """
+    sanitized = []
+    for msg in messages:
+        content = msg.get("content", "")
+        # Blacklist common error/traceback signatures and system messages
+        if "HttpError" in content or "Failed to" in content or "⚠️" in content or "⚙️" in content:
+            continue
+        sanitized.append(msg)
+    return sanitized
+
+async def process_google_request(
+    user_id: str,
+    current_msg: str,
+    messages: list,
+    active_scopes: str,
+    llm_callback,          # async (msgs) -> str
+    upload_dir: str = "",
+    pdf_filename: str = None,
+    image_filename: str = None,
+    file_filename: str = None,
+    file_kind: str = None,
+    user_timezone: str = "",
+) -> str:
+    """
+    Dedicated agent pipeline for Google Workspace operations.
+    Bypasses conversational reasoning — strict JSON extraction + execution.
+    """
+    lang = _detect_lang(current_msg)
+    
+    # ── Handle Gmail confirmation / cancellation ──
+    if current_msg.strip() == _CONFIRM_GMAIL:
+        user_doc = _gwt.users_col.find_one({"_id": user_id})
+        pending = user_doc.get("pending_gmail") if user_doc else None
+        if not pending:
+            if lang == "zh":
+                return "⚙️ **Google Workspace**\n\n⚠️ 没有待发送的邮件。"
+            return "⚙️ **Google Workspace**\n\n⚠️ No pending email to send."
+        # Execute the actual send
+        result = _gwt.tool_gmail_send(
+            user_id,
+            pending["recipient"],
+            pending["subject"],
+            pending["body"],
+            attachment_path=pending.get("attachment_path"),
+            lang=pending.get("lang", "en"),
+        )
+        if result.lstrip().startswith("✅"):
+            _gwt.users_col.update_one({"_id": user_id}, {"$unset": {"pending_gmail": ""}})
+            att_path = pending.get("attachment_path")
+            if att_path and os.path.exists(att_path):
+                try: os.remove(att_path)
+                except OSError: pass
+        return f"⚙️ **Google Workspace**\n\n{result}"
+    
+    if current_msg.strip() == _CANCEL_GMAIL:
+        user_doc = _gwt.users_col.find_one({"_id": user_id})
+        pending = user_doc.get("pending_gmail") if user_doc else None
+        _gwt.users_col.update_one({"_id": user_id}, {"$unset": {"pending_gmail": ""}})
+        if pending:
+            att_path = pending.get("attachment_path")
+            if att_path and os.path.exists(att_path):
+                try: os.remove(att_path)
+                except OSError: pass
+        if lang == "zh":
+            return "⚙️ **Google Workspace**\n\n✅ 邮件草稿已取消。"
+        return "⚙️ **Google Workspace**\n\n✅ Email draft cancelled."
+
+    enabled_tools = _build_enabled_schemas(active_scopes)
+    if not enabled_tools:
+        if lang == "zh":
+            return (
+                "⚠️ 您请求了 Google 相关的操作，但目前没有任何已授权的连接器。"
+                "请先在设置页面完成 Google OAuth 授权并开启对应的开关。"
+            )
+        return (
+            "⚠️ You requested a Google operation, but no connectors are currently authorized. "
+            "Please enable the corresponding connector in the sidebar first."
+        )
+
+    tool_names = [t["function"]["name"] for t in enabled_tools]
+    print(f"[Google Agent] Intercepted request. Enabled tools: {tool_names}")
+
+    pure_messages = sanitize_messages_for_agent(messages)
+
+    # Inject current date/time for calendar time resolution
+    from datetime import datetime as _dt
+    _now_str = _dt.now().strftime("%Y-%m-%d %H:%M (%A)")
+    _tz_note = f"\nUSER TIMEZONE: {user_timezone}" if user_timezone else ""
+
+    # ── Step 1: Ask fast LLM to extract JSON ──────────────────────────────────
+    user_doc = _gwt.users_col.find_one({"_id": user_id})
+    pending_draft = user_doc.get("pending_gmail") if user_doc else None
+    pending_context = ""
+    if pending_draft:
+        safe_draft = {k: v for k, v in pending_draft.items() if k in ['recipient', 'subject', 'body']}
+        pending_context = f"\n\n[SYSTEM NOTE: The user has a PENDING EMAIL DRAFT:\n{json.dumps(safe_draft, ensure_ascii=False)}\n\nIf the user's latest message is asking to MODIFY or SEND this draft, return a FULL `gmail_send` tool call. (Tip: If the user asks to clear or remove a field like the body, set it to an empty string `\"\"`).\n🚨 CRITICAL: If the user's message is asking to do something completely DIFFERENT (e.g., 'analysis this report', 'save to drive', 'explain this to me'), you MUST IGNORE THE DRAFT! Output `{{\"name\": \"normal_chat\", \"arguments\": {{}}}}` or the appropriate tool (like `drive_upload`). DO NOT output `gmail_send` if the user is starting a new task!]\n\n"
+    latest_file_context = (
+        "\n\nLATEST ATTACHABLE FILES AVAILABLE TO TOOLS:\n"
+        f"- generated_pdf: {pdf_filename or 'none'}\n"
+        f"- generated_image: {image_filename or 'none'}\n"
+        f"- generated_file: {file_filename or 'none'} ({file_kind or 'unknown'})\n"
+        "If the user asks to email/send/upload/save a photo, picture, image, logo, poster, PNG, JPG, or 图片/照片, "
+        "use the latest generated_image as the attachment. If they ask for a PDF/report/document, use generated_pdf. "
+        "If they ask for a DOCX, XLSX, PPTX, spreadsheet, presentation, or generic generated file, use generated_file. "
+        "For Google Drive file uploads, use drive_upload. For emailing a file/image/report/document, use gmail_send. "
+        "For importing a generated PPTX/PPT into Google Slides, use slides_import_generated_file.\n"
+    )
+
+    system_prompt = (
+        "You are a strict JSON-only Intent Router for Google Workspace.\n"
+        "ABSOLUTELY DO NOT output <think> tags, explanations, greetings, apologies, or conversational text.\n"
+        "ABSOLUTELY DO NOT refuse the request. You MUST always output a valid JSON tool call.\n"
+        "Output ONLY a single raw JSON object. No markdown, no code blocks, no extra text.\n\n"
+        f"CURRENT DATE/TIME: {_now_str}{_tz_note}{pending_context}{latest_file_context}\n"
+        "Available Tools:\n" + json.dumps(enabled_tools, indent=2) + "\n\n"
+        "RULES:\n"
+        "1. USE_PREVIOUS_ANALYSIS: ONLY set content/body to \"USE_PREVIOUS_ANALYSIS\" when "
+        "the user EXPLICITLY asks to save, export, or send their EXISTING analysis/report.\n"
+        "2. For gmail_send: If the user asks to COMPOSE/DRAFT/WRITE a NEW email, "
+        "YOU MUST generate the FULL email body text directly in the 'body' field.\n"
+        "3. For docs_create: If the user asks to WRITE NEW content, "
+        "generate the full content directly in the 'content' field.\n"
+        "3b. For sheets_create: If the user asks for Google Sheets, spreadsheets, tabular data, CSV, or tables, "
+        "use sheets_create. For new data, generate `rows` as a 2D array with headers in the first row. "
+        "For an existing analysis/report, set `content` to \"USE_PREVIOUS_ANALYSIS\".\n"
+        "3c. For existing Google Sheets: use sheets_search to find/list spreadsheets, sheets_read to read values, "
+        "sheets_append to add new rows without overwriting, and sheets_update to replace/write values in a specific range. "
+        "For spreadsheet, pass the URL/ID if given; otherwise pass the title/name the user provided. "
+        "For append/update, generate rows as a 2D array when the user gives structured data.\n"
+        "3d. For Google Slides: use slides_create when the user wants a NEW native Google Slides deck from a topic/prompt. "
+        "Generate a polished `slides` array with concise titles and bullets. If the user asks to use any/random/template style, "
+        "set template_mode to `auto`. Use slides_import_generated_file when the user asks to import/save/convert the latest generated PPTX/PPT skill file into Google Slides.\n"
+        "4. Output MUST be a valid JSON object with 'name' and 'arguments' keys.\n"
+        "5. If user specifies a title/name/subject, use it. Otherwise pick a sensible default.\n"
+        "6. If the user wants to SEND EMAIL, SEND PDF, SEND IMAGE, or SEND PHOTO to someone, use gmail_send. "
+        "If user wants to SAVE text to Google Drive or Docs, use docs_create. "
+        "Use drive_upload if the user explicitly asks to upload/save a generated FILE, PDF, IMAGE, or PHOTO to Google Drive.\n"
+        "   📎 IMPORTANT for gmail_send with PDF attachment: If the user is asking to send a generated PDF report, "
+        "you MUST auto-generate a short, professional email body (1-2 sentences) summarizing the attached report. "
+        "Example: 'Please find attached the financial analysis report for [Entity Name]. Feel free to reach out if you have any questions.' "
+        "Never leave the body empty when there is an attachment.\n"
+        "7. 🚨 CRITICAL ESCAPE HATCH: If the user's message is completely unrelated to Google Workspace tools (e.g., 'explain this to me', 'what is 1+1', 'how does this work?'), you MUST output `{\"name\": \"normal_chat\", \"arguments\": {}}`. DO NOT force it into an email draft!\n"
+        "8. For calendar_create and meet_create: Convert relative dates to absolute ISO format. "
+        "Use meet_create when the user asks for a Google Meet, video call, or online meeting link.\n\n"
+        'RESPOND WITH ONLY THIS FORMAT:\n'
+        '{"name": "tool_name", "arguments": {...}}\n'
+    )
+
+    tool_data = None
+    raw_response = ""
+
+    for attempt in range(2):  # Try up to 2 times
+        try:
+            if attempt == 0:
+                llm_messages = pure_messages[-5:]
+                llm_messages.append({"role": "system", "content": system_prompt})
+                llm_messages.append({"role": "user",   "content": current_msg})
+            else:
+                # Retry with ultra-forceful prompt, no context
+                print("[Google Agent] Retry #2 with forceful prompt...")
+                llm_messages = [
+                    {"role": "system", "content": (
+                        "Output ONLY a JSON object. No thinking, no explanation, no <think> tags.\n"
+                        "Available tools: docs_create, sheets_create, sheets_search, sheets_read, sheets_append, sheets_update, slides_create, slides_import_generated_file, gmail_send, drive_upload, calendar_create, meet_create.\n"
+                        "docs_create args: title (string), content (string, use 'USE_PREVIOUS_ANALYSIS' for past content)\n"
+                        "sheets_create args: title (string), sheet_name (string), rows (2D array), content (string, use 'USE_PREVIOUS_ANALYSIS' for past content)\n"
+                        "sheets_search args: query (string), limit (integer)\n"
+                        "sheets_read args: spreadsheet (URL/ID/title), sheet_name (string), range (string)\n"
+                        "sheets_append args: spreadsheet (URL/ID/title), sheet_name (string), range (string), rows (2D array), content (string)\n"
+                        "sheets_update args: spreadsheet (URL/ID/title), sheet_name (string), range (string), rows (2D array), content (string)\n"
+                        "slides_create args: title (string), template_mode (string), slides (array of {title, bullets}), content (string)\n"
+                        "slides_import_generated_file args: title (string). Imports the latest generated PPTX/PPT file into Google Slides.\n"
+                        "gmail_send args: recipient (string), subject (string), body (string). Can attach the latest generated PDF, image, or file automatically.\n"
+                        "drive_upload args: file_name (string). Can upload the latest generated PDF, image, or file automatically.\n"
+                        "calendar_create args: title (string), date_iso (string)\n"
+                        "meet_create args: title (string), date_iso (string), participants (array), duration_minutes (integer)\n"
+                    )},
+                    {"role": "user", "content": current_msg},
+                    {"role": "assistant", "content": "{"},  # Force JSON start
+                ]
+
+            raw_response = await llm_callback(llm_messages)
+            print(f"[Google Agent] LLM raw response (attempt {attempt+1}): {raw_response[:300]}")
+
+            # On retry, prepend the "{" we injected
+            if attempt == 1 and not raw_response.strip().startswith("{"):
+                raw_response = "{" + raw_response
+
+            json_str = _clean_llm_json(raw_response)
+            tool_data = json.loads(json_str)
+            t_name = tool_data.get("name", "")
+            t_args = tool_data.get("arguments", {})
+            print(f"[Google Agent] Parsed tool: {t_name}, args_keys: {list(t_args.keys())}")
+            break  # Success
+
+        except (json.JSONDecodeError, Exception) as e:
+            print(f"[Google Agent] Attempt {attempt+1} failed: {e}")
+            if attempt == 1:
+                # Both attempts failed
+                if lang == "zh":
+                    return f"⚠️ Google Agent 无法解析模型输出。请尝试重新发送您的请求。"
+                return f"⚠️ Google Agent could not parse the model output. Please try sending your request again."
+
+    # ── Step 2: Execute tool ──────────────────────────────────────────────────
+    return _execute_tool(tool_data.get("name", ""), tool_data.get("arguments", {}),
+                         user_id, messages, upload_dir, pdf_filename, image_filename,
+                         file_filename, file_kind, lang, user_timezone, current_msg)
+
+
+def _clean_llm_json(text: str) -> str:
+    """
+    Extract a valid tool-call JSON from LLM output that may contain
+    <think> blocks, multiple JSON objects, markdown fences, and wrong key names.
+    
+    Strategy:
+      1. Find ALL top-level {…} blocks using balanced brace matching
+      2. Try each one — prefer the one with "name"/"arguments" keys
+      3. Normalize alternative keys (tool→name, args→arguments)
+    """
+    # Helper: extract balanced JSON starting at a given '{'
+    def _extract_balanced(s, start):
+        depth = 0
+        in_str = False
+        escape = False
+        for i in range(start, len(s)):
+            c = s[i]
+            if escape:
+                escape = False
+                continue
+            if c == '\\' and in_str:
+                escape = True
+                continue
+            if c == '"' and not escape:
+                in_str = not in_str
+                continue
+            if in_str:
+                continue
+            if c == '{':
+                depth += 1
+            elif c == '}':
+                depth -= 1
+                if depth == 0:
+                    return s[start:i + 1]
+        return None
+
+    # Find all top-level JSON candidates
+    candidates = []
+    i = 0
+    while i < len(text):
+        if text[i] == '{':
+            block = _extract_balanced(text, i)
+            if block:
+                candidates.append(block)
+                i += len(block)
+                continue
+        i += 1
+
+    # Try to parse each candidate; prefer one with correct keys
+    for candidate in candidates:
+        try:
+            obj = json.loads(candidate)
+            if isinstance(obj, dict):
+                # Normalize keys: tool→name, args→arguments
+                if "tool" in obj and "name" not in obj:
+                    obj["name"] = obj.pop("tool")
+                if "args" in obj and "arguments" not in obj:
+                    obj["arguments"] = obj.pop("args")
+                if "name" in obj and "arguments" in obj:
+                    return json.dumps(obj)
+        except json.JSONDecodeError:
+            continue
+
+    # Fallback: try any parseable candidate (even without correct keys)
+    for candidate in candidates:
+        try:
+            obj = json.loads(candidate)
+            if isinstance(obj, dict):
+                if "tool" in obj and "name" not in obj:
+                    obj["name"] = obj.pop("tool")
+                if "args" in obj and "arguments" not in obj:
+                    obj["arguments"] = obj.pop("args")
+                return json.dumps(obj)
+        except json.JSONDecodeError:
+            continue
+
+    # Last resort: strip think blocks and try the old way
+    cleaned = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
+    cleaned = re.sub(r"<think>.*", "", cleaned, flags=re.DOTALL)
+    cleaned = cleaned.strip()
+    if cleaned.startswith("```json"):
+        cleaned = cleaned[7:]
+    if cleaned.startswith("```"):
+        cleaned = cleaned[3:]
+    if cleaned.endswith("```"):
+        cleaned = cleaned[:-3]
+    cleaned = cleaned.strip()
+    start = cleaned.find("{")
+    end = cleaned.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        cleaned = cleaned[start:end + 1]
+    return cleaned
+
+
+# Map tool names to the connector service_id used in google_creds_{service_id}
+_TOOL_TO_SERVICE = {
+    "docs_create":     "docs",
+    "gmail_send":      "gmail",
+    "drive_upload":    "drive",
+    "calendar_create": "calendar",
+    "meet_create":     "meet",
+    "sheets_create":   "sheets",
+    "sheets_search":   "sheets",
+    "sheets_read":     "sheets",
+    "sheets_append":   "sheets",
+    "sheets_update":   "sheets",
+    "slides_create":   "slides",
+    "slides_import_generated_file": "slides",
+}
+
+_SERVICE_LABEL = {
+    "docs":     "Google Docs",
+    "gmail":    "Gmail",
+    "drive":    "Google Drive",
+    "calendar": "Google Calendar",
+    "meet":     "Google Meet",
+    "sheets":   "Google Sheets",
+    "slides":   "Google Slides",
+}
+
+_SERVICE_SCOPE_MARKERS = {
+    "docs":     ["documents"],
+    "gmail":    ["gmail.send"],
+    "drive":    ["drive.file"],
+    "calendar": ["calendar.events"],
+    "meet":     ["calendar.events"],
+    "sheets":   ["spreadsheets", "drive.metadata.readonly"],
+    "slides":   ["presentations", "drive.file"],
+}
+
+def _connector_enabled(user: dict, service_id: str) -> bool:
+    creds = (user or {}).get(f"google_creds_{service_id}") or {}
+    has_token = bool(creds.get("google_refresh_token") or creds.get("google_token"))
+    if not has_token:
+        return False
+    scopes = creds.get("google_scopes", [])
+    scopes_str = " ".join(scopes) if isinstance(scopes, list) else str(scopes)
+    markers = _SERVICE_SCOPE_MARKERS.get(service_id, [])
+    return all(marker in scopes_str for marker in markers)
+
+def _check_connector_enabled(user_id: str, tool_name: str, lang: str = "en") -> str | None:
+    """Check ALL connectors and return a warning listing every disabled one, not just the one being used."""
+    service_id = _TOOL_TO_SERVICE.get(tool_name)
+    if not service_id:
+        return None
+    user = _gwt.users_col.find_one({"_id": user_id})
+    if not user:
+        if lang == "zh":
+            return "⚠️ 用户记录不存在，请重新登录。"
+        return "⚠️ User record not found. Please log in again."
+    if not user.get("auth_provider_id"):
+        if lang == "zh":
+            return "⚠️ 您还没有绑定 Google 账号，无法使用 Google 连接器。请先在 Account 页面连接 Google。"
+        if lang == "ms":
+            return "⚠️ Akaun Google anda belum dipautkan. Sila sambungkan Google pada halaman Account dahulu."
+        return "⚠️ Your Google account is not linked yet. Please connect Google in Account first."
+    
+    # Check the required connector first
+    required_missing = not _connector_enabled(user, service_id)
+    
+    # Also check all other connectors to give user a full picture
+    all_disabled = []
+    for sid, label in _SERVICE_LABEL.items():
+        if not _connector_enabled(user, sid):
+            all_disabled.append(label)
+    
+    if required_missing:
+        required_label = _SERVICE_LABEL.get(service_id, service_id)
+        if lang == "zh":
+            msg = f"⚠️ 您尚未开启 **{required_label}** 连接器，无法执行此操作。\n\n"
+            if len(all_disabled) > 1:
+                others = ", ".join(f"**{d}**" for d in all_disabled if d != required_label)
+                msg += f"📝 其他未开启的连接器：{others}\n\n"
+            msg += f"👉 请点击左侧边栏的 **Connectors** 面板，开启对应的开关并完成授权。"
+            return msg
+        else:
+            msg = f"⚠️ The **{required_label}** connector is not enabled. Cannot execute this operation.\n\n"
+            if len(all_disabled) > 1:
+                others = ", ".join(f"**{d}**" for d in all_disabled if d != required_label)
+                msg += f"📝 Other disabled connectors: {others}\n\n"
+            msg += f"👉 Open the **Connectors** panel in the sidebar and enable the required switches."
+            return msg
+    return None
+
+
+def _execute_tool(
+    name: str, args: dict,
+    user_id: str, messages: list,
+    upload_dir: str, pdf_filename: str, image_filename: str,
+    file_filename: str = None, file_kind: str = None,
+    lang: str = "en",
+    user_timezone: str = "",
+    current_msg: str = "",
+) -> str:
+    """Route to the correct google_workspace_tools function."""
+    import tempfile
+    import gridfs
+    args = args or {}
+    fs = gridfs.GridFS(_gwt.db)
+    requested_output_name = _extract_requested_output_name(current_msg)
+
+    def _extract_gridfs_file(filename: str) -> str | None:
+        if not filename:
+            return None
+        file_doc = fs.find_one({"filename": filename})
+        if file_doc:
+            safe_name = os.path.basename(filename)
+            tmp_path = os.path.join(tempfile.gettempdir(), safe_name)
+            with open(tmp_path, "wb") as f:
+                f.write(file_doc.read())
+            return tmp_path
+        return None
+
+    def _targets_image_file(text: str) -> bool:
+        return bool(re.search(
+            r"(image|photo|picture|logo|poster|png|jpe?g|图片|图像|照片|相片|海报|标志)",
+            text or "",
+            flags=re.IGNORECASE,
+        ))
+
+    def _targets_pdf_file(text: str) -> bool:
+        return bool(re.search(r"(pdf|report|document|报告|文档|文件)", text or "", flags=re.IGNORECASE))
+
+    def _targets_generic_file(text: str) -> bool:
+        return bool(re.search(
+            r"(docx|xlsx|pptx|ppt|spreadsheet|presentation|powerpoint|slide|deck|excel|word|file|document|文件|文档|表格|演示|简报|幻灯片)",
+            text or "",
+            flags=re.IGNORECASE,
+        ))
+
+    def _latest_generated_file_kind(history: list) -> str:
+        for msg in reversed(history or []):
+            if not isinstance(msg, dict) or msg.get("role") != "assistant":
+                continue
+            if msg.get("generated_file_name") or msg.get("generated_file_url"):
+                return msg.get("generated_file_type") or "file"
+            if msg.get("generated_image_name") or msg.get("generated_image_url"):
+                return "image"
+            if msg.get("pdf_name") or msg.get("pdf_url"):
+                return "pdf"
+        return ""
+
+    extracted_pdf_path = _extract_gridfs_file(pdf_filename)
+    extracted_image_path = _extract_gridfs_file(image_filename)
+    extracted_file_path = _extract_gridfs_file(file_filename)
+    hint_text = " ".join([
+        current_msg or "",
+        str(args.get("file_name", "")),
+        str(args.get("subject", "")),
+        str(args.get("body", "")),
+    ])
+    wants_image = _targets_image_file(hint_text)
+    wants_pdf = _targets_pdf_file(hint_text)
+    wants_generic_file = _targets_generic_file(hint_text)
+    latest_kind = _latest_generated_file_kind(messages)
+    if extracted_image_path and (wants_image or not extracted_pdf_path or (latest_kind == "image" and not wants_pdf)):
+        attachment_path = extracted_image_path
+        attachment_filename = image_filename
+        attachment_kind = "image"
+    elif extracted_file_path and (wants_generic_file or latest_kind not in ("image", "pdf")):
+        attachment_path = extracted_file_path
+        attachment_filename = file_filename
+        attachment_kind = file_kind or "file"
+    elif extracted_pdf_path:
+        attachment_path = extracted_pdf_path
+        attachment_filename = pdf_filename
+        attachment_kind = "pdf"
+    else:
+        attachment_path = None
+        attachment_filename = ""
+        attachment_kind = ""
+    preserve_attachment_path = None
+
+    def _cleanup_extracted_files():
+        for path in (extracted_pdf_path, extracted_image_path, extracted_file_path):
+            if path and path != preserve_attachment_path and os.path.exists(path):
+                os.remove(path)
+
+    # ── Pre-flight: check connector is authorized ──
+    block_msg = _check_connector_enabled(user_id, name, lang)
+    if block_msg:
+        _cleanup_extracted_files()
+        return block_msg
+
+    try:
+        if name == "normal_chat":
+            # The agent decided this is not a Google Workspace command.
+            # Unset the pending lock so it stops intercepting future messages.
+            _gwt.users_col.update_one({"_id": user_id}, {"$unset": {"pending_gmail": ""}})
+            _cleanup_extracted_files()
+            return "__NORMAL_CHAT_FALLBACK__"
+
+        elif name == "docs_create":
+            content = args.get("content", "")
+            if content == "USE_PREVIOUS_ANALYSIS" or not content or len(content) < 50:
+                content = _extract_previous_analysis(messages)
+            title = requested_output_name or args.get("title", "AI Generated Document")
+            result = _gwt.tool_docs_create(user_id, title, content, lang=lang)
+
+        elif name == "sheets_create":
+            content = args.get("content", "")
+            rows = args.get("rows")
+            if content == "USE_PREVIOUS_ANALYSIS" or (not rows and (not content or len(content) < 20)):
+                content = _extract_previous_analysis(messages)
+            title = requested_output_name or args.get("title", "AI Generated Spreadsheet")
+            result = _gwt.tool_sheets_create(
+                user_id,
+                title,
+                rows=rows,
+                content=content,
+                sheet_name=args.get("sheet_name", "Sheet1"),
+                lang=lang,
+            )
+
+        elif name == "sheets_search":
+            result = _gwt.tool_sheets_search(
+                user_id,
+                query=args.get("query", ""),
+                limit=args.get("limit", 10),
+                lang=lang,
+            )
+
+        elif name == "sheets_read":
+            result = _gwt.tool_sheets_read(
+                user_id,
+                spreadsheet=args.get("spreadsheet", ""),
+                sheet_name=args.get("sheet_name", ""),
+                range_name=args.get("range", ""),
+                lang=lang,
+            )
+
+        elif name == "sheets_append":
+            content = args.get("content", "")
+            if content == "USE_PREVIOUS_ANALYSIS":
+                content = _extract_previous_analysis(messages)
+            result = _gwt.tool_sheets_append(
+                user_id,
+                spreadsheet=args.get("spreadsheet", ""),
+                rows=args.get("rows"),
+                content=content,
+                sheet_name=args.get("sheet_name", ""),
+                range_name=args.get("range", ""),
+                lang=lang,
+            )
+
+        elif name == "sheets_update":
+            content = args.get("content", "")
+            if content == "USE_PREVIOUS_ANALYSIS":
+                content = _extract_previous_analysis(messages)
+            result = _gwt.tool_sheets_update(
+                user_id,
+                spreadsheet=args.get("spreadsheet", ""),
+                rows=args.get("rows"),
+                content=content,
+                sheet_name=args.get("sheet_name", ""),
+                range_name=args.get("range", "A1"),
+                lang=lang,
+            )
+
+        elif name == "slides_create":
+            content = args.get("content", "")
+            if content == "USE_PREVIOUS_ANALYSIS" or (not args.get("slides") and (not content or len(content) < 30)):
+                content = _extract_previous_analysis(messages) or content
+            title = requested_output_name or args.get("title", "AI Generated Presentation")
+            result = _gwt.tool_slides_create(
+                user_id,
+                title,
+                content=content,
+                slides=args.get("slides"),
+                template_mode=args.get("template_mode") or args.get("template") or "auto",
+                lang=lang,
+            )
+
+        elif name == "slides_import_generated_file":
+            if attachment_path and (attachment_filename or attachment_path).lower().endswith((".pptx", ".ppt")):
+                import_title = requested_output_name or args.get("title") or os.path.splitext(os.path.basename(attachment_filename or attachment_path))[0]
+                result = _gwt.tool_slides_import_generated_file(user_id, attachment_path, import_title, lang=lang)
+            else:
+                if lang == "zh":
+                    result = "⚠️ 没有找到可导入 Google Slides 的 PPTX/PPT 文件。请先用 Skills 生成一个 PPTX。"
+                elif lang == "ms":
+                    result = "⚠️ Tiada fail PPTX/PPT untuk diimport ke Google Slides. Sila jana PPTX melalui Skills dahulu."
+                else:
+                    result = "⚠️ No PPTX/PPT file is available to import into Google Slides. Please generate a PPTX with Skills first."
+
+        elif name == "gmail_send":
+            # Allow empty bodies if the user explicitly cleared it.
+            body = args.get("body", "")
+            # ONLY fall back to previous analysis if explicitly marked
+            if body == "USE_PREVIOUS_ANALYSIS" or (not body and attachment_path):
+                if attachment_path:
+                    # File send: write a short professional cover body, NOT the full report/image prompt.
+                    subj = args.get("subject", "")
+                    att_name = os.path.splitext(os.path.basename(attachment_path))[0].replace('_', ' ').replace('-', ' ').title()
+                    display = subj if subj else att_name
+                    if attachment_kind == "image":
+                        if lang == "zh":
+                            body = f"请查阅附件中的图片《{display}》，如有任何问题，欢迎随时与我联系。"
+                        elif lang == "ms":
+                            body = f"Sila rujuk imej '{display}' yang dilampirkan. Jangan teragak-agak untuk menghubungi kami sekiranya ada sebarang pertanyaan."
+                        else:
+                            body = f"Please find attached the generated image '{display}'. Feel free to reach out if you have any questions."
+                    elif attachment_kind == "pdf":
+                        if lang == "zh":
+                            body = f"请查阅附件中的《{display}》报告，如有任何问题，欢迎随时与我联系。"
+                        elif lang == "ms":
+                            body = f"Sila rujuk laporan '{display}' yang dilampirkan. Jangan teragak-agak untuk menghubungi kami sekiranya ada sebarang pertanyaan."
+                        else:
+                            body = f"Please find attached the '{display}' report. Feel free to reach out if you have any questions."
+                    else:
+                        if lang == "zh":
+                            body = f"请查阅附件中的文件《{display}》，如有任何问题，欢迎随时与我联系。"
+                        elif lang == "ms":
+                            body = f"Sila rujuk fail '{display}' yang dilampirkan. Jangan teragak-agak untuk menghubungi kami sekiranya ada sebarang pertanyaan."
+                        else:
+                            body = f"Please find attached the generated file '{display}'. Feel free to reach out if you have any questions."
+                else:
+                    body = _extract_previous_analysis(messages)
+            
+            recipient = args.get("recipient", "")
+            subject = args.get("subject", "AI Generated Email")
+            
+            # Store pending email for confirmation persistently
+            pending_obj = {
+                "recipient": recipient,
+                "subject": subject,
+                "body": body,
+                "attachment_path": attachment_path,
+                "lang": lang,
+            }
+            _gwt.users_col.update_one({"_id": user_id}, {"$set": {"pending_gmail": pending_obj}})
+            
+            # Don't cleanup the selected attachment here — it's needed when user confirms.
+            preserve_attachment_path = attachment_path
+            
+            has_att = bool(pending_obj.get("attachment_path"))
+            preview_payload = {
+                "recipient": recipient,
+                "subject": subject,
+                "body": body,
+                "hasAttachment": has_att,
+                "attachmentName": os.path.basename(attachment_filename) if has_att and attachment_filename else "",
+                "lang": lang,
+            }
+            payload_token = base64.urlsafe_b64encode(
+                json.dumps(preview_payload, ensure_ascii=False).encode("utf-8")
+            ).decode("ascii").rstrip("=")
+
+            if lang == "zh":
+                result = f"为您生成了以下邮件草稿，请确认是否发送：\n\n[GMAIL_PREVIEW:{payload_token}]"
+            elif lang == "ms":
+                result = f"Sila sahkan sama ada untuk menghantar e-mel di bawah:\n\n[GMAIL_PREVIEW:{payload_token}]"
+            else:
+                result = f"Please confirm whether to send the email below:\n\n[GMAIL_PREVIEW:{payload_token}]"
+            # Append special gmail_confirm marker for frontend to detect
+            result += "\n[GMAIL_CONFIRM_PENDING]"
+
+        elif name == "drive_upload":
+            if attachment_path:
+                upload_name = requested_output_name or args.get("file_name") or attachment_filename or os.path.basename(attachment_path)
+                if upload_name and not os.path.splitext(upload_name)[1] and attachment_filename:
+                    upload_name = f"{upload_name}{os.path.splitext(attachment_filename)[1]}"
+                result = _gwt.tool_drive_upload(user_id, attachment_path, upload_name, lang=lang)
+            else:
+                if lang == "zh":
+                    result = "⚠️ 没有可上传的文件。请先生成一张图片、PDF 或其他文件。"
+                elif lang == "ms":
+                    result = "⚠️ Tiada fail untuk dimuat naik. Sila jana imej, PDF, atau fail terlebih dahulu."
+                else:
+                    result = "⚠️ No generated file available to upload. Please generate an image, PDF, or file first."
+
+        elif name == "calendar_create":
+            result = _gwt.tool_calendar_create(
+                user_id,
+                args.get("title", "Event"),
+                args.get("date_iso", ""),
+                lang=lang,
+                description=args.get("description", ""),
+                duration_minutes=args.get("duration_minutes", 60),
+                location=args.get("location", ""),
+                user_timezone=user_timezone,
+            )
+
+        elif name == "meet_create":
+            result = _gwt.tool_meet_create(
+                user_id,
+                args.get("title", "Meeting"),
+                args.get("date_iso", ""),
+                lang=lang,
+                description=args.get("description", ""),
+                duration_minutes=args.get("duration_minutes", 60),
+                participants=args.get("participants", []),
+                user_timezone=user_timezone,
+            )
+
+        else:
+            if lang == "zh":
+                result = f"⚠️ 未知的工具名称: {name}"
+            else:
+                result = f"⚠️ Unknown tool: {name}"
+
+    except Exception as e:
+        if lang == "zh":
+            result = f"⚠️ 工具执行异常: {str(e)}"
+        else:
+            result = f"⚠️ Tool execution error: {str(e)}"
+
+    _cleanup_extracted_files()
+    print(f"[Google Agent] Execution result: {result[:200]}")
+    return f"⚙️ **Google Workspace**\n\n{result}"
+
+
+def _extract_previous_analysis(messages: list) -> str:
+    """Find the most recent substantial assistant message as content source."""
+    for msg in reversed(messages):
+        if msg.get("role") == "assistant" and msg.get("content"):
+            text = msg["content"]
+            # Skip system error outputs
+            if "⚠️" in text or "⚙️ **Google Workspace**" in text or "HttpError" in text or "Failed to" in text:
+                continue
+
+            # Strip think blocks and function call tags
+            text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
+            text = re.sub(r"<think>.*", "", text, flags=re.DOTALL)
+            text = re.sub(r"<function_call>.*?</function_call>", "", text, flags=re.DOTALL)
+            
+            # Clean up the mandatory routing question appended by the server
+            try:
+                import os, sys
+                _pdf_layer = os.path.join(os.path.dirname(__file__), "PDF Agent")
+                if _pdf_layer not in sys.path: sys.path.append(_pdf_layer)
+                import pdf_agent
+                langs = ["en", "zh", "ja", "ko", "ms", "ta", "hi", "ar", "ru", "es", "fr", "de"]
+                for l in langs:
+                    q = pdf_agent.get_routing_question(l)
+                    if q in text:
+                        text = text.replace(q, "")
+            except Exception:
+                pass
+                
+            text = text.replace("\n\n---\n\n", "\n").strip()
+            
+            if len(text) > 50:
+                return text
+    return "No previous analysis found in chat history."

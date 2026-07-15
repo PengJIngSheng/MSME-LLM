@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+message=$(sed -e '/^#/d' -e '/^[[:space:]]*$/d' "$1" | head -n 1)
+
+case "$message" in
+    Merge\ *|Revert\ *) exit 0 ;;
+esac
+
+if [[ ! "$message" =~ ^(feat|fix|security|docs|refactor|test|chore|build|ci)(\([a-z0-9._/-]+\))?:\ .{8,}$ ]]; then
+    cat >&2 <<'EOF'
+Commit message must follow this format:
+  type(scope): concise, meaningful summary
+
+Allowed types: feat, fix, security, docs, refactor, test, chore, build, ci.
+Example: security(auth): enforce chat ownership checks
+EOF
+    exit 1
+fi

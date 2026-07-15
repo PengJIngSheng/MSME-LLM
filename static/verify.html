@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Email - MSME.AI</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet">
+    <link href="/static/auth-screen.css?v=1.0.0" rel="stylesheet">
+    <link href="/static/auth-otp.css?v=1.0.2" rel="stylesheet">
+    <style>
+        .auth-error { color: #dc2626; min-height: 1.2rem; margin: 0.75rem 0; text-align: center; }
+        .resend-row { text-align: center; margin-top: 1rem; }
+        .resend-row button { border: 0; background: transparent; color: var(--primary, #2563eb); cursor: pointer; font: inherit; }
+    </style>
+</head>
+<body class="auth-page verify-page">
+    <main class="auth-container">
+        <section class="auth-box">
+            <a class="brand" href="/">MSME.AI</a>
+            <h1 id="title">Verify your email</h1>
+            <p class="auth-subtitle" id="subtitle">Enter the six-digit code sent to your email address.</p>
+            <form id="otpForm">
+                <div class="otp-container" id="otpInputs">
+                    <input type="text" maxlength="1" class="otp-input" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" aria-label="Digit 1" required autofocus>
+                    <input type="text" maxlength="1" class="otp-input" inputmode="numeric" pattern="[0-9]*" aria-label="Digit 2" required>
+                    <input type="text" maxlength="1" class="otp-input" inputmode="numeric" pattern="[0-9]*" aria-label="Digit 3" required>
+                    <input type="text" maxlength="1" class="otp-input" inputmode="numeric" pattern="[0-9]*" aria-label="Digit 4" required>
+                    <input type="text" maxlength="1" class="otp-input" inputmode="numeric" pattern="[0-9]*" aria-label="Digit 5" required>
+                    <input type="text" maxlength="1" class="otp-input" inputmode="numeric" pattern="[0-9]*" aria-label="Digit 6" required>
+                </div>
+                <p class="auth-error" id="errorBox" role="alert"></p>
+                <button type="submit" class="submit-btn" id="verifyBtn">Verify account</button>
+            </form>
+            <p class="resend-row"><button type="button" id="resendBtn">Resend code</button></p>
+            <p class="auth-footer"><a href="/static/login.html">Back to sign in</a></p>
+        </section>
+    </main>
+    <script>
+        localStorage.removeItem('pepperJwt');
+        const copy = {
+            en: { title: 'Verify your email', subtitle: 'Enter the six-digit code sent to your email address.', verify: 'Verify account', resend: 'Resend code', invalid: 'Enter all six digits.', failed: 'Verification failed.', resent: 'A new code has been sent.' },
+            zh: { title: '验证邮箱', subtitle: '请输入发送到您邮箱的六位验证码。', verify: '验证账户', resend: '重新发送验证码', invalid: '请输入完整的六位验证码。', failed: '验证失败。', resent: '新的验证码已发送。' },
+            ms: { title: 'Sahkan e-mel anda', subtitle: 'Masukkan kod enam digit yang dihantar ke e-mel anda.', verify: 'Sahkan akaun', resend: 'Hantar semula kod', invalid: 'Masukkan kesemua enam digit.', failed: 'Pengesahan gagal.', resent: 'Kod baharu telah dihantar.' },
+        };
+        const lang = ['zh', 'ms'].includes(localStorage.getItem('pepperLang')) ? localStorage.getItem('pepperLang') : 'en';
+        const t = copy[lang];
+        document.documentElement.lang = lang;
+        document.getElementById('title').textContent = t.title;
+        document.getElementById('subtitle').textContent = t.subtitle;
+        document.getElementById('verifyBtn').textContent = t.verify;
+        document.getElementById('resendBtn').textContent = t.resend;
+
+        const pendingUserId = new URLSearchParams(location.search).get('id') || localStorage.getItem('pendingUserId');
+        const inputs = [...document.querySelectorAll('.otp-input')];
+        const errorBox = document.getElementById('errorBox');
+
+        function clearInputs() { inputs.forEach(input => { input.value = ''; }); inputs[0]?.focus(); }
+        function code() { return inputs.map(input => input.value).join(''); }
+        function showError(message) { errorBox.textContent = message; }
+
+        inputs.forEach((input, index) => {
+            input.addEventListener('input', () => {
+                input.value = input.value.replace(/\D/g, '').slice(0, 1);
+                if (input.value && inputs[index + 1]) inputs[index + 1].focus();
+            });
+            input.addEventListener('keydown', event => {
+                if (event.key === 'Backspace' && !input.value && inputs[index - 1]) inputs[index - 1].focus();
+            });
+            input.addEventListener('paste', event => {
+                const digits = (event.clipboardData?.getData('text') || '').replace(/\D/g, '').slice(0, 6);
+                if (!digits) return;
+                event.preventDefault();
+                digits.split('').forEach((digit, digitIndex) => { if (inputs[digitIndex]) inputs[digitIndex].value = digit; });
+                inputs[Math.min(digits.length, 6) - 1]?.focus();
+            });
+        });
+
+        function storeSession(data) {
+            localStorage.setItem('pepperSession', 'cookie');
+            localStorage.setItem('pepperUserId', data.user_id);
+            localStorage.setItem('pepperUsername', data.username);
+            if (data.display_name) localStorage.setItem('pepperDisplayName', data.display_name);
+            if (data.preferences?.language) localStorage.setItem('pepperLang', data.preferences.language);
+            localStorage.removeItem('pendingUserId');
+        }
+
+        document.getElementById('otpForm').addEventListener('submit', async event => {
+            event.preventDefault();
+            const otp = code();
+            if (!pendingUserId || otp.length !== 6) return showError(t.invalid);
+            const button = document.getElementById('verifyBtn');
+            button.disabled = true;
+            showError('');
+            try {
+                const response = await fetch('/api/verify-otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: pendingUserId, otp }) });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok || data.status !== 'success') throw new Error(data.detail || t.failed);
+                storeSession(data);
+                location.assign('/');
+            } catch (error) {
+                clearInputs();
+                showError(error.message || t.failed);
+                button.disabled = false;
+            }
+        });
+
+        document.getElementById('resendBtn').addEventListener('click', async () => {
+            if (!pendingUserId) return showError(t.failed);
+            try {
+                const response = await fetch('/api/resend-otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: pendingUserId }) });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(data.detail || t.failed);
+                clearInputs();
+                showError(t.resent);
+            } catch (error) {
+                showError(error.message || t.failed);
+            }
+        });
+    </script>
+</body>
+</html>

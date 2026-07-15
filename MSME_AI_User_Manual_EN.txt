@@ -1,0 +1,2525 @@
+MSME.AI USER MANUAL
+Comprehensive End-User Guide
+Version date: 2026-06-22
+
+============================================================
+DOCUMENT INFORMATION
+============================================================
+
+Product name:
+MSME.AI
+
+Document type:
+User Manual
+
+Intended audience:
+End users, company staff, MSME owners, business operators, analysts, administrators,
+finance users, marketing users, and workspace users who need to use MSME.AI in daily
+work.
+
+Purpose of this manual:
+This manual explains how to use MSME.AI from an end-user perspective. It introduces
+the system, the main interface, account features, chat modes, web search, Agent mode,
+file upload, PDF analysis, data analysis, file generation, image features, Google
+Workspace connectors, account management, privacy controls, and troubleshooting.
+
+What this manual does not cover:
+This manual does not explain system deployment, infrastructure, server vendor details,
+source code, internal database administration, or developer-only operations.
+
+
+============================================================
+TABLE OF CONTENTS
+============================================================
+
+1. Introduction
+2. What MSME.AI Is
+3. Key Capabilities At A Glance
+4. Recommended Browser And Basic Requirements
+5. First-Time User Walkthrough
+6. Main Interface Overview
+7. Sidebar
+8. Chat Area
+9. Composer And Input Bar
+10. Account Access: Guest, Login, And Registration
+11. Email Registration
+12. Email Login
+13. Google Login
+14. Account Verification And OTP
+15. Language Settings
+16. Interface Settings
+17. User Preferences
+18. Normal Chat Mode
+19. Fast Mode
+20. Web Search Mode
+21. Source Cards And Evidence-Based Answers
+22. Think Mode
+23. Agent Mode
+24. How To Choose The Correct Mode
+25. Message Actions
+26. Pausing, Resuming, And Regenerating Responses
+27. Chat History
+28. Search History
+29. File Upload
+30. Recent Files
+31. Image Upload And Image Understanding
+32. Image Generation
+33. Follow-Up Image Editing
+34. PDF Agent
+35. PDF Report Generation
+36. Template-Based PDF Generation
+37. Financial And Structured Data Agent
+38. Local File Generation Skills
+39. DOCX Generation
+40. PDF File Generation
+41. PPTX Generation
+42. XLSX Generation
+43. Generated File Cards
+44. Renaming Generated Files
+45. Google Workspace Connectors Overview
+46. Google Drive Connector
+47. Gmail Connector
+48. Google Docs Connector
+49. Google Sheets Connector
+50. Google Slides Connector
+51. Google Calendar Connector
+52. Google Meet Connector
+53. Gmail Safety Confirmation Flow
+54. Account Page Overview
+55. Profile Management
+56. Email Change
+57. Password Management
+58. Google Account Linking
+59. Account Data Export
+60. Account Deletion
+61. Cookie And Privacy Preferences
+62. Data Handling And User Responsibility
+63. Prompt Writing Guide
+64. Prompt Templates
+65. Recommended Workflows
+66. Troubleshooting
+67. Known Limitations
+68. Best Practices
+69. Quick Reference
+70. Final Notes
+
+
+============================================================
+1. INTRODUCTION
+============================================================
+
+MSME.AI is an AI workspace assistant designed to help users complete everyday business
+and knowledge-work tasks through a chat-based interface.
+
+Instead of switching between many separate tools, users can ask MSME.AI to help with:
+
+- Writing
+- Summarizing
+- Researching live web information
+- Reviewing documents
+- Uploading and analyzing files
+- Understanding images
+- Generating images
+- Creating PDF reports
+- Creating Word, PowerPoint, and Excel files
+- Working with Google Drive
+- Drafting and sending Gmail messages
+- Creating Google Docs
+- Creating Google Sheets
+- Creating Google Slides
+- Scheduling Google Calendar events
+- Creating Google Meet links
+- Managing chat history
+- Reusing previous files
+- Editing and regenerating AI responses
+
+The system is built around a simple idea:
+
+You tell MSME.AI what you need, and the system chooses the most suitable workflow
+based on the active mode, your message, uploaded files, connected services, and
+conversation context.
+
+
+============================================================
+2. WHAT MSME.AI IS
+============================================================
+
+MSME.AI is not only a general chatbot. It is a workspace assistant with multiple
+specialized capabilities.
+
+From the user's point of view, MSME.AI can be understood as five assistants in one:
+
+1. A conversational assistant
+   It answers questions, writes text, translates, explains ideas, and helps with
+   everyday thinking.
+
+2. A research assistant
+   It can search live web sources when you need current information.
+
+3. A document assistant
+   It can read uploaded files, analyze PDFs, summarize documents, and generate reports.
+
+4. A productivity assistant
+   It can create DOCX, PDF, PPTX, and XLSX files.
+
+5. A workspace assistant
+   It can connect to Google Workspace services to create documents, upload files,
+   send email with confirmation, create spreadsheets, build slide decks, and schedule
+   meetings.
+
+
+============================================================
+3. KEY CAPABILITIES AT A GLANCE
+============================================================
+
+Core chat features:
+
+- Ask questions in natural language.
+- Receive streaming AI responses.
+- Continue previous conversations.
+- Copy answers.
+- Edit your own messages and resend.
+- Regenerate assistant responses.
+- Pause and resume generation.
+- Like or dislike assistant responses.
+
+Research features:
+
+- Use Web mode for live web search.
+- Ask for sources.
+- Ask for official references.
+- Review source cards.
+- Ask follow-up questions based on retrieved sources.
+
+File features:
+
+- Upload PDFs, spreadsheets, text files, JSON files, Markdown files, and images.
+- Analyze uploaded files.
+- Reuse recent files.
+- Download generated files.
+- Preview uploaded PDFs where supported.
+
+Agent features:
+
+- Use Agent mode for document workflows.
+- Analyze PDFs deeply.
+- Generate reports.
+- Generate DOCX, PDF, PPTX, and XLSX files.
+- Work with Google Workspace connectors.
+
+Image features:
+
+- Upload images for analysis.
+- Extract text from screenshots.
+- Analyze UI screenshots.
+- Generate new images.
+- Request follow-up changes to generated images.
+
+Google Workspace features:
+
+- Upload files to Google Drive.
+- Draft and send Gmail messages after confirmation.
+- Create Google Docs.
+- Create Google Sheets.
+- Read and update Sheets.
+- Create Google Slides.
+- Import generated PPTX to Slides.
+- Create Calendar events.
+- Create Meet links.
+
+Account features:
+
+- Email registration.
+- OTP verification.
+- Email login.
+- Google login.
+- Profile management.
+- Email change.
+- Password management.
+- Google account linking.
+- Account data export.
+- Account deletion.
+- Language preferences.
+
+
+============================================================
+4. RECOMMENDED BROWSER AND BASIC REQUIREMENTS
+============================================================
+
+MSME.AI is a browser-based application.
+
+Recommended browsers:
+
+- Google Chrome
+- Microsoft Edge
+- Safari
+- Firefox
+
+For the best experience:
+
+- Use a modern browser.
+- Enable JavaScript.
+- Allow pop-ups when using Google authorization.
+- Use a stable internet connection for web search and Google connectors.
+- Log in before using advanced features.
+- Keep only one active generation running at a time when possible.
+
+Some browser extensions can interfere with login pop-ups, file downloads, or Google
+authorization. If something does not work, try an incognito window or temporarily
+disable strict privacy extensions.
+
+
+============================================================
+5. FIRST-TIME USER WALKTHROUGH
+============================================================
+
+If you are using MSME.AI for the first time, follow this recommended path:
+
+Step 1: Open the application.
+
+You will see the main chat interface, usually with a greeting and an input bar.
+
+Step 2: Create an account or log in.
+
+You can use basic guest access for limited testing, but most useful features require
+login.
+
+Step 3: Choose your interface language.
+
+Open settings and select English, Chinese, or Bahasa Malaysia.
+
+Step 4: Try a normal chat question.
+
+Example:
+"Explain cash flow in simple terms for a small business owner."
+
+Step 5: Try Web mode.
+
+Example:
+"Search the latest Malaysia SME grant information and give me sources."
+
+Step 6: Try Agent mode.
+
+Example:
+"I want to generate a PDF report from a business summary."
+
+Step 7: Upload a file.
+
+Upload a PDF, Excel file, CSV, or image and ask the assistant to analyze it.
+
+Step 8: Try a connector if needed.
+
+Enable a Google connector only when you need it.
+
+
+============================================================
+6. MAIN INTERFACE OVERVIEW
+============================================================
+
+The main interface has four important areas:
+
+1. Sidebar
+   Used for navigation, chat history, Agent mode, and account access.
+
+2. Chat area
+   Shows messages, assistant responses, source cards, generated file cards, image
+   results, and confirmation cards.
+
+3. Composer
+   The input area at the bottom. You type messages, upload files, select modes, and
+   send requests here.
+
+4. Account and settings area
+   Used for language, account details, connectors, and logout.
+
+
+============================================================
+7. SIDEBAR
+============================================================
+
+The sidebar is the vertical navigation area on the left side of the application.
+
+Main sidebar items:
+
+- Chat
+  Starts or returns to the main chat experience.
+
+- Search
+  Opens the search interface for previous conversations.
+
+- Agent
+  Opens Agent mode for advanced file, document, and connector tasks.
+
+- History
+  Shows recent conversations for logged-in users.
+
+- Account area
+  Shows the current user and gives access to account settings.
+
+- Collapse or expand button
+  Lets you make the sidebar narrow or wide.
+
+When the sidebar is collapsed, only icons are shown. This gives more space to the
+chat area.
+
+
+============================================================
+8. CHAT AREA
+============================================================
+
+The chat area displays all conversation content.
+
+It can show:
+
+- User messages
+- Assistant messages
+- Thinking or progress panels
+- Web source cards
+- File attachment cards
+- Generated PDF cards
+- Generated image cards
+- Generated file cards
+- Gmail confirmation cards
+- Error messages
+- Status updates
+
+The chat area is scrollable. Long conversations can include multiple files, sources,
+and generated artifacts.
+
+
+============================================================
+9. COMPOSER AND INPUT BAR
+============================================================
+
+The composer is the input area at the bottom of the screen.
+
+It usually includes:
+
+- Upload button
+- Text input area
+- Mode selector
+- Connector selector in Agent mode
+- Send button
+
+The upload button is usually shown as a plus symbol. It opens options for:
+
+- Uploading files
+- Viewing recent files
+- Selecting generation skills in Agent mode
+
+The mode selector lets you choose between:
+
+- Fast
+- Web
+
+The send button submits your message.
+
+Common keyboard behavior:
+
+- Enter sends the message in normal input.
+- Shift + Enter creates a new line where supported.
+- During message editing, Enter submits the edit and Shift + Enter adds a line break.
+
+
+============================================================
+10. ACCOUNT ACCESS: GUEST, LOGIN, AND REGISTRATION
+============================================================
+
+MSME.AI can be used in different access states.
+
+Guest access:
+
+- Allows limited basic use.
+- Does not unlock full history.
+- Does not unlock advanced Agent workflows.
+- Does not unlock Google connectors.
+- May limit uploads or advanced actions.
+
+Logged-in access:
+
+- Saves chat history.
+- Enables Agent mode.
+- Enables file upload.
+- Enables generated file workflows.
+- Enables account preferences.
+- Enables Google Workspace connectors after authorization.
+- Enables account management features.
+
+For serious use, users should log in.
+
+
+============================================================
+11. EMAIL REGISTRATION
+============================================================
+
+Use email registration when you want to create a new MSME.AI account.
+
+Procedure:
+
+1. Click "Sign up" or "Register".
+2. Enter your email address.
+3. Enter a password.
+4. Submit the registration form.
+5. Check your email inbox for a one-time verification code.
+6. Enter the OTP code on the verification page.
+7. After successful verification, your account becomes active.
+
+Good password practice:
+
+- Use at least 8 characters.
+- Avoid common passwords.
+- Avoid using your email address as your password.
+- Use a unique password that you do not reuse elsewhere.
+
+If you do not receive the OTP:
+
+- Check your spam folder.
+- Confirm that the email address is correct.
+- Wait a few minutes.
+- Use the resend option if available.
+
+
+============================================================
+12. EMAIL LOGIN
+============================================================
+
+Use email login if you already have an account.
+
+Procedure:
+
+1. Click "Sign in".
+2. Enter your email.
+3. Enter your password.
+4. Submit the login form.
+
+If login fails, check:
+
+- Email spelling.
+- Password spelling.
+- Whether the account has completed OTP verification.
+- Whether Caps Lock is on.
+- Whether the browser has outdated saved credentials.
+
+
+============================================================
+13. GOOGLE LOGIN
+============================================================
+
+Google login allows you to sign in using a Google account.
+
+Important distinction:
+
+Signing in with Google is not the same as authorizing Google Workspace connectors.
+
+Google login:
+
+- Confirms your identity.
+- Lets you access your MSME.AI account.
+
+Google Workspace connector authorization:
+
+- Lets MSME.AI perform specific actions such as creating Docs, uploading to Drive,
+  or sending Gmail.
+
+If a connector fails even after Google login, open the connector panel and authorize
+the required service.
+
+
+============================================================
+14. ACCOUNT VERIFICATION AND OTP
+============================================================
+
+OTP means one-time password or one-time verification code.
+
+MSME.AI uses OTP for:
+
+- New account verification
+- Email address changes
+
+OTP best practices:
+
+- Enter the code exactly as shown.
+- Use the newest code if multiple codes were requested.
+- Do not share the code with others.
+- Complete verification before the code expires.
+
+If the OTP expires:
+
+- Request a new code.
+- Restart the verification process if required.
+
+
+============================================================
+15. LANGUAGE SETTINGS
+============================================================
+
+MSME.AI supports multiple interface languages:
+
+- English
+- Chinese
+- Bahasa Malaysia
+
+To change language:
+
+1. Open settings or the account menu.
+2. Find the language section.
+3. Select the desired language.
+
+The interface language changes labels, buttons, and some messages.
+
+The assistant also tries to reply in the language of your latest message. If you want
+a specific language, say it directly.
+
+Examples:
+
+"Answer in English."
+
+"请用中文回答。"
+
+"Jawab dalam Bahasa Malaysia."
+
+
+============================================================
+16. INTERFACE SETTINGS
+============================================================
+
+MSME.AI uses a light visual interface throughout the app.
+
+Interface settings now focus on language selection and account-level preferences.
+
+
+============================================================
+17. USER PREFERENCES
+============================================================
+
+User preferences may include:
+
+- Language
+- Display name
+- Linked Google account status
+- Password status
+
+When logged in, preferences can be stored with your account. When not logged in,
+some preferences may only be stored in the browser.
+
+
+============================================================
+18. NORMAL CHAT MODE
+============================================================
+
+Normal chat mode is the default mode for everyday AI assistance.
+
+Use it for:
+
+- General questions
+- Writing drafts
+- Summarizing text
+- Translation
+- Explaining concepts
+- Brainstorming
+- Planning
+- Marketing copy
+- Customer messages
+- Basic business advice
+- Coding explanations
+
+Examples:
+
+"Explain gross profit and net profit in simple terms."
+
+"Write a polite email to a supplier asking for updated pricing."
+
+"Create a 30-day marketing plan for a small cafe."
+
+"Summarize this paragraph in bullet points."
+
+"Translate this message into professional English."
+
+
+============================================================
+19. FAST MODE
+============================================================
+
+Fast mode is designed for quick responses without live web search.
+
+Use Fast mode when:
+
+- The answer does not require current information.
+- You are asking for writing, editing, summarizing, or explanation.
+- You want a faster answer.
+- You are working from uploaded context or conversation history.
+
+Examples:
+
+"Rewrite this sentence to sound more professional."
+
+"Give me five product name ideas."
+
+"Explain this accounting concept in simple language."
+
+"Turn this paragraph into a checklist."
+
+Do not rely on Fast mode for:
+
+- Current prices
+- Latest policies
+- Recent news
+- Live company information
+- Current government requirements
+
+Use Web mode for those.
+
+
+============================================================
+20. WEB SEARCH MODE
+============================================================
+
+Web mode allows MSME.AI to search live web sources before answering.
+
+Use Web mode for:
+
+- Current information
+- Latest news
+- Government policy updates
+- Current prices
+- Product comparisons
+- Official requirements
+- Recently changed rules
+- Time-sensitive questions
+
+How to use:
+
+1. Select Web mode from the mode selector.
+2. Type your question.
+3. Ask for sources if needed.
+4. Send the message.
+5. Review the source cards.
+6. Read the final answer.
+
+Good Web mode prompts:
+
+"Search the latest Malaysia SME grants and include official sources."
+
+"What are the current requirements to register a Sdn Bhd in Malaysia? Prioritize official sources."
+
+"Find the current RON95 petrol price in Malaysia and cite the source."
+
+"Compare the latest business bank accounts for small companies in Malaysia."
+
+Tips:
+
+- Say which country or region you care about.
+- Ask for official sources when possible.
+- Ask the assistant to state uncertainty if sources conflict.
+- Ask for a table if comparing options.
+
+
+============================================================
+21. SOURCE CARDS AND EVIDENCE-BASED ANSWERS
+============================================================
+
+When Web mode is used, MSME.AI may show source cards.
+
+Source cards can include:
+
+- Page title
+- Website domain
+- Link to the source
+
+Use source cards to verify the answer.
+
+Recommended behavior:
+
+- Open important sources before making business decisions.
+- Prefer official sources for legal, government, tax, registration, and compliance topics.
+- Ask the assistant to search again if the source is not relevant.
+
+Useful follow-up prompts:
+
+"Use only official sources and search again."
+
+"The previous source is not relevant. Try a different query."
+
+"Summarize only what the source says. Do not add unsupported assumptions."
+
+"List which facts are directly supported by sources."
+
+
+============================================================
+22. THINK MODE
+============================================================
+
+Think Mode is designed for complex tasks that benefit from additional step-by-step
+processing or visible progress.
+
+Depending on the current model and configuration, Think Mode may be available or
+hidden.
+
+Use Think Mode for:
+
+- Multi-step analysis
+- Strategy comparison
+- Financial reasoning
+- Long planning tasks
+- Document reasoning
+- Complex decision support
+
+Examples:
+
+"Compare these two expansion strategies and recommend the better option."
+
+"Analyze this financial decision step by step."
+
+"Create a three-month launch plan and explain the reasoning."
+
+Note:
+
+Think Mode may show a collapsible progress or reasoning panel. It is intended to help
+users understand how the assistant is approaching the task.
+
+
+============================================================
+23. AGENT MODE
+============================================================
+
+Agent mode is the advanced workspace mode.
+
+Use Agent mode when you want MSME.AI to do work with files, tools, or external
+workspace services.
+
+Agent mode is best for:
+
+- PDF analysis
+- Report generation
+- DOCX generation
+- PDF generation
+- PPTX generation
+- XLSX generation
+- Structured data analysis
+- Google Workspace actions
+- Gmail preparation and sending
+- Calendar scheduling
+- Meet link creation
+- Uploading files to Drive
+
+How to use Agent mode:
+
+1. Log in.
+2. Click Agent in the sidebar.
+3. Upload a file or choose a skill if needed.
+4. Type your task.
+5. Send the request.
+6. Review the result.
+
+Examples:
+
+"Analyze this PDF and generate a professional report."
+
+"Create a PPTX pitch deck for this business plan."
+
+"Turn the previous answer into a DOCX document."
+
+"Upload the latest generated PDF to Google Drive."
+
+"Send this report to finance@example.com with a short professional email."
+
+Agent mode note:
+
+Agent mode focuses on task execution. If you need live current web information, use
+Web mode outside Agent mode first, then bring the result into Agent mode for file or
+workspace tasks.
+
+
+============================================================
+24. HOW TO CHOOSE THE CORRECT MODE
+============================================================
+
+Use Fast mode when:
+
+- You want quick writing help.
+- You need rewriting, translation, summarization, explanation, or brainstorming.
+- Your question does not require current information.
+
+Use Web mode when:
+
+- You need latest or current information.
+- You need official sources.
+- You need current prices, policies, rules, schedules, or news.
+
+Use Agent mode when:
+
+- You are working with files.
+- You want to generate documents.
+- You want to use Google Workspace.
+- You need PDF or spreadsheet analysis.
+- You need a multi-step output.
+
+Recommended sequence for complex work:
+
+1. Use Web mode to gather current information.
+2. Ask the assistant to summarize findings.
+3. Switch to Agent mode.
+4. Generate a report, document, spreadsheet, or slides.
+5. Use connectors to save or send the output.
+
+
+============================================================
+25. MESSAGE ACTIONS
+============================================================
+
+User message actions:
+
+When you hover over your own message, action buttons appear below the message.
+
+Available actions:
+
+- Copy
+  Copies your message text.
+
+- Edit
+  Lets you edit the message and resend it.
+
+Editing behavior:
+
+- Enter submits the edit.
+- Shift + Enter adds a new line.
+- Escape cancels editing.
+
+Assistant message actions:
+
+Assistant responses may include:
+
+- Copy
+  Copies the assistant response.
+
+- Regenerate
+  Creates a new answer for the same prompt.
+
+- Resume
+  Continues an interrupted or paused response.
+
+- Like
+  Marks the answer as helpful.
+
+- Dislike
+  Marks the answer as not helpful.
+
+Use message actions when:
+
+- You made a typo.
+- You want to ask the same question in a better way.
+- The assistant stopped early.
+- You want a different version of the answer.
+- You want to copy text into another document.
+
+
+============================================================
+26. PAUSING, RESUMING, AND REGENERATING RESPONSES
+============================================================
+
+Pausing:
+
+When the assistant is generating, the send button changes state. Click it to stop
+generation.
+
+Use pause when:
+
+- The assistant is going in the wrong direction.
+- The answer is too long.
+- You selected the wrong mode.
+- You uploaded the wrong file.
+- You want to stop and ask again.
+
+Resuming:
+
+If a response was paused or interrupted, use the message action button to resume.
+
+Regenerating:
+
+Use regenerate when:
+
+- You want a different wording.
+- The first answer was not good enough.
+- You want the assistant to try again.
+- You changed context or want a cleaner answer.
+
+Tip:
+
+If the answer is wrong because your prompt was unclear, edit your user message rather
+than only regenerating.
+
+
+============================================================
+27. CHAT HISTORY
+============================================================
+
+Logged-in users can access chat history.
+
+Chat history may include:
+
+- User messages
+- Assistant messages
+- Uploaded file references
+- Generated files
+- Source cards
+- Feedback
+- Agent mode status
+
+How to open a past chat:
+
+1. Open the sidebar.
+2. Find History.
+3. Click a previous chat.
+
+You can continue a past chat if the conversation is still relevant.
+
+Rename a chat:
+
+Use rename when you want a clear title, such as:
+
+- "Cafe Business Plan"
+- "SSM Registration Research"
+- "Monthly Sales Analysis"
+- "Investor Pitch Deck"
+
+Delete a chat:
+
+Delete old conversations you no longer need.
+
+Warning:
+
+Deleted chats may not be recoverable.
+
+
+============================================================
+28. SEARCH HISTORY
+============================================================
+
+The Search section helps you find previous conversations.
+
+Use it to find:
+
+- Past reports
+- Old research
+- Generated files
+- Previous customer emails
+- Earlier PDF analysis
+- Previous Google Workspace tasks
+
+Search tips:
+
+- Search by business name.
+- Search by file name.
+- Search by topic.
+- Search by date-related words.
+- Search by output type, such as PDF, PPTX, or Excel.
+
+
+============================================================
+29. FILE UPLOAD
+============================================================
+
+Supported upload types include:
+
+- PDF
+- CSV
+- TSV
+- XLSX
+- XLS
+- JSON
+- JSONL
+- TXT
+- Markdown
+- Images
+
+How to upload:
+
+1. Click the plus button in the composer.
+2. Choose Upload file.
+3. Select one or more files.
+4. Wait for the file cards to appear.
+5. Type your instruction.
+6. Send the message.
+
+Good file prompts:
+
+"Analyze this PDF and summarize the key points."
+
+"Read this Excel file and identify revenue trends."
+
+"Extract all important information from this uploaded document."
+
+"Compare these two uploaded files and list differences."
+
+"Use the uploaded document to create a report."
+
+Best practices:
+
+- Upload clean, readable files.
+- Use clear file names.
+- Tell the assistant what each file is.
+- State the desired output format.
+- For financial data, make sure columns have clear names.
+
+
+============================================================
+30. RECENT FILES
+============================================================
+
+Recent Files lets you reuse files from previous chats or generated outputs.
+
+Use Recent Files when:
+
+- You want to reuse an uploaded image.
+- You want to resend a generated PDF.
+- You want to upload a previous output to Drive.
+- You want to create a new version of a previous file.
+- You want to analyze a recently generated file.
+
+How to use:
+
+1. Click the plus button.
+2. Select Recent Files.
+3. Choose a file.
+4. Type what you want to do with it.
+5. Send.
+
+Note:
+
+Recent files depend on chat history. If a chat is deleted, related file references may
+not be available.
+
+
+============================================================
+31. IMAGE UPLOAD AND IMAGE UNDERSTANDING
+============================================================
+
+Image understanding can analyze uploaded images or pasted screenshots.
+
+Use it for:
+
+- Screenshots
+- Receipts
+- Invoices
+- Menus
+- Charts
+- Forms
+- UI screens
+- Product photos
+- Posters
+- Documents captured as images
+
+Capabilities:
+
+- Describe visible content.
+- Extract text.
+- Read labels.
+- Summarize charts.
+- Identify layout issues.
+- Compare multiple images.
+- Suggest design improvements.
+
+Examples:
+
+"Extract all text from this receipt."
+
+"What is wrong with this UI screenshot?"
+
+"Compare these two poster designs."
+
+"Read this chart and explain the trend."
+
+"Turn this image content into a table."
+
+If you upload an image without a question, the system may apply a default image
+analysis prompt.
+
+Limitations:
+
+- Blurry images reduce accuracy.
+- Very small text may not be readable.
+- Cropped screenshots may miss context.
+- AI may misread complex tables in images.
+
+
+============================================================
+32. IMAGE GENERATION
+============================================================
+
+MSME.AI can generate images based on text prompts.
+
+Possible image requests:
+
+- Logo concepts
+- Posters
+- Icons
+- Banners
+- Social graphics
+- Product visuals
+- Website visuals
+- Illustrations
+
+Good image prompt structure:
+
+- Subject
+- Style
+- Color palette
+- Mood
+- Purpose
+- Aspect ratio or layout
+- Text requirements
+- Things to avoid
+
+Example:
+
+"Generate a clean modern poster for a small business finance workshop. Use a white
+background, dark gray typography, one green accent color, and a professional corporate
+style. Do not include too much text."
+
+Another example:
+
+"Create a simple app icon for an SME accounting tool. Minimal line icon style, rounded
+shape, white background, dark green accent, no text."
+
+Generated images appear in the chat as image cards.
+
+Image card actions may include:
+
+- Open
+- Download
+
+
+============================================================
+33. FOLLOW-UP IMAGE EDITING
+============================================================
+
+After an image is generated, you can ask for changes.
+
+Examples:
+
+"Make the background white."
+
+"Remove the text."
+
+"Use green instead of blue."
+
+"Make it more premium."
+
+"Make it suitable for a website hero image."
+
+"Create another version with a more minimal style."
+
+Tips:
+
+- Be specific about what should change.
+- Mention what should stay the same.
+- Use one or two changes per request for better control.
+
+
+============================================================
+34. PDF AGENT
+============================================================
+
+The PDF Agent is used in Agent mode for deeper PDF workflows.
+
+It can:
+
+- Extract PDF text.
+- Extract tables.
+- Analyze document structure.
+- Identify document type.
+- Summarize content.
+- Generate reports.
+- Work with templates.
+- Create downloadable PDF outputs.
+
+Suitable PDF types:
+
+- Business reports
+- Financial reports
+- Annual reports
+- Business plans
+- Academic papers
+- Legal documents
+- Technical documents
+- General documents
+
+Basic workflow:
+
+1. Log in.
+2. Open Agent mode.
+3. Upload a PDF.
+4. Ask for analysis or report generation.
+5. Respond to follow-up questions.
+6. Download the generated PDF if created.
+
+Example:
+
+"Analyze this PDF. Give me an executive summary, key findings, risks, recommendations,
+and generate a PDF report."
+
+
+============================================================
+35. PDF REPORT GENERATION
+============================================================
+
+PDF report generation creates a downloadable PDF from analysis or generated content.
+
+Use it for:
+
+- Formal business reports
+- Financial analysis reports
+- Research summaries
+- Proposal documents
+- Client deliverables
+- Internal reports
+
+Direct PDF generation prompt examples:
+
+"Generate a PDF report from the previous answer."
+
+"Create a professional PDF report based on this uploaded document."
+
+"Turn this analysis into a PDF with executive summary, findings, and recommendations."
+
+When the PDF is ready, the chat shows a download card.
+
+You can then:
+
+- Download the PDF.
+- Ask for a revised version.
+- Upload it to Google Drive.
+- Send it through Gmail.
+
+
+============================================================
+36. TEMPLATE-BASED PDF GENERATION
+============================================================
+
+Template-based PDF generation is useful when you already have a desired report style
+or structure.
+
+Recommended workflow:
+
+1. Upload the source data PDF first.
+2. Ask the assistant to create a report.
+3. When asked about a template, upload the template PDF.
+4. The system reads the template layout.
+5. The final report is generated using source data, not placeholder template content.
+
+Example:
+
+"This first PDF is the source data. Please analyze it and generate a report. I will
+upload a template next."
+
+Then:
+
+"This PDF is the template. Use the structure and layout, but fill it with the source
+data."
+
+Important:
+
+Template example text should not be treated as real business data. Always review the
+final report before sending it externally.
+
+
+============================================================
+37. FINANCIAL AND STRUCTURED DATA AGENT
+============================================================
+
+The Financial and Structured Data Agent works with structured business files.
+
+Supported file types:
+
+- CSV
+- TSV
+- Excel
+- JSON
+- JSONL
+- TXT
+- Markdown
+
+It can help with:
+
+- Revenue analysis
+- Cost analysis
+- Gross profit
+- Net profit
+- Expense breakdown
+- Monthly trends
+- Missing fields
+- Risk indicators
+- Business recommendations
+- Financial summary tables
+- Report preparation
+
+Useful data fields:
+
+- Date
+- Period
+- Revenue
+- Sales
+- Cost of goods sold
+- Expenses
+- Net profit
+- Cash balance
+- Assets
+- Liabilities
+- Product
+- Category
+- Customer segment
+
+Example prompt:
+
+"I uploaded my monthly sales Excel file. Analyze revenue, costs, gross profit, net
+profit, and identify unusual months. Output a table and summary."
+
+Another example:
+
+"Review this CSV and tell me what financial fields are missing before I apply for a
+business loan."
+
+
+============================================================
+38. LOCAL FILE GENERATION SKILLS
+============================================================
+
+In Agent mode, the upload menu includes Skills.
+
+Available file generation skills:
+
+- DOCX
+- PDF
+- PPTX
+- XLSX
+
+How to use:
+
+1. Open Agent mode.
+2. Click the plus button.
+3. Open Skills.
+4. Choose DOCX, PDF, PPTX, or XLSX.
+5. Describe what you want to create.
+6. Send the request.
+7. Download the generated file from the file card.
+
+General skill prompt:
+
+"Create a [file type] about [topic] for [audience]. Use a [tone] tone and include
+[sections]."
+
+
+============================================================
+39. DOCX GENERATION
+============================================================
+
+DOCX generation creates Word-style documents.
+
+Use DOCX for:
+
+- Proposals
+- Business plans
+- SOP documents
+- Meeting notes
+- Reports
+- Letters
+- Policy drafts
+- Training documents
+
+Example prompts:
+
+"Create a DOCX proposal for a small cafe seeking supplier partnership."
+
+"Generate a DOCX business plan for an online bakery."
+
+"Turn the previous answer into a Word document with headings and bullet points."
+
+Good DOCX instructions include:
+
+- Title
+- Audience
+- Tone
+- Sections
+- Approximate length
+- Whether tables are needed
+
+
+============================================================
+40. PDF FILE GENERATION
+============================================================
+
+PDF generation creates fixed-format documents.
+
+Use PDF for:
+
+- Final reports
+- Client-ready summaries
+- Checklists
+- Guides
+- Formal business documents
+
+Example prompts:
+
+"Create a PDF checklist for registering a small business."
+
+"Generate a PDF report from the uploaded PDF analysis."
+
+"Make a PDF summary of this business strategy."
+
+Review generated PDFs before official use.
+
+
+============================================================
+41. PPTX GENERATION
+============================================================
+
+PPTX generation creates PowerPoint files.
+
+Use PPTX for:
+
+- Pitch decks
+- Business presentations
+- Training slides
+- Project briefings
+- Sales presentations
+- Internal updates
+
+Example prompts:
+
+"Create a 10-slide PPTX pitch deck for an SME accounting app."
+
+"Generate a presentation about digital transformation for small businesses."
+
+"Turn this business plan into a 12-slide investor deck."
+
+Good PPTX instructions include:
+
+- Number of slides
+- Target audience
+- Tone
+- Slide title style
+- Whether to include charts or tables
+- Whether the deck should be concise or detailed
+
+
+============================================================
+42. XLSX GENERATION
+============================================================
+
+XLSX generation creates Excel-style workbooks.
+
+Use XLSX for:
+
+- Budget templates
+- Sales trackers
+- Cash flow sheets
+- Expense trackers
+- Project trackers
+- Customer lists
+- Inventory sheets
+
+Example prompts:
+
+"Create an XLSX monthly budget tracker with income, fixed costs, variable costs,
+profit, and notes."
+
+"Generate an Excel cash flow projection for 12 months."
+
+"Create a sales tracker spreadsheet for a small retail shop."
+
+Good XLSX instructions include:
+
+- Sheet names
+- Columns
+- Example rows
+- Formulas if needed
+- Currency
+- Time period
+
+
+============================================================
+43. GENERATED FILE CARDS
+============================================================
+
+When a file is generated, a file card appears in the chat.
+
+The card may show:
+
+- File type
+- File name
+- Open button
+- Download button
+
+Use the card to:
+
+- Open the file.
+- Download the file.
+- Reuse the file in a connector action.
+- Send the file by Gmail.
+- Upload the file to Drive.
+
+If the file does not open:
+
+- Try downloading again.
+- Ask the assistant to regenerate it.
+- Check whether generation completed.
+
+
+============================================================
+44. RENAMING GENERATED FILES
+============================================================
+
+You can ask MSME.AI to rename generated files.
+
+Examples:
+
+"Rename the latest file to Cafe Business Plan 2026."
+
+"Change the PDF filename to Monthly Financial Summary."
+
+"Save the deck as Investor Pitch Deck."
+
+The system creates or updates the stored file reference with the new name.
+
+Use clear file names:
+
+- Avoid special symbols.
+- Include project name.
+- Include version or date if useful.
+
+
+============================================================
+45. GOOGLE WORKSPACE CONNECTORS OVERVIEW
+============================================================
+
+Google Workspace connectors let MSME.AI work with your Google account after
+authorization.
+
+Available connectors:
+
+- Google Drive
+- Gmail
+- Google Docs
+- Google Sheets
+- Google Slides
+- Google Calendar
+- Google Meet
+
+General setup:
+
+1. Log in to MSME.AI.
+2. Link your Google account if required.
+3. Open Agent mode.
+4. Open Connectors.
+5. Enable the connector you need.
+6. Complete the authorization flow.
+7. Ask MSME.AI to perform a Google Workspace task.
+
+Connector safety:
+
+- Enable only the services you need.
+- Review outputs before sharing externally.
+- Gmail requires confirmation before sending.
+
+
+============================================================
+46. GOOGLE DRIVE CONNECTOR
+============================================================
+
+The Drive connector uploads files to Google Drive.
+
+It can upload:
+
+- Latest generated PDF
+- Latest generated image
+- Latest generated DOCX
+- Latest generated PPTX
+- Latest generated XLSX
+- Uploaded files from the conversation
+
+Example prompts:
+
+"Upload the latest generated PDF to Google Drive."
+
+"Save this generated image to my Google Drive."
+
+"Upload the Excel file from this conversation to Drive."
+
+If no file is available, the assistant will ask you to upload or generate a file first.
+
+
+============================================================
+47. GMAIL CONNECTOR
+============================================================
+
+The Gmail connector helps draft and send emails.
+
+It can:
+
+- Draft email body text.
+- Create professional email subjects.
+- Attach generated files.
+- Send email after user confirmation.
+
+Example prompts:
+
+"Send an email to client@example.com saying the report is ready and attach the latest
+PDF."
+
+"Write a polite follow-up email to supplier@example.com asking for the quotation."
+
+"Email the generated image to marketing@example.com with a short note."
+
+Safety flow:
+
+1. You request an email.
+2. MSME.AI prepares a preview.
+3. You review recipient, subject, body, and attachments.
+4. You click Confirm Send or Cancel.
+5. The email is sent only after confirmation.
+
+Before confirming, check:
+
+- Recipient address
+- Subject
+- Body
+- Attachments
+- Tone
+- Confidential information
+
+
+============================================================
+48. GOOGLE DOCS CONNECTOR
+============================================================
+
+The Docs connector creates Google Docs.
+
+Use it for:
+
+- Reports
+- Meeting notes
+- Business plans
+- Research summaries
+- SOP documents
+- Client drafts
+
+Example prompts:
+
+"Create a Google Doc from the previous analysis and title it SME Funding Summary."
+
+"Turn this report into a Google Docs document with headings and bullet points."
+
+"Create a Google Doc for a customer follow-up SOP."
+
+Formatting support may include:
+
+- Headings
+- Paragraphs
+- Bullet lists
+- Numbered lists
+- Tables
+- Bold text
+
+Review the created document in Google Docs and adjust formatting if needed.
+
+
+============================================================
+49. GOOGLE SHEETS CONNECTOR
+============================================================
+
+The Sheets connector works with spreadsheets.
+
+It can:
+
+- Create a new Google Sheet.
+- Convert a table into a Sheet.
+- Search for Sheets.
+- Read Sheet content.
+- Append rows.
+- Update ranges.
+
+Create Sheet examples:
+
+"Create a Google Sheet for monthly sales and expenses."
+
+"Turn this table into a Google Sheet."
+
+Read Sheet examples:
+
+"Read the Google Sheet called Monthly Sales and summarize the latest data."
+
+"Read Sheet1 range A1:D20."
+
+Append row examples:
+
+"Append these transactions to my Sales Tracker sheet."
+
+"Add this month's expenses to the budget spreadsheet."
+
+Update range examples:
+
+"Update A1:C5 in the Budget sheet with this table."
+
+"Replace the first table in my spreadsheet with the following data."
+
+Tips:
+
+- Provide exact sheet names where possible.
+- Provide tab name and range when updating.
+- Confirm the correct file if multiple files have similar names.
+
+
+============================================================
+50. GOOGLE SLIDES CONNECTOR
+============================================================
+
+The Slides connector creates or imports presentations.
+
+It can:
+
+- Create native Google Slides.
+- Convert generated presentation content into Slides.
+- Import a generated PPTX into Google Slides.
+
+Example prompts:
+
+"Create Google Slides for a business plan presentation."
+
+"Generate a Google Slides deck about MSME financing options."
+
+"Import the latest generated PPTX into Google Slides."
+
+Good slide instructions include:
+
+- Topic
+- Audience
+- Number of slides
+- Tone
+- Visual style
+- Key sections
+
+Review generated slides before presenting.
+
+
+============================================================
+51. GOOGLE CALENDAR CONNECTOR
+============================================================
+
+The Calendar connector creates Google Calendar events.
+
+Example prompts:
+
+"Schedule a meeting tomorrow at 3 PM called Supplier Follow-Up."
+
+"Create a calendar event next Monday at 10 AM for Business Plan Review."
+
+"Add a 30-minute meeting with customer@example.com this Friday afternoon."
+
+Include:
+
+- Event title
+- Date
+- Time
+- Duration
+- Attendees
+- Description if needed
+
+Relative dates such as "tomorrow" or "next Friday" are interpreted using available
+timezone context.
+
+
+============================================================
+52. GOOGLE MEET CONNECTOR
+============================================================
+
+The Meet connector creates a Calendar event with a Google Meet link.
+
+Example prompts:
+
+"Create a Google Meet tomorrow at 2 PM with ali@example.com."
+
+"Set up a video meeting next Friday for finance review."
+
+"Schedule a 1-hour Google Meet called Project Kickoff and invite the team."
+
+The result may include:
+
+- Event title
+- Time
+- Calendar link
+- Google Meet link
+
+Always verify the time and attendee list.
+
+
+============================================================
+53. GMAIL SAFETY CONFIRMATION FLOW
+============================================================
+
+Gmail actions use a confirmation flow because sending email is a high-impact action.
+
+The assistant does not immediately send email after you ask.
+
+Typical process:
+
+1. User asks to send an email.
+2. Assistant prepares recipient, subject, body, and attachments.
+3. A preview card appears.
+4. User reviews the preview.
+5. User clicks Confirm Send or Cancel.
+
+Use Confirm Send only after checking:
+
+- Correct recipient
+- Correct subject
+- Correct message
+- Correct attachment
+- No private information is included accidentally
+
+If you cancel:
+
+- The pending email is not sent.
+- You can ask the assistant to revise the email.
+
+
+============================================================
+54. ACCOUNT PAGE OVERVIEW
+============================================================
+
+The account page is used to manage user account settings.
+
+Common sections:
+
+- Profile
+- Security
+- Data
+
+Profile may include:
+
+- Display name
+- Email address
+- Google account status
+
+Security may include:
+
+- Password settings
+- Login methods
+- Google linking or unlinking
+
+Data may include:
+
+- Account export
+- Account deletion
+- Cookie preferences
+
+
+============================================================
+55. PROFILE MANAGEMENT
+============================================================
+
+You can update your display name.
+
+Procedure:
+
+1. Open Account.
+2. Find Profile.
+3. Click Edit name.
+4. Enter the new display name.
+5. Save.
+
+The display name may be shown in the sidebar and account page.
+
+
+============================================================
+56. EMAIL CHANGE
+============================================================
+
+You can change your account email address.
+
+Procedure:
+
+1. Open Account.
+2. Find email settings.
+3. Click Update email.
+4. Enter the new email address.
+5. Request verification.
+6. Check the new email inbox.
+7. Enter the OTP code.
+8. Confirm the change.
+
+If the email is already used by another account, the change will not be allowed.
+
+
+============================================================
+57. PASSWORD MANAGEMENT
+============================================================
+
+You can set or update your password.
+
+Procedure:
+
+1. Open Account.
+2. Go to Security.
+3. Click Set password or Update password.
+4. Enter the new password.
+5. Save.
+
+Password rules:
+
+- Minimum length is typically 8 characters.
+- Very long passwords may be rejected depending on system limits.
+- Use a unique password.
+
+If you signed in with Google and want to unlink Google later, make sure you have a
+password set first.
+
+
+============================================================
+58. GOOGLE ACCOUNT LINKING
+============================================================
+
+Linking a Google account helps with Google login and Workspace connector usage.
+
+Procedure:
+
+1. Open Account.
+2. Find Google account section.
+3. Click Link Google.
+4. Complete the Google authorization flow.
+
+Unlinking:
+
+You may unlink Google if your account has another login method, such as an email
+password.
+
+Important:
+
+Google account linking is not the same as enabling every connector. You may still need
+to authorize individual services.
+
+
+============================================================
+59. ACCOUNT DATA EXPORT
+============================================================
+
+The account data export feature lets you request a copy of account-related data.
+
+It may include:
+
+- Profile information
+- Recent chat history
+- Account metadata
+
+Procedure:
+
+1. Open Account.
+2. Go to Data.
+3. Click Download or Request Export.
+4. Wait for the export to be prepared.
+5. Check your registered email if the export is sent by email.
+
+Use export before deleting an account if you need to keep records.
+
+
+============================================================
+60. ACCOUNT DELETION
+============================================================
+
+Account deletion permanently removes your account.
+
+It may remove:
+
+- User profile
+- Chat history
+- Feedback
+- Pending verification data
+- Related stored account information
+
+Procedure:
+
+1. Open Account.
+2. Go to Data.
+3. Choose Delete account.
+4. Read the warning.
+5. Confirm the deletion if you are sure.
+
+Warning:
+
+Account deletion is permanent. Export important data first.
+
+
+============================================================
+61. COOKIE AND PRIVACY PREFERENCES
+============================================================
+
+The system may show cookie or preference controls.
+
+Possible choices:
+
+- Allow all
+- Reject optional cookies
+- Confirm selected preferences
+- Manage categories
+
+Use these controls to choose how the application stores optional browser preferences.
+
+Some essential data may still be required for login, security, and core application
+functionality.
+
+
+============================================================
+62. DATA HANDLING AND USER RESPONSIBILITY
+============================================================
+
+MSME.AI stores data to provide useful features.
+
+Stored data may include:
+
+- Account information
+- Chat messages
+- Uploaded files
+- Generated files
+- Feedback ratings
+- Connector authorization data
+- User preferences
+- Long-term memory or context where enabled
+
+User responsibility:
+
+- Do not upload files you are not allowed to share.
+- Review generated content before sending externally.
+- Confirm Gmail messages before sending.
+- Verify financial, legal, tax, and compliance information.
+- Use official sources for important current information.
+
+AI output can be helpful but should not replace professional advice.
+
+
+============================================================
+63. PROMPT WRITING GUIDE
+============================================================
+
+A good prompt usually includes:
+
+- Role
+- Task
+- Context
+- Input material
+- Desired output format
+- Audience
+- Tone
+- Constraints
+- Language
+- Source requirements
+
+General prompt structure:
+
+"Act as [role]. Based on [context or file], create [output] for [audience]. Use a
+[tone] tone. Include [sections]. If information is missing, ask me before assuming."
+
+Example:
+
+"Act as an SME financial advisor. Based on the uploaded Excel file, analyze revenue,
+costs, gross profit, net profit, and cash flow. Output a table and a business summary.
+If important fields are missing, list them first."
+
+Weak prompt:
+
+"Check this."
+
+Better prompt:
+
+"Analyze this PDF. Extract the key findings, risks, important numbers, and recommended
+next steps. Output in a structured business report format."
+
+
+============================================================
+64. PROMPT TEMPLATES
+============================================================
+
+Normal chat templates:
+
+"Explain [topic] in simple terms for a small business owner."
+
+"Rewrite the following text in a professional tone: [text]."
+
+"Create a [number]-day plan for [business goal]."
+
+"Summarize the following content into bullet points: [content]."
+
+Web search templates:
+
+"Search the latest information about [topic] and include sources."
+
+"Find official sources about [requirement] in [country or region]."
+
+"Compare [A], [B], and [C] using current information. Output a table with sources."
+
+PDF analysis templates:
+
+"Analyze this PDF and provide: summary, key findings, risks, opportunities, and action
+items."
+
+"Generate a PDF report from this document with executive summary, analysis, and
+recommendations."
+
+Financial analysis templates:
+
+"Analyze this spreadsheet for revenue, costs, profit, and monthly trends."
+
+"Identify missing financial fields and explain what I need to add."
+
+File generation templates:
+
+"Create a DOCX document about [topic] for [audience]."
+
+"Create a PDF report based on [content]."
+
+"Create a PPTX deck with [number] slides about [topic]."
+
+"Create an XLSX template for [purpose]."
+
+Google Workspace templates:
+
+"Upload the latest generated PDF to Google Drive."
+
+"Create a Google Doc from the previous answer."
+
+"Turn this table into a Google Sheet."
+
+"Create Google Slides based on this business plan."
+
+"Send an email to [recipient] with subject [subject] and attach the latest PDF."
+
+"Create a Google Meet tomorrow at [time] with [attendee]."
+
+
+============================================================
+65. RECOMMENDED WORKFLOWS
+============================================================
+
+Workflow 1: Research and report
+
+1. Use Web mode.
+2. Ask for current information with official sources.
+3. Review source cards.
+4. Ask for a structured summary.
+5. Switch to Agent mode.
+6. Generate a PDF or DOCX report.
+
+Workflow 2: PDF analysis
+
+1. Log in.
+2. Open Agent mode.
+3. Upload PDF.
+4. Ask for analysis.
+5. Ask follow-up questions.
+6. Generate a PDF report if needed.
+
+Workflow 3: Financial spreadsheet review
+
+1. Open Agent mode.
+2. Upload Excel or CSV.
+3. Ask for financial analysis.
+4. Review missing fields.
+5. Generate a summary report or XLSX template.
+
+Workflow 4: Create a pitch deck
+
+1. Open Agent mode.
+2. Choose PPTX skill.
+3. Provide business background.
+4. Specify audience and number of slides.
+5. Generate PPTX.
+6. Review and revise.
+7. Import to Google Slides if needed.
+
+Workflow 5: Send a report by Gmail
+
+1. Generate or upload the report.
+2. Enable Gmail connector.
+3. Ask MSME.AI to draft an email.
+4. Review the Gmail confirmation card.
+5. Confirm send.
+
+Workflow 6: Save generated work to Drive
+
+1. Generate a file.
+2. Enable Drive connector.
+3. Ask MSME.AI to upload the file.
+4. Open the returned Drive link if available.
+
+Workflow 7: Schedule a client meeting
+
+1. Enable Calendar or Meet connector.
+2. Provide meeting title, date, time, and attendees.
+3. Ask the assistant to schedule it.
+4. Verify the event details.
+
+
+============================================================
+66. TROUBLESHOOTING
+============================================================
+
+Problem: I cannot log in.
+
+Try:
+
+- Check your email and password.
+- Make sure your account is verified.
+- Try resetting credentials if available.
+- Try a different browser.
+
+Problem: I did not receive the OTP.
+
+Try:
+
+- Check spam or junk folder.
+- Wait a few minutes.
+- Request a new OTP.
+- Confirm the email address is correct.
+
+Problem: Agent mode is locked.
+
+Possible reason:
+
+- You are not logged in.
+
+Try:
+
+- Log in.
+- Refresh the page.
+- Start a new chat.
+
+Problem: Web search returns irrelevant sources.
+
+Try:
+
+- Ask for official sources.
+- Specify country or region.
+- Ask the assistant to search again.
+- Provide better keywords.
+
+Problem: File upload fails.
+
+Try:
+
+- Use a smaller file.
+- Check file format.
+- Rename the file.
+- Try uploading again.
+
+Problem: PDF analysis is poor.
+
+Possible reasons:
+
+- PDF is scanned.
+- Text is not selectable.
+- Tables are complex.
+- File quality is low.
+
+Try:
+
+- Upload a clearer PDF.
+- Ask about specific pages.
+- Provide additional context.
+
+Problem: Google connector does not work.
+
+Try:
+
+- Make sure you are logged in.
+- Link your Google account.
+- Enable the specific connector.
+- Complete Google authorization.
+- Allow pop-ups.
+
+Problem: Gmail did not send.
+
+Check:
+
+- Did you click Confirm Send?
+- Is Gmail connector enabled?
+- Is the recipient correct?
+- Did authorization expire?
+
+Problem: Generated file does not download.
+
+Try:
+
+- Click download again.
+- Ask the assistant to regenerate the file.
+- Refresh the page.
+
+Problem: The page design looks old after an update.
+
+Try:
+
+- Hard refresh the browser.
+- Clear browser cache.
+- Open the page in a private window.
+
+
+============================================================
+67. KNOWN LIMITATIONS
+============================================================
+
+AI accuracy:
+
+- AI can make mistakes.
+- AI may misunderstand vague prompts.
+- AI may omit details from large documents.
+
+Web search:
+
+- Some websites may be unavailable.
+- Search results may include non-official sources.
+- Information may conflict across sources.
+
+PDF analysis:
+
+- Scanned PDFs may be difficult to read.
+- Complex tables may need manual checking.
+- Template-based generation still requires review.
+
+Image understanding:
+
+- Blurry images reduce accuracy.
+- Small text may not be readable.
+- Cropped screenshots may lack context.
+
+File generation:
+
+- Generated files are drafts.
+- Formatting may need manual polishing.
+- Charts and tables should be reviewed.
+
+Google Workspace:
+
+- Requires user authorization.
+- Some actions depend on account permissions.
+- Gmail requires confirmation before sending.
+
+
+============================================================
+68. BEST PRACTICES
+============================================================
+
+Use the right mode:
+
+- Fast for simple tasks.
+- Web for current information.
+- Agent for files and tools.
+
+Be specific:
+
+- Tell the assistant what output you want.
+- Include audience, tone, format, and constraints.
+
+Use sources:
+
+- Ask for official sources for important facts.
+- Check source cards before acting.
+
+Review outputs:
+
+- Check reports before sending.
+- Check emails before confirming.
+- Check financial calculations.
+- Check generated files.
+
+Break large tasks into steps:
+
+Instead of:
+
+"Analyze this file, make a report, create slides, send email, and schedule a meeting."
+
+Use:
+
+1. "Analyze this file."
+2. "Generate a PDF report."
+3. "Create slides from the report."
+4. "Draft an email with the report attached."
+5. "Schedule a meeting."
+
+Keep conversations organized:
+
+- Rename important chats.
+- Use separate chats for separate projects.
+- Delete old chats you do not need.
+
+
+============================================================
+69. QUICK REFERENCE
+============================================================
+
+Common actions:
+
+- Start new chat:
+  Click Chat.
+
+- Search history:
+  Click Search.
+
+- Use Agent mode:
+  Click Agent.
+
+- Upload file:
+  Click plus button, then Upload file.
+
+- Use Web search:
+  Select Web in the mode selector.
+
+- Generate DOCX/PDF/PPTX/XLSX:
+  Enter Agent mode, open Skills, choose file type, describe output.
+
+- Use Google connectors:
+  Enter Agent mode, open Connectors, enable service, authorize, then ask.
+
+- Copy a user message:
+  Hover over the message and click copy.
+
+- Edit a user message:
+  Hover over the message and click edit.
+
+- Copy an assistant answer:
+  Hover over the assistant answer and click copy.
+
+- Regenerate:
+  Use the regenerate action below the assistant response.
+
+- Download file:
+  Use the file card download button.
+
+- Send Gmail:
+  Enable Gmail, ask for an email, review preview, confirm send.
+
+
+============================================================
+70. FINAL NOTES
+============================================================
+
+MSME.AI is most useful when treated as a practical work partner.
+
+Use it to:
+
+- Think faster.
+- Draft faster.
+- Research faster.
+- Analyze documents faster.
+- Generate files faster.
+- Connect work across chat and Google Workspace.
+
+The best workflow is:
+
+1. Ask clearly.
+2. Use the correct mode.
+3. Upload relevant files.
+4. Review the output.
+5. Refine with follow-up prompts.
+6. Generate or send final artifacts only after checking.
+
+For important business, legal, financial, compliance, or customer-facing work, always
+perform a final human review.
+
+END OF USER MANUAL

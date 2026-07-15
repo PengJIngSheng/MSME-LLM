@@ -1,0 +1,55 @@
+# Environments
+.env
+.venv
+node_modules/
+ts-server/node_modules/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Models and Large Files
+models/
+*.gguf
+*.bin
+*.pt
+*.pth
+*.safetensors
+*.onnx
+
+# Application Data
+user_uploads/
+data/finetune/
+data/backups/
+Finetune/
+debug_pdf.log
+*.log
+
+# IDEs and Editors
+.vscode/
+.idea/
+.claude/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Cache
+.cache/
+
+# Secrets
+*client_secret.json
+secrets/
+config/secrets*.env
+!config/secrets.example.env
+*.pem
+*.key
