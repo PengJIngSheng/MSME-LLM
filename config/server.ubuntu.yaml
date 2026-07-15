@@ -1,5 +1,5 @@
 runtime:
-  name: "MSME AI Copilot - Cyberjaya MYS1a"
+  name: "bisnes.ai Copilot - Cyberjaya MYS1a"
   platform: "Ubuntu 24.04 + RTX 5090 (32GB VRAM)"
 
 model:

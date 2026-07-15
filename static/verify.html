@@ -3,11 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Verify Email - MSME.AI</title>
+    <title>Verify Email - bisnes.ai</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet">
     <link href="/static/auth-screen.css?v=1.0.0" rel="stylesheet">
     <link href="/static/auth-otp.css?v=1.0.2" rel="stylesheet">
+    <script>
+        // Compatibility for previously issued /static/verify.html?id=… links.
+        // New registrations never navigate here; the OTP step is in login.html.
+        (() => {
+            const params = new URLSearchParams(window.location.search);
+            const pendingId = params.get('id') || localStorage.getItem('pendingUserId');
+            if (pendingId) localStorage.setItem('pendingUserId', pendingId);
+            const hostname = window.location.hostname.replace(/\.$/, '');
+            const port = window.location.port ? `:${window.location.port}` : '';
+            const target = new URL(`${window.location.protocol}//${hostname}${port}/static/login.html`);
+            target.searchParams.set('mode', 'register');
+            target.searchParams.set('verify', 'email');
+            if (pendingId) target.searchParams.set('id', pendingId);
+            window.location.replace(target.toString());
+        })();
+    </script>
     <style>
         .auth-error { color: #dc2626; min-height: 1.2rem; margin: 0.75rem 0; text-align: center; }
         .resend-row { text-align: center; margin-top: 1rem; }
@@ -17,7 +33,7 @@
 <body class="auth-page verify-page">
     <main class="auth-container">
         <section class="auth-box">
-            <a class="brand" href="/">MSME.AI</a>
+            <a class="brand" href="/">bisnes.ai</a>
             <h1 id="title">Verify your email</h1>
             <p class="auth-subtitle" id="subtitle">Enter the six-digit code sent to your email address.</p>
             <form id="otpForm">
@@ -53,15 +69,31 @@
 
         const pendingUserId = new URLSearchParams(location.search).get('id') || localStorage.getItem('pendingUserId');
         const inputs = [...document.querySelectorAll('.otp-input')];
+        const otpContainer = document.getElementById('otpInputs');
         const errorBox = document.getElementById('errorBox');
 
-        function clearInputs() { inputs.forEach(input => { input.value = ''; }); inputs[0]?.focus(); }
+        function clearInputs() {
+            inputs.forEach(input => {
+                input.value = '';
+                input.classList.remove('filled');
+            });
+            inputs[0]?.focus();
+        }
         function code() { return inputs.map(input => input.value).join(''); }
-        function showError(message) { errorBox.textContent = message; }
+        function showError(message) {
+            errorBox.textContent = message;
+            errorBox.classList.toggle('has-message', Boolean(message));
+        }
+        function shakeOtpInputs() {
+            otpContainer.classList.remove('shake');
+            void otpContainer.offsetWidth;
+            otpContainer.classList.add('shake');
+        }
 
         inputs.forEach((input, index) => {
             input.addEventListener('input', () => {
                 input.value = input.value.replace(/\D/g, '').slice(0, 1);
+                input.classList.toggle('filled', Boolean(input.value));
                 if (input.value && inputs[index + 1]) inputs[index + 1].focus();
             });
             input.addEventListener('keydown', event => {
@@ -71,7 +103,11 @@
                 const digits = (event.clipboardData?.getData('text') || '').replace(/\D/g, '').slice(0, 6);
                 if (!digits) return;
                 event.preventDefault();
-                digits.split('').forEach((digit, digitIndex) => { if (inputs[digitIndex]) inputs[digitIndex].value = digit; });
+                digits.split('').forEach((digit, digitIndex) => {
+                    if (!inputs[digitIndex]) return;
+                    inputs[digitIndex].value = digit;
+                    inputs[digitIndex].classList.add('filled');
+                });
                 inputs[Math.min(digits.length, 6) - 1]?.focus();
             });
         });
@@ -88,9 +124,13 @@
         document.getElementById('otpForm').addEventListener('submit', async event => {
             event.preventDefault();
             const otp = code();
-            if (!pendingUserId || otp.length !== 6) return showError(t.invalid);
+            if (!pendingUserId || otp.length !== 6) {
+                shakeOtpInputs();
+                return showError(t.invalid);
+            }
             const button = document.getElementById('verifyBtn');
             button.disabled = true;
+            otpContainer.classList.add('verifying');
             showError('');
             try {
                 const response = await fetch('/api/verify-otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: pendingUserId, otp }) });
@@ -99,7 +139,9 @@
                 storeSession(data);
                 location.assign('/');
             } catch (error) {
+                otpContainer.classList.remove('verifying');
                 clearInputs();
+                shakeOtpInputs();
                 showError(error.message || t.failed);
                 button.disabled = false;
             }
@@ -114,6 +156,7 @@
                 clearInputs();
                 showError(t.resent);
             } catch (error) {
+                shakeOtpInputs();
                 showError(error.message || t.failed);
             }
         });

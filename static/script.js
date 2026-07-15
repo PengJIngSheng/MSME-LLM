@@ -96,6 +96,11 @@ function getPreferredLanguage() {
     return localStorage.getItem('pepperLang') || getBrowserLanguagePreference();
 }
 
+function passwordMeetsPolicy(password) {
+    const value = String(password || '');
+    return value.length >= 8 && /^[A-Z]/.test(value) && /[^\w\s]/.test(value);
+}
+
 function resolveAvatarSrc(url) {
     if (!url) return '';
     try {
@@ -267,7 +272,7 @@ function getTimeGreeting(lang) {
 function getNormalLandingMarkup() {
     const copy = getUiCopy();
     const greeting = copy.greeting || 'How can I help you today?';
-    return `<h2><span class="logo-text">Bisnes.AI</span><br/>${greeting}</h2>`;
+    return `<h2><span class="logo-text">bisnes.ai</span><br/>${greeting}</h2>`;
 }
 
 function updateGuestLimitBannerCopy() {
@@ -300,9 +305,14 @@ function storeAccountProfileFields(data = {}) {
         if (data.phone) localStorage.setItem('pepperPhone', data.phone);
         else localStorage.removeItem('pepperPhone');
     }
-    if (Object.prototype.hasOwnProperty.call(data, 'phone_country_code')) {
-        if (data.phone_country_code) localStorage.setItem('pepperPhoneCountryCode', data.phone_country_code);
+    if (Object.prototype.hasOwnProperty.call(data, 'country_code') || Object.prototype.hasOwnProperty.call(data, 'phone_country_code')) {
+        const countryCode = data.country_code || data.phone_country_code;
+        if (countryCode) localStorage.setItem('pepperPhoneCountryCode', countryCode);
         else localStorage.removeItem('pepperPhoneCountryCode');
+    }
+    if (Object.prototype.hasOwnProperty.call(data, 'country_iso')) {
+        if (data.country_iso) localStorage.setItem('pepperCountryIso', data.country_iso);
+        else localStorage.removeItem('pepperCountryIso');
     }
     if (Object.prototype.hasOwnProperty.call(data, 'region')) {
         if (data.region) localStorage.setItem('pepperRegion', data.region);
@@ -322,6 +332,7 @@ function clearStoredAccountFields() {
         'pepperAvatar',
         'pepperPhone',
         'pepperPhoneCountryCode',
+        'pepperCountryIso',
         'pepperCountry',
         'pepperRegion',
         'pepperRequiresProfileCompletion',
@@ -405,6 +416,82 @@ async function loadUserPreferences() {
     }
 }
 
+const toastTranslations = {
+    en: {
+        'Google account linked.': 'Google account linked.',
+        'Failed to link Google': 'Failed to link Google.',
+        'Google connector authorization state mismatch. Please try again.': 'Google connector authorization state mismatch. Please try again.',
+        'Your session expired during auth. Please log in again.': 'Your session expired during auth. Please log in again.',
+        'Google Workspace connected.': 'Google Workspace connected.',
+        'Connector Network Error': 'Connector network error.',
+        'Google authorization failed. Please try again.': 'Google authorization failed. Please try again.',
+        'Please login first.': 'Please log in first.',
+        'Google OAuth loading... please wait.': 'Google sign-in is still loading. Please wait.',
+        'PDF download failed. Please generate it again.': 'PDF download failed. Please generate it again.',
+        'Image download failed. Please generate it again.': 'Image download failed. Please generate it again.',
+        'Network error.': 'Network error. Please try again.',
+        'Password must contain at least 8 characters': 'Password must have at least 8 characters, start with an uppercase letter, and include a special character.',
+        'Password must start with an uppercase letter': 'Password must have at least 8 characters, start with an uppercase letter, and include a special character.',
+        'Password must contain at least one special character': 'Password must have at least 8 characters, start with an uppercase letter, and include a special character.',
+        'Unknown error': 'Unknown error',
+        connectorAuthFailed: 'Connector authorization failed',
+        genericError: 'Something went wrong. Please try again.'
+    },
+    zh: {
+        'Google account linked.': 'Google 账号已绑定。',
+        'Failed to link Google': '无法绑定 Google 账号。',
+        'Google connector authorization state mismatch. Please try again.': 'Google 连接器授权状态不匹配，请重试。',
+        'Your session expired during auth. Please log in again.': '登录会话已过期，请重新登录。',
+        'Google Workspace connected.': 'Google Workspace 已连接。',
+        'Connector Network Error': '连接器网络错误。',
+        'Google authorization failed. Please try again.': 'Google 授权失败，请重试。',
+        'Please login first.': '请先登录。',
+        'Google OAuth loading... please wait.': 'Google 登录正在加载，请稍候。',
+        'PDF download failed. Please generate it again.': 'PDF 下载失败，请重新生成。',
+        'Image download failed. Please generate it again.': '图片下载失败，请重新生成。',
+        'Network error.': '网络错误，请重试。',
+        'Password must contain at least 8 characters': '密码至少需要 8 个字符，首位为大写字母，并包含一个特殊符号。',
+        'Password must start with an uppercase letter': '密码至少需要 8 个字符，首位为大写字母，并包含一个特殊符号。',
+        'Password must contain at least one special character': '密码至少需要 8 个字符，首位为大写字母，并包含一个特殊符号。',
+        'Unknown error': '未知错误',
+        connectorAuthFailed: '连接器授权失败',
+        genericError: '操作失败，请重试。'
+    },
+    ms: {
+        'Google account linked.': 'Akaun Google telah dipautkan.',
+        'Failed to link Google': 'Tidak dapat memautkan akaun Google.',
+        'Google connector authorization state mismatch. Please try again.': 'Status kebenaran penyambung Google tidak sepadan. Sila cuba lagi.',
+        'Your session expired during auth. Please log in again.': 'Sesi log masuk anda tamat semasa pengesahan. Sila log masuk semula.',
+        'Google Workspace connected.': 'Google Workspace telah disambungkan.',
+        'Connector Network Error': 'Ralat rangkaian penyambung.',
+        'Google authorization failed. Please try again.': 'Pengesahan Google gagal. Sila cuba lagi.',
+        'Please login first.': 'Sila log masuk dahulu.',
+        'Google OAuth loading... please wait.': 'Log masuk Google sedang dimuatkan. Sila tunggu.',
+        'PDF download failed. Please generate it again.': 'Muat turun PDF gagal. Sila jana semula.',
+        'Image download failed. Please generate it again.': 'Muat turun imej gagal. Sila jana semula.',
+        'Network error.': 'Ralat rangkaian. Sila cuba lagi.',
+        'Password must contain at least 8 characters': 'Kata laluan mesti sekurang-kurangnya 8 aksara, bermula dengan huruf besar dan mempunyai simbol khas.',
+        'Password must start with an uppercase letter': 'Kata laluan mesti sekurang-kurangnya 8 aksara, bermula dengan huruf besar dan mempunyai simbol khas.',
+        'Password must contain at least one special character': 'Kata laluan mesti sekurang-kurangnya 8 aksara, bermula dengan huruf besar dan mempunyai simbol khas.',
+        'Unknown error': 'Ralat tidak diketahui',
+        connectorAuthFailed: 'Kebenaran penyambung gagal',
+        genericError: 'Sesuatu telah berlaku. Sila cuba lagi.'
+    }
+};
+
+function localizeToastMessage(message) {
+    const raw = String(message || '');
+    const translations = toastTranslations[getPreferredLanguage()] || toastTranslations.en;
+    if (Object.prototype.hasOwnProperty.call(translations, raw)) return translations[raw];
+
+    const connectorAuthPrefix = 'Connector Auth Failed: ';
+    if (raw.startsWith(connectorAuthPrefix)) {
+        return `${translations.connectorAuthFailed}: ${localizeToastMessage(raw.slice(connectorAuthPrefix.length))}`;
+    }
+    if (getPreferredLanguage() !== 'en' && /^[\x00-\x7F]+$/.test(raw)) return translations.genericError;
+    return raw;
+}
+
 function showToast(message, isError = false) {
     let stack = document.getElementById('mofToastStack');
     if (!stack) {
@@ -415,7 +502,7 @@ function showToast(message, isError = false) {
     }
     const toast = document.createElement('div');
     toast.className = `mof-toast${isError ? ' error' : ''}`;
-    toast.textContent = message;
+    toast.textContent = localizeToastMessage(message);
     stack.appendChild(toast);
     requestAnimationFrame(() => toast.classList.add('show'));
     setTimeout(() => {
@@ -742,7 +829,7 @@ if (guestLimitLoginBtn) {
 
 if (guestLimitRegisterBtn) {
     guestLimitRegisterBtn.addEventListener('click', () => {
-        window.location.href = '/static/register.html';
+        window.location.href = '/static/login.html?mode=register';
     });
 }
 
@@ -4127,7 +4214,7 @@ async function loadChatPreview(chatId, title, liElement) {
 
                 const roleDiv = document.createElement('div');
                 roleDiv.className = 'preview-msg-role';
-                roleDiv.innerText = m.role === 'assistant' ? 'MOF' : 'You';
+                roleDiv.innerText = m.role === 'assistant' ? 'bisnes.ai' : 'You';
 
                 const contentDiv = document.createElement('div');
                 contentDiv.className = 'preview-msg-body';
@@ -4487,7 +4574,7 @@ loadUserPreferences();
         zh: {
             welcomePrefix: '欢迎，',
             sentenceEnd: '。',
-            manageAccount: '管理您的mof账户。',
+            manageAccount: '管理您的 bisnes.ai 账户。',
             navAccount: '账户',
             navSecurity: '安全',
             navData: '数据',
@@ -4503,7 +4590,7 @@ loadUserPreferences();
             editNameBtn: '编辑姓名',
             updateEmailBtn: '更新邮箱',
             loginMethodsTitle: '登录方法',
-            loginMethodsSubtitle: '管理您登录 MOF 的方式。',
+            loginMethodsSubtitle: '管理您登录 bisnes.ai 的方式。',
             loginEmail: '邮箱和密码',
             loginEmailSub: '启用邮箱登录',
             loginAppleSub: '绑定您的手机号',
@@ -4512,13 +4599,13 @@ loadUserPreferences();
             btnConnect: '连接',
             securitySubtitle: '管理您的账户安全设置。',
             dataTitle: '您的数据',
-            dataSubtitle: '管理您存储在 MOF 的个人数据。',
+            dataSubtitle: '管理您存储在 bisnes.ai 的个人数据。',
             cookieTitle: 'Cookie 设置',
             cookieDesc: '管理您的分析和广告 Cookie 偏好设置。',
             downloadTitle: '下载账户数据',
-            downloadDesc: '您可以在下方下载与您的账户关联的所有数据。此数据包括存储在所有 MOF 产品中的一切。',
+            downloadDesc: '您可以在下方下载与您的账户关联的所有数据。此数据包括存储在所有 bisnes.ai 产品中的一切。',
             deleteTitle: '删除账户',
-            deleteDesc: '删除您的账户以及 MOF 平台上的关联数据。如果您在 30 天内再次登录，可以恢复您的账户。',
+            deleteDesc: '删除您的账户以及 bisnes.ai 平台上的关联数据。如果您在 30 天内再次登录，可以恢复您的账户。',
             manageBtn: '管理',
             downloadBtn: '下载',
             deleteBtn: '删除',
@@ -4526,7 +4613,7 @@ loadUserPreferences();
             downloadSentDesc: '我们将很快向您发送一封包含数据下载链接的邮件。',
             closeBtn: '关闭',
             deleteDialogTitle: '您确定吗?',
-            deleteDialogDesc: '此操作将删除您所有与 MOF 关联的数据，并将您退出登录。如果您在 30 天内再次登录，可以恢复您的数据。30 天后您的数据将被永久删除。',
+            deleteDialogDesc: '此操作将删除您所有与 bisnes.ai 关联的数据，并将您退出登录。如果您在 30 天内再次登录，可以恢复您的数据。30 天后您的数据将被永久删除。',
             deleteEmailPrefix: '输入您的邮箱 ',
             deleteEmailSuffix: ' 以确认',
             cancelBtn: '取消',
@@ -4564,7 +4651,7 @@ loadUserPreferences();
             securityNewPasswordLabel: '新密码',
             securitySavePasswordBtn: '保存密码',
             securitySetPasswordSubtitle: '填写下方表单以更改您的登录密码。',
-            passwordTooShort: '密码至少需要8个字符',
+            passwordTooShort: '密码至少需要 8 个字符，首位为大写字母，并包含一个特殊符号。',
             googleUnlinkConfirm: '确定要解除 Google 账户绑定吗？',
             googleUnlinkTitle: '您可能会被退出登录',
             googleUnlinkDesc: '取消关联此方法可能会将您退出账户登录。',
@@ -4573,7 +4660,7 @@ loadUserPreferences();
         en: {
             welcomePrefix: 'Welcome, ',
             sentenceEnd: '.',
-            manageAccount: 'Manage your mof account.',
+            manageAccount: 'Manage your bisnes.ai account.',
             navAccount: 'Account',
             navSecurity: 'Security',
             navData: 'Data',
@@ -4589,7 +4676,7 @@ loadUserPreferences();
             editNameBtn: 'Edit name',
             updateEmailBtn: 'Update email',
             loginMethodsTitle: 'Login methods',
-            loginMethodsSubtitle: 'Manage how you log in to MOF.',
+            loginMethodsSubtitle: 'Manage how you log in to bisnes.ai.',
             loginEmail: 'Email and password',
             loginEmailSub: 'Enable email login',
             loginAppleSub: 'Connect your phone number',
@@ -4598,13 +4685,13 @@ loadUserPreferences();
             btnConnect: 'Connect',
             securitySubtitle: 'Manage your account security settings.',
             dataTitle: 'Your data',
-            dataSubtitle: 'Manage the personal data you store with MOF.',
+            dataSubtitle: 'Manage the personal data you store with bisnes.ai.',
             cookieTitle: 'Cookie settings',
             cookieDesc: 'Manage your analytics and advertising cookie preferences.',
             downloadTitle: 'Download account data',
-            downloadDesc: 'You can download all data associated with your account below. This includes everything stored across MOF products.',
+            downloadDesc: 'You can download all data associated with your account below. This includes everything stored across bisnes.ai products.',
             deleteTitle: 'Delete account',
-            deleteDesc: 'Delete your account and associated MOF platform data. If you log in again within 30 days, your account can be restored.',
+            deleteDesc: 'Delete your account and associated bisnes.ai platform data. If you log in again within 30 days, your account can be restored.',
             manageBtn: 'Manage',
             downloadBtn: 'Download',
             deleteBtn: 'Delete',
@@ -4612,7 +4699,7 @@ loadUserPreferences();
             downloadSentDesc: 'We will soon send you an email containing a data download link.',
             closeBtn: 'Close',
             deleteDialogTitle: 'Are you sure?',
-            deleteDialogDesc: 'This will delete all data associated with MOF and log you out. If you log in again within 30 days, your data can be restored. After 30 days your data will be permanently deleted.',
+            deleteDialogDesc: 'This will delete all data associated with bisnes.ai and log you out. If you log in again within 30 days, your data can be restored. After 30 days your data will be permanently deleted.',
             deleteEmailPrefix: 'Enter your email ',
             deleteEmailSuffix: ' to confirm',
             cancelBtn: 'Cancel',
@@ -4650,7 +4737,7 @@ loadUserPreferences();
             securityNewPasswordLabel: 'New password',
             securitySavePasswordBtn: 'Save password',
             securitySetPasswordSubtitle: 'Fill in the form below to change your login password.',
-            passwordTooShort: 'Password must be at least 8 characters',
+            passwordTooShort: 'Password must have at least 8 characters, start with an uppercase letter, and include a special character.',
             googleUnlinkConfirm: 'Are you sure you want to unlink your Google account?',
             googleUnlinkTitle: 'You may be signed out',
             googleUnlinkDesc: 'Removing this method may sign you out of your account.',
@@ -4659,7 +4746,7 @@ loadUserPreferences();
         ms: {
             welcomePrefix: 'Selamat datang, ',
             sentenceEnd: '.',
-            manageAccount: 'Urus akaun mof anda.',
+            manageAccount: 'Urus akaun bisnes.ai anda.',
             navAccount: 'Akaun',
             navSecurity: 'Keselamatan',
             navData: 'Data',
@@ -4675,7 +4762,7 @@ loadUserPreferences();
             editNameBtn: 'Edit nama',
             updateEmailBtn: 'Kemaskini e-mel',
             loginMethodsTitle: 'Kaedah log masuk',
-            loginMethodsSubtitle: 'Urus cara anda log masuk ke MOF.',
+            loginMethodsSubtitle: 'Urus cara anda log masuk ke bisnes.ai.',
             loginEmail: 'E-mel dan kata laluan',
             loginEmailSub: 'Aktifkan log masuk e-mel',
             loginAppleSub: 'Sambung nombor telefon anda',
@@ -4684,13 +4771,13 @@ loadUserPreferences();
             btnConnect: 'Sambung',
             securitySubtitle: 'Urus tetapan keselamatan akaun anda.',
             dataTitle: 'Data anda',
-            dataSubtitle: 'Urus data peribadi yang anda simpan di MOF.',
+            dataSubtitle: 'Urus data peribadi yang anda simpan di bisnes.ai.',
             cookieTitle: 'Tetapan Cookie',
             cookieDesc: 'Urus pilihan cookie analitik dan pengiklanan anda.',
             downloadTitle: 'Muat turun data akaun',
-            downloadDesc: 'Anda boleh memuat turun semua data yang berkaitan dengan akaun anda. Data ini termasuk semua yang disimpan merentas produk MOF.',
+            downloadDesc: 'Anda boleh memuat turun semua data yang berkaitan dengan akaun anda. Data ini termasuk semua yang disimpan merentas produk bisnes.ai.',
             deleteTitle: 'Padam akaun',
-            deleteDesc: 'Padam akaun anda dan data berkaitan pada platform MOF. Jika anda log masuk semula dalam 30 hari, akaun anda boleh dipulihkan.',
+            deleteDesc: 'Padam akaun anda dan data berkaitan pada platform bisnes.ai. Jika anda log masuk semula dalam 30 hari, akaun anda boleh dipulihkan.',
             manageBtn: 'Urus',
             downloadBtn: 'Muat turun',
             deleteBtn: 'Padam',
@@ -4698,7 +4785,7 @@ loadUserPreferences();
             downloadSentDesc: 'Kami akan menghantar e-mel yang mengandungi pautan muat turun data tidak lama lagi.',
             closeBtn: 'Tutup',
             deleteDialogTitle: 'Anda pasti?',
-            deleteDialogDesc: 'Tindakan ini akan memadam semua data yang berkaitan dengan MOF dan melog anda keluar. Jika anda log masuk semula dalam 30 hari, data anda boleh dipulihkan. Selepas 30 hari, data anda akan dipadam secara kekal.',
+            deleteDialogDesc: 'Tindakan ini akan memadam semua data yang berkaitan dengan bisnes.ai dan melog anda keluar. Jika anda log masuk semula dalam 30 hari, data anda boleh dipulihkan. Selepas 30 hari, data anda akan dipadam secara kekal.',
             deleteEmailPrefix: 'Masukkan e-mel anda ',
             deleteEmailSuffix: ' untuk mengesahkan',
             cancelBtn: 'Batal',
@@ -4736,7 +4823,7 @@ loadUserPreferences();
             securityNewPasswordLabel: 'Kata laluan baharu',
             securitySavePasswordBtn: 'Simpan kata laluan',
             securitySetPasswordSubtitle: 'Isi borang di bawah untuk menukar kata laluan log masuk anda.',
-            passwordTooShort: 'Kata laluan mestilah sekurang-kurangnya 8 aksara',
+            passwordTooShort: 'Kata laluan mesti sekurang-kurangnya 8 aksara, bermula dengan huruf besar dan mempunyai simbol khas.',
             googleUnlinkConfirm: 'Adakah anda pasti ingin menyahpaut akaun Google anda?',
             googleUnlinkTitle: 'Anda mungkin akan dilog keluar',
             googleUnlinkDesc: 'Menyahpaut kaedah ini mungkin akan mengeluarkan anda daripada akaun anda.',
@@ -5357,7 +5444,7 @@ loadUserPreferences();
             const lang = getPreferredLanguage();
             const copy = accountCopy[lang] || accountCopy.en;
             const pw = newPasswordInput.value;
-            if (!pw || pw.length < 8) {
+            if (!passwordMeetsPolicy(pw)) {
                 if (newPasswordError) newPasswordError.textContent = copy.passwordTooShort;
                 return;
             }

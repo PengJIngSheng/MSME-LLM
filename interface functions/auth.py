@@ -3,12 +3,13 @@ import sys
 import uuid
 import html
 import hashlib
+import math
 import re
 import secrets
 import smtplib
 import ssl
+import unicodedata
 from datetime import datetime, timedelta
-from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formataddr
@@ -19,6 +20,8 @@ from pymongo import MongoClient
 from typing import Optional
 import bcrypt
 import jwt
+import phonenumbers
+from phonenumbers import NumberParseException, PhoneNumberFormat
 from urllib.parse import unquote, urlparse
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -43,6 +46,7 @@ SMTP_APP_PASSWORD = cfg.smtp_app_password
 SMTP_FROM_NAME = cfg.smtp_from_name
 PUBLIC_SITE_URL = cfg.public_site_url
 OTP_TTL_MINUTES = 10
+OTP_RESEND_COOLDOWN_SECONDS = 60
 _pending_otp_indexes_ready = False
 _user_indexes_ready = False
 
@@ -78,7 +82,12 @@ class AuthRequest(BaseModel):
     language: Optional[str] = "en"
     phone: Optional[str] = None
     display_name: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     phone_country_code: Optional[str] = None
+    country_code: Optional[str] = None
+    country_iso: Optional[str] = None
+    phone_number: Optional[str] = None
     region: Optional[str] = None
 
 class VerifyOTPRequest(BaseModel):
@@ -87,6 +96,10 @@ class VerifyOTPRequest(BaseModel):
 
 class ResendOTPRequest(BaseModel):
     user_id: str
+
+class PhoneValidationRequest(BaseModel):
+    country_iso: str
+    phone_number: str
 
 class OAuthRequest(BaseModel):
     token: str
@@ -97,12 +110,19 @@ class PreferencesRequest(BaseModel):
     language: Optional[str] = None
 
 class UpdateProfileRequest(BaseModel):
-    display_name: str
+    display_name: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
 
 class CompleteGoogleProfileRequest(BaseModel):
-    display_name: str
+    display_name: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     phone: Optional[str] = None
     phone_country_code: Optional[str] = None
+    country_code: Optional[str] = None
+    country_iso: Optional[str] = None
+    phone_number: Optional[str] = None
     region: Optional[str] = None
 
 class UpdateEmailRequest(BaseModel):
@@ -182,10 +202,14 @@ def maybe_upgrade_password_hash(plain_password: str, hashed_password: str) -> st
 
 
 def _validate_new_password(password: str) -> None:
-    if not password or len(password) < 12:
-        raise HTTPException(status_code=400, detail="Password must be at least 12 characters")
+    if not password or len(password) < 8:
+        raise HTTPException(status_code=400, detail="Password must contain at least 8 characters")
     if len(password) > 200:
         raise HTTPException(status_code=400, detail="Password too long")
+    if not re.match(r"[A-Z]", password):
+        raise HTTPException(status_code=400, detail="Password must start with an uppercase letter")
+    if not re.search(r"[^\w\s]", password):
+        raise HTTPException(status_code=400, detail="Password must contain at least one special character")
 
 def create_jwt_token(data: dict) -> str:
     to_encode = data.copy()
@@ -211,11 +235,15 @@ def generate_otp() -> str:
 
 def generate_display_name(username: str = "") -> str:
     suffix = secrets.token_hex(2).upper()
-    return f"MOF Member {suffix}"
+    return f"bisnes.ai Member {suffix}"
 
 def _user_display_name(user: dict | None) -> str:
     if not user:
         return ""
+    first_name = (user.get("first_name") or "").strip()
+    last_name = (user.get("last_name") or "").strip()
+    if first_name and last_name:
+        return f"{first_name} {last_name}"
     display_name = (user.get("display_name") or user.get("name") or "").strip()
     if display_name:
         return display_name
@@ -226,6 +254,62 @@ def _user_display_name(user: dict | None) -> str:
 
 def _normalize_email(value: Optional[str]) -> str:
     return (value or "").strip().lower()
+
+_NAME_PART_MAX_LENGTH = 64
+_NAME_ALLOWED_PUNCTUATION = {" ", "-", "'", "’", "."}
+
+def _normalize_name_part(value: Optional[str], field_label: str) -> str:
+    normalized = unicodedata.normalize("NFKC", value or "")
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+    if not normalized:
+        raise HTTPException(status_code=400, detail=f"{field_label} is required")
+    if len(normalized) > _NAME_PART_MAX_LENGTH:
+        raise HTTPException(status_code=400, detail=f"{field_label} is too long (max {_NAME_PART_MAX_LENGTH} characters)")
+    if not any(character.isalpha() for character in normalized):
+        raise HTTPException(status_code=400, detail=f"{field_label} must contain at least one letter")
+    if any(not (character.isalpha() or character in _NAME_ALLOWED_PUNCTUATION) for character in normalized):
+        raise HTTPException(
+            status_code=400,
+            detail=f"{field_label} can only contain letters, spaces, hyphens, apostrophes, and periods",
+        )
+    return normalized
+
+def _split_legacy_display_name(value: Optional[str]) -> tuple[str, str]:
+    normalized = re.sub(r"\s+", " ", unicodedata.normalize("NFKC", value or "")).strip()
+    if not normalized:
+        return "", ""
+    parts = normalized.split(" ", 1)
+    return parts[0], parts[1] if len(parts) == 2 else ""
+
+def _resolve_identity(
+    first_name: Optional[str],
+    last_name: Optional[str],
+    display_name: Optional[str] = None,
+) -> tuple[str, str, str]:
+    # display_name is retained only as a backward-compatible source for older clients.
+    if first_name is None and last_name is None and display_name is not None:
+        first_name, last_name = _split_legacy_display_name(display_name)
+    first = _normalize_name_part(first_name, "First name")
+    last = _normalize_name_part(last_name, "Last name")
+    return first, last, f"{first} {last}"
+
+def _identity_from_google_profile(user_info: dict, email: str) -> tuple[str, str, str, bool]:
+    raw_name = user_info.get("name") or (email.split("@", 1)[0] if email else "")
+    first_candidate = user_info.get("given_name")
+    last_candidate = user_info.get("family_name")
+    if not first_candidate or not last_candidate:
+        fallback_first, fallback_last = _split_legacy_display_name(raw_name)
+        first_candidate = first_candidate or fallback_first
+        last_candidate = last_candidate or fallback_last
+    if first_candidate and last_candidate:
+        try:
+            first, last, display = _resolve_identity(first_candidate, last_candidate)
+            return first, last, display, True
+        except HTTPException:
+            pass
+    # Google profiles can legitimately omit a family name. Preserve the source
+    # display name and require the user to complete the two new fields later.
+    return "", "", re.sub(r"\s+", " ", raw_name).strip() or generate_display_name(email), False
 
 def _active_user_by_email(email: Optional[str]) -> dict | None:
     normalized = _normalize_email(email)
@@ -243,7 +327,7 @@ def _ensure_google_email_can_attach(user: dict, google_email: str) -> str:
     if account_email != normalized_google_email:
         raise HTTPException(
             status_code=409,
-            detail="Google email must match your MSME.AI account email to link sign-in"
+            detail="Google email must match your bisnes.ai account email to link sign-in"
         )
     owner = _active_user_by_email(normalized_google_email)
     if owner and str(owner.get("_id")) != str(user.get("_id")):
@@ -256,33 +340,31 @@ def _user_preferences(user: dict | None) -> dict:
         "language": _normalize_language(prefs.get("language") or (user or {}).get("language") or "en"),
     }
 
-def _normalize_phone(phone: Optional[str]) -> str:
-    raw = (phone or "").strip()
-    if not raw:
-        return ""
-    prefix = "+" if raw.startswith("+") else ""
-    digits = "".join(ch for ch in raw if ch.isdigit())
-    if prefix and digits:
-        return f"+{digits}"
-    return digits
+def _validate_phone_number(country_iso: Optional[str], phone_number: Optional[str]) -> dict:
+    iso = (country_iso or "").strip().upper()
+    raw_number = (phone_number or "").strip()
+    if not iso or not re.fullmatch(r"[A-Z]{2}", iso):
+        raise HTTPException(status_code=400, detail="Please select a valid country or region")
+    if not raw_number:
+        raise HTTPException(status_code=400, detail="Phone number is required")
+    if not re.fullmatch(r"[0-9]+", raw_number):
+        raise HTTPException(status_code=400, detail="Phone number can only contain digits")
+    try:
+        parsed = phonenumbers.parse(raw_number, iso)
+    except NumberParseException:
+        raise HTTPException(status_code=400, detail="Enter a valid phone number for the selected country or region")
+    if not phonenumbers.is_valid_number_for_region(parsed, iso):
+        raise HTTPException(status_code=400, detail="Enter a valid phone number for the selected country or region")
+    return {
+        "country_code": f"+{parsed.country_code}",
+        "country_iso": iso,
+        "phone_number": raw_number,
+        "phone_e164": phonenumbers.format_number(parsed, PhoneNumberFormat.E164),
+    }
 
-def _normalize_optional_phone(phone: Optional[str]) -> str:
-    normalized = _normalize_phone(phone)
-    if not normalized:
-        return ""
-    digits = normalized[1:] if normalized.startswith("+") else normalized
-    if len(digits) < 8 or len(digits) > 15:
-        raise HTTPException(status_code=400, detail="Invalid phone number")
-    return normalized
-
-def _clean_phone_country_code(value: Optional[str]) -> str:
-    raw = (value or "").strip()
-    if not raw:
-        return ""
-    digits = "".join(ch for ch in raw if ch.isdigit())
-    if not digits or len(digits) > 4:
-        raise HTTPException(status_code=400, detail="A valid phone country code is required")
-    return f"+{digits}"
+def _legacy_phone_value(phone_e164: Optional[str]) -> str:
+    # Keep the old field during the migration window for legacy readers.
+    return (phone_e164 or "").strip()
 
 def _clean_region(value: Optional[str]) -> str:
     region = re.sub(r"\s+", " ", (value or "").strip())
@@ -295,6 +377,13 @@ def _clean_region(value: Optional[str]) -> str:
 def _requires_profile_completion(user: dict | None) -> bool:
     if not user:
         return False
+    if "first_name" in user or "last_name" in user:
+        return not bool(
+            (user.get("first_name") or "").strip()
+            and (user.get("last_name") or "").strip()
+            and (user.get("phone_e164") or user.get("phone") or "").strip()
+            and (user.get("country_iso") or "").strip()
+        )
     return not bool((user.get("display_name") or user.get("name") or "").strip())
 
 def _profile_completion_page(user: dict | None) -> Optional[str]:
@@ -308,6 +397,9 @@ def _ensure_user_indexes() -> None:
         return
     users_col.create_index("username", unique=True, sparse=True)
     users_col.create_index("phone", unique=True, sparse=True)
+    # phone_e164 gets its unique index from the identity migration script after
+    # legacy duplicates have been reviewed. The legacy phone index remains the
+    # concurrency guard while both fields are written.
     users_col.create_index("auth_provider_id", sparse=True)
     _user_indexes_ready = True
 
@@ -359,40 +451,28 @@ def _current_time_for_email() -> str:
 
 OTP_EMAIL_COPY = {
     "zh": {
-        "subject": "邮箱注册验证码",
-        "title": "邮箱注册验证码",
-        "intro": "我们注意到您于 {current_time} 使用设备 {device_info} 发起 MOF 邮箱注册请求，IP 地址为 {ip_address}。",
-        "validity": "此验证码为邮箱注册验证码。验证码在 10 分钟内有效，请勿泄露。如为您本人操作，则无需其他操作。",
-        "support": "如果这不是您本人发起的请求，您可以通过 support@mof.gov.my 联系客服团队。",
-        "button": "查看官网",
-        "uid": "UID",
-        "footer": "Ministry of Finance 安全通知。请勿回复此邮件。",
+        "subject": "您的 bisnes.ai 验证码",
+        "title": "您的 bisnes.ai 验证码",
+        "intro": "请使用以下验证码继续登录或注册 bisnes.ai。",
+        "validity": "此验证码将在 10 分钟后失效。若非您本人请求，可直接忽略此邮件。",
+        "footer": "© bisnes.ai",
         "plain_code": "验证码",
-        "plain_validity": "此验证码在 10 分钟内有效。",
     },
     "en": {
-        "subject": "Email registration verification code",
-        "title": "Email registration verification code",
-        "intro": "We noticed an MOF email registration request at {current_time} from this device: {device_info}. The request IP was {ip_address}.",
-        "validity": "This code verifies your email registration. It is valid for 10 minutes. Please do not share it with anyone. If this was you, no further action is required.",
-        "support": "If this was not you, contact our support team at support@mof.gov.my.",
-        "button": "View Official Website",
-        "uid": "UID",
-        "footer": "Ministry of Finance security notification. Please do not reply to this email.",
+        "subject": "Your bisnes.ai verification code",
+        "title": "Your bisnes.ai verification code",
+        "intro": "Use the verification code below to continue signing in to bisnes.ai.",
+        "validity": "This code will expire in 10 minutes. If you didn’t request this code, you can safely ignore this email.",
+        "footer": "© bisnes.ai",
         "plain_code": "Verification code",
-        "plain_validity": "This code is valid for 10 minutes.",
     },
     "ms": {
-        "subject": "Kod pengesahan pendaftaran e-mel",
-        "title": "Kod pengesahan pendaftaran e-mel",
-        "intro": "Kami mengesan permintaan pendaftaran e-mel MOF pada {current_time} daripada peranti ini: {device_info}. IP permintaan ialah {ip_address}.",
-        "validity": "Kod ini digunakan untuk mengesahkan pendaftaran e-mel anda. Kod sah selama 10 minit. Jangan kongsikan kod ini dengan sesiapa. Jika ini anda, tiada tindakan lanjut diperlukan.",
-        "support": "Jika ini bukan anda, hubungi pasukan sokongan kami di support@mof.gov.my.",
-        "button": "Lihat Laman Rasmi",
-        "uid": "UID",
-        "footer": "Notifikasi keselamatan Ministry of Finance. Jangan balas e-mel ini.",
+        "subject": "Kod pengesahan bisnes.ai anda",
+        "title": "Kod pengesahan bisnes.ai anda",
+        "intro": "Gunakan kod pengesahan di bawah untuk meneruskan log masuk atau pendaftaran ke bisnes.ai.",
+        "validity": "Kod ini akan tamat tempoh dalam 10 minit. Jika anda tidak meminta kod ini, anda boleh mengabaikan e-mel ini dengan selamat.",
+        "footer": "© bisnes.ai",
         "plain_code": "Kod pengesahan",
-        "plain_validity": "Kod ini sah selama 10 minit.",
     },
 }
 
@@ -405,28 +485,16 @@ def build_otp_email_html(
     current_time: str,
     device_info: str,
     ip_address: str,
-    language: Optional[str] = "en",
+    language: Optional[str],
 ) -> str:
     lang = _normalize_language(language)
     copy = OTP_EMAIL_COPY[lang]
     safe_otp = html.escape(otp_code)
-    safe_time = html.escape(current_time)
-    safe_device = html.escape(device_info)
-    safe_ip = html.escape(ip_address)
-    safe_intro = html.escape(copy["intro"].format(
-        current_time=current_time,
-        device_info=device_info,
-        ip_address=ip_address,
-    ))
+    safe_intro = html.escape(copy["intro"])
     safe_validity = html.escape(copy["validity"])
-    safe_support = html.escape(copy["support"])
     safe_title = html.escape(copy["title"])
-    safe_button = html.escape(copy["button"])
-    safe_uid = html.escape(copy["uid"])
     safe_footer = html.escape(copy["footer"])
-    safe_site_url = html.escape(PUBLIC_SITE_URL, quote=True)
     safe_email_lang = "zh-CN" if lang == "zh" else ("ms" if lang == "ms" else "en")
-    safe_request_id = html.escape(hashlib.sha256(f"{safe_otp}:{safe_time}:{safe_ip}".encode("utf-8")).hexdigest()[:16])
 
     return f"""<!doctype html>
 <html lang="{safe_email_lang}">
@@ -435,46 +503,43 @@ def build_otp_email_html(
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{safe_title}</title>
 </head>
-<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,'Helvetica Neue',Helvetica,sans-serif;color:#000000;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f4f4;margin:0;padding:46px 12px;">
+<body style="margin:0;padding:0;background:#f7f7f5;font-family:Arial,'Helvetica Neue',Helvetica,sans-serif;color:#1a1a1a;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f7f7f5;margin:0;padding:40px 12px;">
         <tr>
             <td align="center">
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;max-width:760px;background:#ffffff;border-radius:0;border-collapse:collapse;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;max-width:560px;background:#ffffff;border:1px solid #e7e7e4;border-radius:12px;border-collapse:separate;">
                     <tr>
-                        <td style="padding:54px 56px 0;">
-                            <img src="cid:mof-logo" alt="MOF" width="42" style="display:block;width:42px;height:auto;filter:grayscale(100%);-webkit-filter:grayscale(100%);">
+                        <td style="padding:32px 36px 0;font-size:16px;line-height:20px;font-weight:700;letter-spacing:-0.2px;color:#171717;">
+                            bisnes.ai
                         </td>
                     </tr>
                     <tr>
-                        <td style="padding:54px 56px 0;">
-                            <h1 style="margin:0;font-size:30px;line-height:1.22;font-weight:700;letter-spacing:0;color:#000000;">{safe_title}</h1>
+                        <td style="padding:32px 36px 0;">
+                            <h1 style="margin:0;font-size:24px;line-height:32px;font-weight:600;letter-spacing:-0.35px;color:#171717;">{safe_title}</h1>
                         </td>
                     </tr>
                     <tr>
-                        <td style="padding:48px 56px 0;">
-                            <div style="font-size:44px;line-height:1;font-weight:700;letter-spacing:1px;color:#000000;font-variant-numeric:tabular-nums;">{safe_otp}</div>
+                        <td style="padding:16px 36px 0;">
+                            <p style="margin:0;font-size:16px;line-height:24px;color:#4d4d4a;">{safe_intro}</p>
                         </td>
                     </tr>
                     <tr>
-                        <td style="padding:56px 56px 0;">
-                            <p style="margin:0;font-size:16px;line-height:1.85;color:#111111;">{safe_intro}</p>
-                            <p style="margin:34px 0 0;font-size:16px;line-height:1.85;color:#111111;">{safe_validity}</p>
-                            <p style="margin:34px 0 0;font-size:16px;line-height:1.85;color:#111111;">{safe_support}</p>
+                        <td style="padding:28px 36px 0;">
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;background:#f4f4f1;border:1px solid #e7e7e4;border-radius:10px;">
+                                <tr>
+                                    <td align="center" style="padding:20px 16px;font-size:32px;line-height:36px;font-weight:600;letter-spacing:8px;color:#171717;font-variant-numeric:tabular-nums;">{safe_otp}</td>
+                                </tr>
+                            </table>
                         </td>
                     </tr>
                     <tr>
-                        <td style="padding:52px 56px 0;">
-                            <a href="{safe_site_url}" style="display:inline-block;background:#000000;color:#ffffff;text-decoration:none;border-radius:28px;padding:17px 34px;font-size:16px;line-height:1;font-weight:700;">{safe_button}</a>
+                        <td style="padding:24px 36px 36px;">
+                            <p style="margin:0;font-size:14px;line-height:21px;color:#6a6a66;">{safe_validity}</p>
                         </td>
                     </tr>
                     <tr>
-                        <td style="padding:82px 56px 54px;">
-                            <p style="margin:0;font-size:15px;line-height:1.6;color:#111111;">{safe_uid}: {safe_request_id}</p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="border-top:1px solid #000000;padding:34px 56px 38px;">
-                            <p style="margin:0;font-size:12px;line-height:1.7;color:#666666;">{safe_footer}</p>
+                        <td style="border-top:1px solid #ececea;padding:22px 36px 26px;">
+                            <p style="margin:0;font-size:12px;line-height:18px;color:#8a8a86;">{safe_footer}</p>
                         </td>
                     </tr>
                 </table>
@@ -504,10 +569,11 @@ def send_otp_email(
 
     alternative = MIMEMultipart("alternative")
     text_body = (
-        f"{copy['plain_code']}: {otp_code}\n"
-        f"{copy['plain_validity']}\n\n"
-        f"{copy['intro'].format(current_time=current_time, device_info=device_info, ip_address=ip_address)}\n\n"
-        f"{copy['button']}: {PUBLIC_SITE_URL}"
+        f"{copy['title']}\n\n"
+        f"{copy['intro']}\n\n"
+        f"{copy['plain_code']}: {otp_code}\n\n"
+        f"{copy['validity']}\n\n"
+        f"{copy['footer']}"
     )
     alternative.attach(MIMEText(text_body, "plain", "utf-8"))
     alternative.attach(MIMEText(
@@ -516,14 +582,6 @@ def send_otp_email(
         "utf-8",
     ))
     msg.attach(alternative)
-
-    logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static", "MOF_Logo.png")
-    if os.path.exists(logo_path):
-        with open(logo_path, "rb") as logo_file:
-            logo = MIMEImage(logo_file.read())
-        logo.add_header("Content-ID", "<mof-logo>")
-        logo.add_header("Content-Disposition", "inline", filename="MOF_Logo.png")
-        msg.attach(logo)
 
     context = ssl.create_default_context()
     with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=20) as server:
@@ -543,15 +601,18 @@ def _raise_otp_email_delivery_error(exc: Exception) -> None:
 def _store_pending_otp(
     pending_id: str,
     username: str,
-    phone: str,
+    phone_e164: str,
     password_hash: str,
     otp_code: str,
     current_time: str,
     device_info: str,
     ip_address: str,
-    language: Optional[str] = "en",
-    display_name: Optional[str] = None,
-    phone_country_code: Optional[str] = None,
+    language: Optional[str],
+    first_name: str,
+    last_name: str,
+    country_code: str,
+    country_iso: str,
+    phone_number: str,
     region: Optional[str] = None,
 ) -> None:
     _ensure_pending_otp_indexes()
@@ -560,9 +621,15 @@ def _store_pending_otp(
     pending_otps_col.insert_one({
         "_id": pending_id,
         "username": username,
-        "phone": phone,
-        "display_name": (display_name or generate_display_name(username)).strip(),
-        "phone_country_code": phone_country_code,
+        "phone": _legacy_phone_value(phone_e164),
+        "phone_e164": phone_e164,
+        "phone_number": phone_number,
+        "country_code": country_code,
+        "country_iso": country_iso,
+        "phone_verified_at": None,
+        "first_name": first_name,
+        "last_name": last_name,
+        "display_name": f"{first_name} {last_name}",
         "region": region,
         "preferences": {
             "language": _normalize_language(language),
@@ -570,6 +637,8 @@ def _store_pending_otp(
         "password": password_hash,
         "otp": get_password_hash(otp_code),
         "created_at": now,
+        "last_otp_sent_at": now,
+        "resend_available_at": now + timedelta(seconds=OTP_RESEND_COOLDOWN_SECONDS),
         "expires_at": now + timedelta(minutes=OTP_TTL_MINUTES),
         "current_time": current_time,
         "device_info": device_info,
@@ -585,6 +654,24 @@ def _ensure_pending_otp_indexes() -> None:
     pending_otps_col.create_index("username")
     _pending_otp_indexes_ready = True
 
+
+def _otp_resend_retry_after_seconds(pending: dict, now: Optional[datetime] = None) -> int:
+    """Return the remaining resend cooldown for a pending email OTP."""
+    resend_available_at = pending.get("resend_available_at")
+    if not isinstance(resend_available_at, datetime):
+        return 0
+    current_time = now or datetime.utcnow()
+    seconds_remaining = (resend_available_at - current_time).total_seconds()
+    return max(0, math.ceil(seconds_remaining))
+
+
+def _otp_resend_rate_limited_error(retry_after: int) -> HTTPException:
+    return HTTPException(
+        status_code=429,
+        detail=f"Please wait {retry_after} seconds before requesting another code.",
+        headers={"Retry-After": str(retry_after)},
+    )
+
 # ─── Auth Endpoints ────────────────────────────────────
 
 @auth_router.post("/api/register")
@@ -592,13 +679,8 @@ async def register(req: AuthRequest, request: Request):
     _ensure_user_indexes()
     _ensure_pending_otp_indexes()
     username = req.username.strip().lower()
-    phone = _normalize_optional_phone(req.phone)
-    display_name = re.sub(r"\s+", " ", (req.display_name or "").strip())
-    if not display_name:
-        raise HTTPException(status_code=400, detail="Name is required")
-    if len(display_name) > 80:
-        raise HTTPException(status_code=400, detail="Name is too long")
-    phone_country_code = _clean_phone_country_code(req.phone_country_code)
+    first_name, last_name, display_name = _resolve_identity(req.first_name, req.last_name, req.display_name)
+    phone_data = _validate_phone_number(req.country_iso, req.phone_number)
     region = _clean_region(req.region)
     language = _normalize_language(req.language)
     if not username or not req.password:
@@ -613,8 +695,19 @@ async def register(req: AuthRequest, request: Request):
         if existing.get("auth_provider_id") and not existing.get("password"):
             raise HTTPException(status_code=400, detail="This email is already registered with Google. Please log in with Google.")
         raise HTTPException(status_code=400, detail="Username already taken")
-    if phone and users_col.find_one({"phone": phone, "status": "active"}):
+    if users_col.find_one({"phone_e164": phone_data["phone_e164"], "status": "active"}) or users_col.find_one({"phone": phone_data["phone_e164"], "status": "active"}):
         raise HTTPException(status_code=400, detail="Phone number already registered")
+
+    existing_pending = pending_otps_col.find_one({"username": username})
+    if existing_pending:
+        if datetime.utcnow() > existing_pending.get("expires_at", datetime.min):
+            pending_otps_col.delete_one({"_id": existing_pending["_id"]})
+        else:
+            retry_after = _otp_resend_retry_after_seconds(existing_pending)
+            if retry_after:
+                raise _otp_resend_rate_limited_error(retry_after)
+            # A legacy pending record without a cooldown may be safely replaced.
+            pending_otps_col.delete_one({"_id": existing_pending["_id"]})
 
     pending_id = str(uuid.uuid4())
     otp_code = generate_otp()
@@ -625,15 +718,18 @@ async def register(req: AuthRequest, request: Request):
     _store_pending_otp(
         pending_id=pending_id,
         username=username,
-        phone=phone,
+        phone_e164=phone_data["phone_e164"],
         password_hash=get_password_hash(req.password),
         otp_code=otp_code,
         current_time=current_time,
         device_info=device_info,
         ip_address=ip_address,
         language=language,
-        display_name=display_name,
-        phone_country_code=phone_country_code,
+        first_name=first_name,
+        last_name=last_name,
+        country_code=phone_data["country_code"],
+        country_iso=phone_data["country_iso"],
+        phone_number=phone_data["phone_number"],
         region=region,
     )
 
@@ -646,7 +742,12 @@ async def register(req: AuthRequest, request: Request):
     if existing and existing.get("status") != "active":
         users_col.delete_one({"_id": existing["_id"]})
 
-    return {"status": "pending_verification", "username": username, "user_id": pending_id}
+    return {
+        "status": "pending_verification",
+        "username": username,
+        "user_id": pending_id,
+        "resend_available_in": OTP_RESEND_COOLDOWN_SECONDS,
+    }
 
 @auth_router.post("/api/verify-otp")
 async def verify_otp(req: VerifyOTPRequest, response: Response):
@@ -695,25 +796,32 @@ async def verify_otp(req: VerifyOTPRequest, response: Response):
 
 def _finalize_registration_from_pending(
     pending: dict,
-    display_name_override: Optional[str] = None,
     region_override: Optional[str] = None,
     response: Optional[Response] = None,
 ) -> dict:
     _ensure_user_indexes()
     username = pending["username"]
-    phone = pending.get("phone", "")
-    display_name = re.sub(r"\s+", " ", (display_name_override or pending.get("display_name") or "").strip())
-    if not display_name:
-        raise HTTPException(status_code=400, detail="Name is required")
-    if len(display_name) > 80:
-        raise HTTPException(status_code=400, detail="Name is too long")
+    if "first_name" in pending or "last_name" in pending:
+        first_name, last_name, display_name = _resolve_identity(
+            pending.get("first_name"),
+            pending.get("last_name"),
+            pending.get("display_name"),
+        )
+    else:
+        # Let registrations already awaiting their email OTP complete without
+        # overwriting their legacy name; they can complete the new split fields later.
+        display_name = re.sub(r"\s+", " ", (pending.get("display_name") or "").strip())
+        first_name, last_name = _split_legacy_display_name(display_name)
+    phone_e164 = pending.get("phone_e164") or pending.get("phone", "")
+    phone_number = pending.get("phone_number", "")
+    country_code = pending.get("country_code", "")
+    country_iso = pending.get("country_iso", "")
     region = _clean_region(region_override or pending.get("region") or "Malaysia")
-    phone_country_code = pending.get("phone_country_code") or ""
 
     if users_col.find_one({"username": username, "status": "active"}):
         pending_otps_col.delete_one({"_id": pending["_id"]})
         raise HTTPException(status_code=400, detail="Username already taken")
-    if phone and users_col.find_one({"phone": phone, "status": "active"}):
+    if phone_e164 and (users_col.find_one({"phone_e164": phone_e164, "status": "active"}) or users_col.find_one({"phone": phone_e164, "status": "active"})):
         pending_otps_col.delete_one({"_id": pending["_id"]})
         raise HTTPException(status_code=400, detail="Phone number already registered")
 
@@ -723,8 +831,14 @@ def _finalize_registration_from_pending(
         "username": username,
         "name": display_name,
         "display_name": display_name,
-        "phone": phone,
-        "phone_country_code": phone_country_code,
+        "first_name": first_name,
+        "last_name": last_name,
+        "phone": _legacy_phone_value(phone_e164),
+        "country_code": country_code,
+        "country_iso": country_iso,
+        "phone_number": phone_number,
+        "phone_e164": phone_e164,
+        "phone_verified_at": None,
         "region": region,
         "profile_completed": True,
         "preferences": pending.get("preferences") or {"language": "en"},
@@ -745,8 +859,14 @@ def _finalize_registration_from_pending(
     return {
         "status": "success",
         "username": username,
-        "phone": phone,
-        "phone_country_code": phone_country_code,
+        "first_name": first_name,
+        "last_name": last_name,
+        "phone": phone_e164,
+        "country_code": country_code,
+        "country_iso": country_iso,
+        "phone_number": phone_number,
+        "phone_e164": phone_e164,
+        "phone_verified_at": None,
         "region": region,
         "display_name": _user_display_name(created_user),
         "preferences": _user_preferences(created_user),
@@ -765,31 +885,62 @@ async def resend_otp(req: ResendOTPRequest, request: Request):
         pending_otps_col.delete_one({"_id": req.user_id})
         raise HTTPException(status_code=400, detail="Username already verified")
 
+    now = datetime.utcnow()
+    retry_after = _otp_resend_retry_after_seconds(pending, now)
+    if retry_after:
+        raise _otp_resend_rate_limited_error(retry_after)
+
     otp_code = generate_otp()
     current_time = _current_time_for_email()
     device_info = _device_info(request)
     ip_address = _client_ip(request)
     language = _normalize_language(pending.get("language"))
+    resend_available_at = now + timedelta(seconds=OTP_RESEND_COOLDOWN_SECONDS)
 
-    pending_otps_col.update_one(
-        {"_id": req.user_id},
+    # Claim the resend atomically before sending. This blocks concurrent tabs
+    # and rapid repeated clicks even when the front end is bypassed.
+    claimed = pending_otps_col.update_one(
+        {
+            "_id": req.user_id,
+            "$or": [
+                {"resend_available_at": {"$exists": False}},
+                {"resend_available_at": {"$lte": now}},
+            ],
+        },
         {"$set": {
             "otp": get_password_hash(otp_code),
-            "created_at": datetime.utcnow(),
-            "expires_at": datetime.utcnow() + timedelta(minutes=OTP_TTL_MINUTES),
+            "created_at": now,
+            "last_otp_sent_at": now,
+            "resend_available_at": resend_available_at,
+            "expires_at": now + timedelta(minutes=OTP_TTL_MINUTES),
             "current_time": current_time,
             "device_info": device_info,
             "ip_address": ip_address,
             "language": language,
         }}
     )
+    if claimed.matched_count != 1:
+        refreshed_pending = pending_otps_col.find_one({"_id": req.user_id})
+        if not refreshed_pending:
+            raise HTTPException(status_code=404, detail="Pending verification not found. Please register again.")
+        raise _otp_resend_rate_limited_error(_otp_resend_retry_after_seconds(refreshed_pending, now) or OTP_RESEND_COOLDOWN_SECONDS)
 
     try:
         send_otp_email(username, otp_code, current_time, device_info, ip_address, language)
     except Exception as exc:
+        # The code was not delivered, so allow a fresh request rather than
+        # trapping the person in a cooldown caused by a mail-provider failure.
+        pending_otps_col.update_one(
+            {"_id": req.user_id, "resend_available_at": resend_available_at},
+            {"$set": {"resend_available_at": now}},
+        )
         _raise_otp_email_delivery_error(exc)
 
-    return {"status": "resent", "user_id": req.user_id}
+    return {
+        "status": "resent",
+        "user_id": req.user_id,
+        "resend_available_in": OTP_RESEND_COOLDOWN_SECONDS,
+    }
 
 @auth_router.post("/api/login")
 async def login(req: AuthRequest, response: Response):
@@ -829,7 +980,14 @@ async def login(req: AuthRequest, response: Response):
     return {
         "status": "success",
         "username": user.get("username"),
-        "phone": user.get("phone"),
+        "first_name": user.get("first_name"),
+        "last_name": user.get("last_name"),
+        "phone": user.get("phone_e164") or user.get("phone"),
+        "country_code": user.get("country_code") or user.get("phone_country_code"),
+        "country_iso": user.get("country_iso"),
+        "phone_number": user.get("phone_number"),
+        "phone_e164": user.get("phone_e164") or user.get("phone"),
+        "phone_verified_at": user.get("phone_verified_at"),
         "display_name": display_name,
         "preferences": _user_preferences(user),
         "user_id": str(user["_id"]),
@@ -854,7 +1012,7 @@ async def google_auth(req: OAuthRequest, response: Response):
 
     google_sub = user_info.get("sub")
     email = _normalize_email(user_info.get("email"))
-    name = user_info.get("name") or (email.split('@')[0] if email else "Google User")
+    first_name, last_name, name, has_complete_name = _identity_from_google_profile(user_info, email)
     picture = user_info.get("picture")
     preferences = {
         "language": _normalize_language(req.language),
@@ -879,13 +1037,15 @@ async def google_auth(req: OAuthRequest, response: Response):
             "username": email,
             "name": name,
             "display_name": name,
+            "first_name": first_name,
+            "last_name": last_name,
             "preferences": preferences,
             "status": "active",
             "auth_provider": "google",
             "auth_provider_id": google_sub,
             "google_email": email,
             "registration_method": "google",
-            "profile_completed": True,
+            "profile_completed": has_complete_name,
             "picture": picture,
             "created_at": datetime.utcnow(),
             "verified_at": datetime.utcnow(),
@@ -895,12 +1055,15 @@ async def google_auth(req: OAuthRequest, response: Response):
         users_col.insert_one(user_doc)
         token = create_jwt_token({"sub": user_id, "username": email})
         _set_session_cookie(response, token)
+        requires_profile_completion = _requires_profile_completion(user_doc)
         return {
             "status": "success",
             "username": email,
             "is_new_user": True,
-            "profile_completion_page": None,
-            "requires_profile_completion": False,
+            "profile_completion_page": "register" if requires_profile_completion else None,
+            "requires_profile_completion": requires_profile_completion,
+            "first_name": first_name,
+            "last_name": last_name,
             "display_name": name,
             "preferences": preferences,
             "user_id": user_id,
@@ -920,10 +1083,16 @@ async def google_auth(req: OAuthRequest, response: Response):
         if not user.get("display_name") and name:
             updates.update({"display_name": name})
             user["display_name"] = name
+        if not user.get("first_name") and first_name:
+            updates["first_name"] = first_name
+            user["first_name"] = first_name
+        if not user.get("last_name") and last_name:
+            updates["last_name"] = last_name
+            user["last_name"] = last_name
         if not user.get("preferences"):
             updates.update({"preferences": preferences})
             user["preferences"] = preferences
-        updates["profile_completed"] = True
+        updates["profile_completed"] = not _requires_profile_completion({**user, **updates})
         updates.update({"last_login_at": datetime.utcnow(), "updated_at": datetime.utcnow()})
 
         if updates:
@@ -935,8 +1104,14 @@ async def google_auth(req: OAuthRequest, response: Response):
         return {
             "status": "success",
             "username": user.get("username"),
-            "phone": user.get("phone"),
-            "phone_country_code": user.get("phone_country_code"),
+            "first_name": user.get("first_name"),
+            "last_name": user.get("last_name"),
+            "phone": user.get("phone_e164") or user.get("phone"),
+            "country_code": user.get("country_code") or user.get("phone_country_code"),
+            "country_iso": user.get("country_iso"),
+            "phone_number": user.get("phone_number"),
+            "phone_e164": user.get("phone_e164") or user.get("phone"),
+            "phone_verified_at": user.get("phone_verified_at"),
             "region": user.get("region"),
             "is_new_user": False,
             "registration_method": user.get("registration_method"),
@@ -957,8 +1132,14 @@ async def get_account_preferences(request: Request):
     return {
         "status": "success",
         "username": user.get("username"),
-        "phone": user.get("phone"),
-        "phone_country_code": user.get("phone_country_code"),
+        "first_name": user.get("first_name"),
+        "last_name": user.get("last_name"),
+        "phone": user.get("phone_e164") or user.get("phone"),
+        "country_code": user.get("country_code") or user.get("phone_country_code"),
+        "country_iso": user.get("country_iso"),
+        "phone_number": user.get("phone_number"),
+        "phone_e164": user.get("phone_e164") or user.get("phone"),
+        "phone_verified_at": user.get("phone_verified_at"),
         "region": user.get("region"),
         "profile_completed": not _requires_profile_completion(user),
         "profile_completion_page": _profile_completion_page(user),
@@ -1003,46 +1184,70 @@ async def delete_account(request: Request):
 @auth_router.put("/api/account/profile")
 async def update_profile(req: UpdateProfileRequest, request: Request):
     user = _auth_user(request)
-    new_name = req.display_name.strip()
-    if not new_name:
-        raise HTTPException(status_code=400, detail="Display name cannot be empty")
-    if len(new_name) > 80:
-        raise HTTPException(status_code=400, detail="Display name too long (max 80 chars)")
+    if req.first_name is None and req.last_name is None:
+        # The account settings screen still sends display_name during the
+        # migration window. Keep that endpoint backward compatible.
+        display_name = re.sub(r"\s+", " ", (req.display_name or "").strip())
+        if not display_name:
+            raise HTTPException(status_code=400, detail="Display name cannot be empty")
+        if len(display_name) > 80:
+            raise HTTPException(status_code=400, detail="Display name too long (max 80 chars)")
+        updates = {"name": display_name, "display_name": display_name, "updated_at": datetime.utcnow()}
+        users_col.update_one({"_id": user["_id"]}, {"$set": updates})
+        return {
+            "status": "success",
+            "first_name": user.get("first_name"),
+            "last_name": user.get("last_name"),
+            "display_name": display_name,
+        }
+    first_name, last_name, display_name = _resolve_identity(req.first_name, req.last_name, req.display_name)
     users_col.update_one(
         {"_id": user["_id"]},
-        {"$set": {"display_name": new_name, "updated_at": datetime.utcnow()}}
+        {"$set": {
+            "first_name": first_name,
+            "last_name": last_name,
+            "name": display_name,
+            "display_name": display_name,
+            "updated_at": datetime.utcnow(),
+        }}
     )
-    return {"status": "success", "display_name": new_name}
+    return {"status": "success", "first_name": first_name, "last_name": last_name, "display_name": display_name}
+
+@auth_router.post("/api/phone/validate")
+async def validate_phone(req: PhoneValidationRequest):
+    return {"status": "success", **_validate_phone_number(req.country_iso, req.phone_number)}
 
 @auth_router.put("/api/account/complete-google-profile")
 async def complete_google_profile(req: CompleteGoogleProfileRequest, request: Request):
     _ensure_user_indexes()
     user = _auth_user(request)
-    display_name = req.display_name.strip()
-    if not display_name:
-        raise HTTPException(status_code=400, detail="Name is required")
-    if len(display_name) > 80:
-        raise HTTPException(status_code=400, detail="Name is too long")
-    phone = _normalize_optional_phone(req.phone)
-    phone_country_code = _clean_phone_country_code(req.phone_country_code)
-    region = re.sub(r"\s+", " ", (req.region or "").strip())
-    if len(region) > 80:
-        raise HTTPException(status_code=400, detail="Region is too long")
+    first_name, last_name, display_name = _resolve_identity(req.first_name, req.last_name, req.display_name)
+    phone_data = _validate_phone_number(req.country_iso, req.phone_number)
+    region = _clean_region(req.region)
 
-    if phone:
-        conflict = users_col.find_one({
-            "phone": phone,
-            "status": "active",
-            "_id": {"$ne": user["_id"]},
-        })
-        if conflict:
-            raise HTTPException(status_code=400, detail="Phone number already registered")
+    conflict = users_col.find_one({
+        "phone_e164": phone_data["phone_e164"],
+        "status": "active",
+        "_id": {"$ne": user["_id"]},
+    }) or users_col.find_one({
+        "phone": phone_data["phone_e164"],
+        "status": "active",
+        "_id": {"$ne": user["_id"]},
+    })
+    if conflict:
+        raise HTTPException(status_code=400, detail="Phone number already registered")
 
     updates = {
         "name": display_name,
         "display_name": display_name,
-        "phone": phone,
-        "phone_country_code": phone_country_code,
+        "first_name": first_name,
+        "last_name": last_name,
+        "phone": _legacy_phone_value(phone_data["phone_e164"]),
+        "country_code": phone_data["country_code"],
+        "country_iso": phone_data["country_iso"],
+        "phone_number": phone_data["phone_number"],
+        "phone_e164": phone_data["phone_e164"],
+        "phone_verified_at": user.get("phone_verified_at"),
         "region": region,
         "profile_completed": True,
         "updated_at": datetime.utcnow(),
@@ -1050,9 +1255,15 @@ async def complete_google_profile(req: CompleteGoogleProfileRequest, request: Re
     users_col.update_one({"_id": user["_id"]}, {"$set": updates})
     return {
         "status": "success",
+        "first_name": first_name,
+        "last_name": last_name,
         "display_name": display_name,
-        "phone": phone,
-        "phone_country_code": phone_country_code,
+        "phone": phone_data["phone_e164"],
+        "country_code": phone_data["country_code"],
+        "country_iso": phone_data["country_iso"],
+        "phone_number": phone_data["phone_number"],
+        "phone_e164": phone_data["phone_e164"],
+        "phone_verified_at": user.get("phone_verified_at"),
         "region": region,
         "requires_profile_completion": False,
     }
@@ -1140,7 +1351,7 @@ async def download_account_data(request: Request):
         raise HTTPException(status_code=400, detail="No email address on file")
 
     lines = []
-    lines.append("=== Ministry of Finance — Account Data Export ===")
+    lines.append("=== bisnes.ai — Account Data Export ===")
     lines.append(f"Export Date: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}")
     lines.append("")
     lines.append("--- Personal Information ---")
@@ -1174,12 +1385,12 @@ async def download_account_data(request: Request):
     txt_content = "\n".join(lines)
 
     msg_out = MIMEMultipart()
-    msg_out["Subject"] = "Your MOF Account Data Export"
+    msg_out["Subject"] = "Your bisnes.ai Account Data Export"
     msg_out["From"] = formataddr((SMTP_FROM_NAME, SMTP_USERNAME))
     msg_out["To"] = email
     msg_out.attach(MIMEText("Please find your account data export attached.", "plain", "utf-8"))
     attachment = MIMEText(txt_content, "plain", "utf-8")
-    attachment.add_header("Content-Disposition", "attachment", filename="mof_data_export.txt")
+    attachment.add_header("Content-Disposition", "attachment", filename="bisnes_ai_data_export.txt")
     msg_out.attach(attachment)
 
     context = ssl.create_default_context()

@@ -1,6 +1,6 @@
 # Local Image Generation
 
-This folder owns MSME.AI image understanding and local image generation.
+This folder owns bisnes.ai image understanding and local image generation.
 
 The recommended local setup for a 48GB RTX 4090 is:
 
@@ -32,7 +32,7 @@ export COMFYUI_TIMEOUT_SECONDS=240
 
 The safest production path is to build a working FLUX.2 or Qwen-Image workflow inside ComfyUI, enable developer mode, then export it as API JSON.
 
-Then point MSME.AI at it:
+Then point bisnes.ai at it:
 
 ```bash
 export COMFYUI_WORKFLOW_JSON=/home/ubuntu/MSME-LLM/ImageGemma4/comfyui_workflows/flux2_dev_api.json
@@ -52,7 +52,7 @@ The provider automatically patches common workflow inputs:
 
 ## Built-In Fallback Workflow
 
-If `COMFYUI_WORKFLOW_JSON` is not set, MSME.AI sends a simple FLUX-style workflow using standard ComfyUI nodes:
+If `COMFYUI_WORKFLOW_JSON` is not set, bisnes.ai sends a simple FLUX-style workflow using standard ComfyUI nodes:
 
 - `UNETLoader`
 - `DualCLIPLoader`
@@ -130,7 +130,7 @@ export SD35_DISABLE_T5=1
 Test one image before using the web app:
 
 ```bash
-python ImageGemma4/sd35_medium_test.py "A modern MSME.AI logo, white background, black and electric blue accents"
+python ImageGemma4/sd35_medium_test.py "A modern bisnes.ai logo, white background, black and electric blue accents"
 ```
 
 The first full-T5 run downloads the extra `text_encoder_3` files. Expect roughly 9GB more cache than light mode. Add `--light` to the test command if you need the smaller setup.

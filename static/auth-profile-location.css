@@ -128,6 +128,18 @@
     box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
+.flag.is-empty {
+    display: none;
+}
+
+.custom-select-trigger:disabled {
+    cursor: not-allowed;
+    color: var(--auth-muted, rgba(0, 0, 0, 0.45));
+    background: rgba(0, 0, 0, 0.025);
+    border-color: var(--auth-border, rgba(0, 0, 0, 0.11));
+    box-shadow: none;
+}
+
 .select-chevron {
     flex: 0 0 auto;
     color: rgba(0, 0, 0, 0.55);

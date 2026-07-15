@@ -1,4 +1,4 @@
-# MOF Runtime Config
+# bisnes.ai Runtime Config
 
 Profiles keep the Windows laptop and Ubuntu server settings separate.
 

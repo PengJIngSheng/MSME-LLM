@@ -171,9 +171,18 @@
     }
 
     function setFlagElement(element, country) {
-        if (!element || !country) return;
+        if (!element) return;
+        if (!country) {
+            element.textContent = '';
+            element.style.backgroundImage = '';
+            element.classList.add('is-empty');
+            element.removeAttribute('aria-label');
+            element.removeAttribute('title');
+            return;
+        }
         element.textContent = '';
         element.style.backgroundImage = `url('${flagUrl(country)}')`;
+        element.classList.remove('is-empty');
         element.setAttribute('aria-label', `${country.name} flag`);
         element.title = country.name;
     }
@@ -299,6 +308,7 @@
         const getStored = (key) => (options.useStoredProfile === false ? '' : localStorage.getItem(key));
         const countryCodeInput = document.getElementById(options.countryCodeInputId || 'googleProfileCountryCode');
         const countryInput = document.getElementById(options.countryInputId || 'googleProfileCountry');
+        const countryIsoInput = document.getElementById(options.countryIsoInputId || 'googleProfileCountryIso');
         const regionInput = document.getElementById(options.regionInputId || 'googleProfileRegion');
         const phoneRoot = document.getElementById(options.phoneRootId || 'phoneCountrySelect');
         const phoneTrigger = document.getElementById(options.phoneTriggerId || 'phoneCountryTrigger');
@@ -314,6 +324,7 @@
         }
 
         bindGlobalClose();
+        const requireCountrySelection = options.requireCountrySelection === true;
 
         if (phoneRoot.dataset.bound !== '1') {
             phoneRoot.dataset.bound = '1';
@@ -328,11 +339,25 @@
         }
 
         const storedCountry = countryFromStoredRegion(options.preferredRegion || getStored('pepperRegion'));
+        const hasStoredCountry = Boolean(options.preferredCountry || getStored('pepperCountry') || options.preferredCountryCode || getStored('pepperPhoneCountryCode'));
+        const hasStoredRegion = Boolean(options.preferredRegion || getStored('pepperRegion'));
         let selectedCountry = storedCountry
             || findCountry(options.preferredCountry || getStored('pepperCountry'))
             || findCountry(options.preferredCountryCode || getStored('pepperPhoneCountryCode'))
-            || DEFAULT_COUNTRY;
-        let selectedRegion = displayRegionFromStored(selectedCountry.name, options.preferredRegion || getStored('pepperRegion'));
+            || (requireCountrySelection && !hasStoredCountry ? null : DEFAULT_COUNTRY);
+        let selectedRegion = selectedCountry
+            ? displayRegionFromStored(selectedCountry.name, options.preferredRegion || getStored('pepperRegion'))
+            : '';
+
+        function renderPhoneMenu() {
+            phoneMenu.innerHTML = '';
+            COUNTRY_OPTIONS.forEach((item) => {
+                phoneMenu.appendChild(renderCountryOption(item, selectedCountry?.iso, (nextCountry) => {
+                    setCountry(nextCountry);
+                    toggleSelect(phoneRoot, false);
+                }));
+            });
+        }
 
         function setRegion(country, region) {
             selectedRegion = region || getRegions(country.name)[0] || country.name;
@@ -348,26 +373,38 @@
         }
 
         function setCountry(country, preferredRegion) {
-            selectedCountry = country || DEFAULT_COUNTRY;
+            if (!country) {
+                selectedCountry = null;
+                if (countryCodeInput) countryCodeInput.value = '';
+                if (countryInput) countryInput.value = '';
+                if (countryIsoInput) countryIsoInput.value = '';
+                setFlagElement(phoneFlag, null);
+                if (phoneLabel) phoneLabel.textContent = options.countryPlaceholder || 'Select country / region';
+                if (regionInput) regionInput.value = '';
+                if (regionLabel) regionLabel.textContent = options.regionPlaceholder || 'Select region';
+                regionMenu.innerHTML = '';
+                regionTrigger.disabled = true;
+                regionTrigger.setAttribute('aria-disabled', 'true');
+                renderPhoneMenu();
+                phoneRoot.dispatchEvent(new CustomEvent('countrychange', { detail: null }));
+                return;
+            }
+            selectedCountry = country;
             if (countryCodeInput) countryCodeInput.value = selectedCountry.dial;
             if (countryInput) countryInput.value = selectedCountry.name;
+            if (countryIsoInput) countryIsoInput.value = selectedCountry.iso;
             setFlagElement(phoneFlag, selectedCountry);
-            if (phoneLabel) phoneLabel.textContent = `${selectedCountry.iso} ${selectedCountry.dial}`;
-            phoneMenu.innerHTML = '';
-            COUNTRY_OPTIONS.forEach((item) => {
-                phoneMenu.appendChild(renderCountryOption(item, selectedCountry.iso, (nextCountry) => {
-                    setCountry(nextCountry);
-                    toggleSelect(phoneRoot, false);
-                }));
-            });
+            if (phoneLabel) phoneLabel.textContent = selectedCountry.dial;
+            regionTrigger.disabled = false;
+            regionTrigger.setAttribute('aria-disabled', 'false');
+            renderPhoneMenu();
             setRegion(selectedCountry, displayRegionFromStored(selectedCountry.name, preferredRegion));
+            phoneRoot.dispatchEvent(new CustomEvent('countrychange', { detail: { ...selectedCountry } }));
         }
 
         setCountry(selectedCountry, options.preferredRegion || getStored('pepperRegion'));
 
-        const hasStoredCountry = Boolean(options.preferredCountry || getStored('pepperCountry') || options.preferredCountryCode || getStored('pepperPhoneCountryCode'));
-        const hasStoredRegion = Boolean(options.preferredRegion || getStored('pepperRegion'));
-        if (!hasStoredCountry || !hasStoredRegion) {
+        if (!requireCountrySelection && (!hasStoredCountry || !hasStoredRegion)) {
             getGeoDefaults().then((geo) => {
                 if (!geo || geo.status !== 'success') return;
                 const geoCountry = countryFrom(geo.country_code || geo.country);

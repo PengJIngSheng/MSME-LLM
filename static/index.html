@@ -11,7 +11,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>Bisnes.AI - AI Rakan Niaga untuk Usahawan Malaysia</title>
+    <title>bisnes.ai - AI Rakan Niaga untuk Usahawan Malaysia</title>
     <!-- Inter as fallback for universalSans -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -155,7 +155,7 @@
                     </svg>
                 </button>
                 <div class="mobile-logo-container">
-                    <span class="mobile-logo-text">Bisnes.AI</span>
+                    <span class="mobile-logo-text">bisnes.ai</span>
                 </div>
                 <div style="width: 32px"></div> <!-- Spacer -->
             </header>
@@ -164,8 +164,8 @@
 
                 <!-- Guest Navigation Bar (top-right, visible when not logged in) -->
                 <header class="guest-header" id="guestHeader">
-                    <a href="/" class="guest-logo-link" aria-label="Bisnes.AI home">
-                        <img src="/static/Main%20Logo.png" alt="Bisnes.AI" class="guest-logo-img">
+                    <a href="/" class="guest-logo-link" aria-label="bisnes.ai home">
+                        <img src="/static/Main%20Logo.png" alt="bisnes.ai" class="guest-logo-img">
                     </a>
                     <nav class="guest-nav" id="guestNav">
                         <button class="guest-nav-gear" id="settingsGearBtn" title="Settings" aria-label="Settings">
@@ -175,7 +175,7 @@
                             </svg>
                         </button>
                         <a class="guest-nav-login" id="guestLoginBtn" href="/static/login.html" data-i18n="loginBtn">Sign in</a>
-                        <a class="guest-nav-register" id="guestRegisterBtn" href="/static/register.html" data-i18n="registerBtn">Sign up</a>
+                        <a class="guest-nav-register" id="guestRegisterBtn" href="/static/login.html?mode=register" data-i18n="registerBtn">Sign up</a>
 
                         <!-- Settings Dropdown Panel -->
                         <div class="settings-dropdown" id="settingsDropdown">
@@ -195,7 +195,7 @@
                     <div class="greeting-container" id="logoContainer">
                         <h2>
                             <span class="logo-text">
-                                Bisnes.AI
+                                bisnes.ai
                             </span><br />
                             How can I help you today?
                         </h2>
@@ -441,7 +441,7 @@
     <!-- Fullscreen Account Management -->
     <section class="account-page-overlay" id="accountPageOverlay" aria-hidden="true">
         <div class="account-brand">
-            <img src="/static/Main%20Logo.png" alt="Bisnes.AI">
+            <img src="/static/Main%20Logo.png" alt="bisnes.ai">
         </div>
 
         <div class="account-top-actions">
@@ -455,7 +455,7 @@
         <aside class="account-left-panel">
             <div class="account-welcome">
                 <div><span data-account-i18n="welcomePrefix">欢迎，</span><span id="accountWelcomeName">A</span><span data-account-i18n="sentenceEnd">。</span></div>
-                <div class="account-welcome-muted" data-account-i18n="manageAccount">管理您的mof账户。</div>
+                <div class="account-welcome-muted" data-account-i18n="manageAccount">管理您的 bisnes.ai 账户。</div>
             </div>
 
             <nav class="account-nav-list" aria-label="Account sections">
@@ -526,7 +526,7 @@
                 </div>
 
                 <h2 class="account-login-methods-title" data-account-i18n="loginMethodsTitle">登录方法</h2>
-                <p class="account-login-methods-subtitle" data-account-i18n="loginMethodsSubtitle">管理您登录 MOF 的方式。</p>
+                <p class="account-login-methods-subtitle" data-account-i18n="loginMethodsSubtitle">管理您登录 bisnes.ai 的方式。</p>
 
                 <div class="account-login-methods-card">
                     <div class="account-login-method-row">
@@ -614,7 +614,7 @@
             <section class="account-data-section" id="accountDataSection" hidden>
                 <header class="account-section-header">
                     <h1 data-account-i18n="dataTitle">您的数据</h1>
-                    <p data-account-i18n="dataSubtitle">管理您存储在 MOF 的个人数据。</p>
+                    <p data-account-i18n="dataSubtitle">管理您存储在 bisnes.ai 的个人数据。</p>
                 </header>
 
                 <div class="account-data-list">
@@ -628,14 +628,14 @@
                     <div class="account-data-row">
                         <div class="account-data-copy">
                             <h2 data-account-i18n="downloadTitle">下载账户数据</h2>
-                            <p data-account-i18n="downloadDesc">您可以在下方下载与您的账户关联的所有数据。此数据包括存储在所有 MOF 产品中的一切。</p>
+                            <p data-account-i18n="downloadDesc">您可以在下方下载与您的账户关联的所有数据。此数据包括存储在所有 bisnes.ai 产品中的一切。</p>
                         </div>
                         <button class="account-row-btn" id="accountDownloadBtn" data-account-i18n="downloadBtn">下载</button>
                     </div>
                     <div class="account-data-row">
                         <div class="account-data-copy">
                             <h2 data-account-i18n="deleteTitle">删除账户</h2>
-                            <p data-account-i18n="deleteDesc">删除您的账户以及 MOF 平台上的关联数据。如果您在 30 天内再次登录，可以恢复您的账户。</p>
+                            <p data-account-i18n="deleteDesc">删除您的账户以及 bisnes.ai 平台上的关联数据。如果您在 30 天内再次登录，可以恢复您的账户。</p>
                         </div>
                         <button class="account-row-btn account-row-btn-danger" id="accountDeleteBtn" data-account-i18n="deleteBtn">删除</button>
                     </div>
@@ -718,7 +718,7 @@
             <div class="account-delete-dialog" role="dialog" aria-modal="true" aria-labelledby="accountDeleteDialogTitle">
                 <div class="account-dialog-warning"><i class="fa-solid fa-triangle-exclamation"></i></div>
                 <h2 id="accountDeleteDialogTitle" data-account-i18n="deleteDialogTitle">您确定吗?</h2>
-                <p data-account-i18n="deleteDialogDesc">此操作将删除您所有与 MOF 关联的数据，并将您退出登录。如果您在 30 天内再次登录，可以恢复您的数据。30 天后您的数据将被永久删除。</p>
+                <p data-account-i18n="deleteDialogDesc">此操作将删除您所有与 bisnes.ai 关联的数据，并将您退出登录。如果您在 30 天内再次登录，可以恢复您的数据。30 天后您的数据将被永久删除。</p>
                 <label class="account-delete-label" for="accountDeleteEmailInput">
                     <span id="accountDeleteEmailPrompt"></span>
                 </label>
@@ -736,7 +736,7 @@
         <div class="cookie-prefs-dialog" role="dialog" aria-modal="true" aria-labelledby="cookiePrefsTitle">
             <button class="cookie-prefs-close" id="cookiePrefsCloseBtn" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
             <div class="cookie-prefs-logo">
-                <img src="/static/Main%20Logo.png" alt="Bisnes.AI" style="height:28px;width:auto;object-fit:contain;">
+                <img src="/static/Main%20Logo.png" alt="bisnes.ai" style="height:28px;width:auto;object-fit:contain;">
             </div>
             <h2 class="cookie-prefs-title" id="cookiePrefsTitle" data-account-i18n="cookiePrefTitle">隐私偏好中心</h2>
             <p class="cookie-prefs-desc" data-account-i18n="cookiePrefDesc">当您访问任何网站时，该网站可能会在您的浏览器中存储或检索信息，主要以 Cookie 的形式。这些信息可能与您、您的偏好或您的设备有关，主要用于使网站按您的预期运行。这些信息通常不会直接识别您的身份，但可以为您提供更加个性化的网络体验。由于我们尊重您的隐私权，您可以选择不允许某些类型的 Cookie。点击不同类别的标题以了解更多信息并更改我们的默认设置。阻止某些类型的 Cookie 可能会影响您对网站的使用体验以及我们能够提供的服务。</p>
@@ -796,7 +796,7 @@
                 <button onclick="window.location.href='/static/login.html'" style="padding: 12px 24px; border-radius: var(--radius-sm); border: none; background: linear-gradient(135deg, var(--primary), var(--primary-dim)); color: var(--on-primary); font-weight: 600; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 4px 15px rgba(135, 79, 91, 0.2);">
                     Login
                 </button>
-                <button onclick="window.location.href='/static/register.html'" style="padding: 12px 24px; border-radius: var(--radius-sm); border: 1px solid var(--primary); background: transparent; color: var(--primary); font-weight: 600; cursor: pointer; transition: all 0.2s;">
+                <button onclick="window.location.href='/static/login.html?mode=register'" style="padding: 12px 24px; border-radius: var(--radius-sm); border: 1px solid var(--primary); background: transparent; color: var(--primary); font-weight: 600; cursor: pointer; transition: all 0.2s;">
                     Register
                 </button>
             </div>
@@ -882,7 +882,7 @@
     <script src="https://cdn.jsdelivr.net/npm/i18next@23.15.1/dist/umd/i18next.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/i18next-http-backend@2.6.1/i18nextHttpBackend.min.js"></script>
     <!-- Application Scripts -->
-    <script src="/static/script.js?v=5.4.27"></script>
+    <script src="/static/script.js?v=5.4.29"></script>
 </body>
 
 </html>

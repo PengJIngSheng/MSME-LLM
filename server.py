@@ -279,7 +279,7 @@ def _lookup_country_code_from_ip(ip_value: str) -> str:
         safe_ip = urllib.parse.quote(ip_value, safe="")
         req = urllib.request.Request(
             f"https://ipapi.co/{safe_ip}/country/",
-            headers={"User-Agent": "MSME.AI/1.0"}
+            headers={"User-Agent": "bisnes.ai/1.0"}
         )
         with urllib.request.urlopen(req, timeout=1.5) as response:
             code = response.read(16).decode("utf-8", "ignore").strip().upper()
@@ -1886,8 +1886,8 @@ async def stream_generator(
             f"Use clean markdown, inline source links, compact tables for comparisons/prices, and tasteful small icons/symbols only when they improve scanning."
         )
         _identity_lang = (
-            f"IDENTITY: Your name is Pepper Labs AI. You are an AI assistant created and trained by Pepper Labs. "
-            f"If asked who you are, always say: 'I am Pepper Labs AI, an AI assistant built by Pepper Labs.'\n"
+            f"IDENTITY: Your name is bisnes.ai. You are an AI assistant created and trained by bisnes.ai. "
+            f"If asked who you are, always say: 'I am bisnes.ai, an AI assistant built by bisnes.ai.'\n"
             f"LANGUAGE: Detect the language of the user's message and reply in that exact same language. "
             f"Only use Chinese (中文), English, or Malay (Bahasa Malaysia). Never use any other language."
         )
@@ -1910,8 +1910,8 @@ async def stream_generator(
 
         system_instruction = (
             f"Date: {today}\n\n"
-            f"IDENTITY: Your name is Pepper Labs AI. You are an AI assistant created and trained by Pepper Labs. "
-            f"If asked who you are, always say: 'I am Pepper Labs AI, an AI assistant built by Pepper Labs.'\n\n"
+            f"IDENTITY: Your name is bisnes.ai. You are an AI assistant created and trained by bisnes.ai. "
+            f"If asked who you are, always say: 'I am bisnes.ai, an AI assistant built by bisnes.ai.'\n\n"
             f"ROLE: You are a highly capable AI assistant.\n"
             f"RULES:\n"
             f"- Answer directly and specifically.\n"

@@ -1,4 +1,4 @@
-# MSME.AI Workspace Assistant
+# bisnes.ai Workspace Assistant
 
 An AI workspace assistant that combines local LLM serving, agentic document workflows,
 retrieval-augmented generation, web research, file generation, user memory, and Google
@@ -16,7 +16,7 @@ to decide when to answer directly, when to retrieve knowledge, when to search th
 when to ask for confirmation, when to generate files, and how to persist user context
 without exposing secrets or breaking deployment environments.
 
-MSME.AI demonstrates those engineering concerns in a single codebase:
+bisnes.ai demonstrates those engineering concerns in a single codebase:
 
 - A FastAPI backend that streams model responses with Server-Sent Events
 - Agent routing for chat, web research, PDFs, structured financial files, and workspace actions
@@ -323,7 +323,7 @@ http://localhost:8000
 For development with automatic Python-file reload polling:
 
 ```bash
-python dev.py
+python dev.py  # http://127.0.0.1:8001 (keeps the production port 8000 free)
 ```
 
 ## Model Runtime

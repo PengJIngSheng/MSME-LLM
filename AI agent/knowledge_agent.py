@@ -139,7 +139,7 @@ def retrieve_knowledge_context(query: str, k: int | None = None) -> str:
         if not blocks:
             return ""
         return (
-            "[MSME.AI Knowledge Base - Retrieved from Finetune files]\n"
+            "[bisnes.ai Knowledge Base - Retrieved from Finetune files]\n"
             "Use this internal knowledge when relevant. If it conflicts with newer web results, "
             "explain the difference and prefer the newer source.\n\n"
             + "\n\n---\n\n".join(blocks)

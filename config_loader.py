@@ -1,5 +1,5 @@
 """
-Central profile-aware configuration loader for MOF.
+Central profile-aware configuration loader for bisnes.ai.
 
 Load order, lowest to highest priority:
   1. Built-in defaults
@@ -78,7 +78,7 @@ def _resolve_path(value: str | None) -> str:
 _DEFAULTS = {
     "runtime": {
         "profile": "local.windows",
-        "name": "MOF local development",
+        "name": "bisnes.ai local development",
     },
     "model": {
         "think_model": "deepseek-r1-distill-qwen-14b",
@@ -126,11 +126,11 @@ _DEFAULTS = {
             "port": 587,
             "username": "",
             "app_password": "",
-            "from_name": "MSME.AI",
+            "from_name": "bisnes.ai",
         },
         "google": {
             "login_oauth_client_id": "",
-            "oauth_client_id": "685645444928-ivt7lgsjiatv0ff0r68ckmbln1rdrrm4.apps.googleusercontent.com",
+            "oauth_client_id": "589970414306-pgibl250mccaj3qohvt3mhp3e0qsuj75.apps.googleusercontent.com",
             "oauth_client_secret": "",
             "client_secret_file": "secrets/google_client_secret.json",
         },
@@ -404,7 +404,7 @@ class _Config:
 
     @property
     def smtp_from_name(self) -> str:
-        return str(self._env("SMTP_FROM_NAME", "services.smtp.from_name", "MSME.AI"))
+        return str(self._env("SMTP_FROM_NAME", "services.smtp.from_name", "bisnes.ai"))
 
     @property
     def google_oauth_client_id(self) -> str:

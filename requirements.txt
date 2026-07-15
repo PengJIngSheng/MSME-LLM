@@ -23,6 +23,7 @@ psycopg[binary]
 psycopg2
 SQLAlchemy
 pymongo
+phonenumbers==9.0.34
 
 # Document Parsing
 pymupdf

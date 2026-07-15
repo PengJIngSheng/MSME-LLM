@@ -1,14 +1,17 @@
 """
-dev.py — Auto-reload development server for MSME.AI
+dev.py — Auto-reload development server for bisnes.ai
 =====================================================
 Usage:
-    python dev.py
+    python dev.py                 # starts on 127.0.0.1:8001 by default
+    python dev.py --port 8001
 
 Watches all .py files in the project directory (recursively).
 Automatically restarts the Uvicorn server whenever any .py file changes.
 Works without installing extra packages (uses a subprocess + polling loop).
 """
+import argparse
 import os
+import socket
 import sys
 import time
 import subprocess
@@ -17,7 +20,7 @@ import signal
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 WATCH_EXTS   = (".py",)
 POLL_INTERVAL = 1.5   # seconds between file-change checks
-PORT = 8000
+DEFAULT_PORT = int(os.getenv("BISNES_DEV_PORT", "8001"))
 
 def _snapshot() -> dict[str, float]:
     """Return {filepath: mtime} for every watched file in the project."""
@@ -34,43 +37,24 @@ def _snapshot() -> dict[str, float]:
                     pass
     return state
 
-def _free_port(port: int):
-    """Kill any process currently listening on `port`."""
+def _port_is_in_use(port: int) -> bool:
+    """Return whether a local listener already owns the requested port."""
     try:
         result = subprocess.run(
             ["lsof", "-ti", f"tcp:{port}"],
             capture_output=True, text=True
         )
-        pids = result.stdout.strip().split()
-        if not pids:
-            return
-        print(f"🔫  Found stale process(es) on :{port} — killing {', '.join(pids)}")
-        for pid in pids:
-            try:
-                os.kill(int(pid), signal.SIGTERM)
-            except ProcessLookupError:
-                pass
-        time.sleep(1.0)   # give sockets time to close
-        # Force-kill anything still alive
-        for pid in pids:
-            try:
-                os.kill(int(pid), signal.SIGKILL)
-            except ProcessLookupError:
-                pass
+        return bool(result.stdout.strip())
     except FileNotFoundError:
-        # lsof not available — fall back to fuser
-        try:
-            subprocess.run(["fuser", "-k", f"{port}/tcp"], capture_output=True)
-            time.sleep(1.0)
-        except FileNotFoundError:
-            pass
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            return sock.connect_ex(("127.0.0.1", port)) == 0
 
-def _start_server() -> subprocess.Popen:
+def _start_server(port: int) -> subprocess.Popen:
     cmd = [
         sys.executable, "-m", "uvicorn",
         "server:app",
-        "--host", "0.0.0.0",
-        "--port", "8000",
+        "--host", "127.0.0.1",
+        "--port", str(port),
         "--log-level", "info",
         "--no-access-log",
     ]
@@ -87,11 +71,20 @@ def _stop_server(proc: subprocess.Popen):
         except Exception:
             proc.kill()
 
-def main():
-    print("👀  MSME.AI dev server — watching for .py changes…")
-    _free_port(PORT)
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Run bisnes.ai with local auto-reload polling.")
+    parser.add_argument("--port", type=int, default=DEFAULT_PORT, help=f"Local development port (default: {DEFAULT_PORT})")
+    args = parser.parse_args()
+    port = args.port
+    if not 1 <= port <= 65535:
+        parser.error("--port must be between 1 and 65535")
+    if _port_is_in_use(port):
+        print(f"❌ Port {port} is already in use. Choose another port with --port; no process was stopped.")
+        return 2
+
+    print(f"👀  bisnes.ai dev server — watching for .py changes on http://127.0.0.1:{port}…")
     snapshot = _snapshot()
-    proc = _start_server()
+    proc = _start_server(port)
 
     try:
         while True:
@@ -100,8 +93,10 @@ def main():
             # Restart if server died on its own
             if proc.poll() is not None:
                 print("\n⚠️  Server exited unexpectedly, restarting…")
-                _free_port(PORT)
-                proc = _start_server()
+                if _port_is_in_use(port):
+                    print(f"❌ Port {port} is now in use; stopping the development watcher.")
+                    return 2
+                proc = _start_server(port)
                 snapshot = _snapshot()
                 continue
 
@@ -123,12 +118,13 @@ def main():
 
                 _stop_server(proc)
                 time.sleep(0.5)   # brief pause so old sockets close
-                proc = _start_server()
+                proc = _start_server(port)
                 snapshot = new_snap
 
     except KeyboardInterrupt:
         print("\n\n⛔  Dev server stopped.")
         _stop_server(proc)
+    return 0
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

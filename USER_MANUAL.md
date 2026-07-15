@@ -1,8 +1,8 @@
-# MSME.AI User Manual
+# bisnes.ai User Manual
 
 ## 1. Introduction
 
-MSME.AI is an intelligent workspace assistant designed to help entrepreneurs, MSMEs, business owners, analysts, and professionals complete everyday knowledge work in one place. It combines conversational AI, document analysis, live web research, file generation, image understanding, image generation, Google Workspace automation, and long-term user memory.
+bisnes.ai is an intelligent workspace assistant designed to help entrepreneurs, MSMEs, business owners, analysts, and professionals complete everyday knowledge work in one place. It combines conversational AI, document analysis, live web research, file generation, image understanding, image generation, Google Workspace automation, and long-term user memory.
 
 The system is built around a simple chat interface, but its capabilities go beyond normal question answering. You can upload documents, ask the AI to analyse PDFs, generate reports, create downloadable files, send emails, create Google Docs or Sheets, schedule meetings, generate images, analyse screenshots, and continue work across previous conversations.
 
@@ -10,7 +10,7 @@ This manual explains every major feature from a user perspective and gives pract
 
 ## 2. Main Interface
 
-When you open MSME.AI, you will see the main chat workspace. The interface is organized into several areas:
+When you open bisnes.ai, you will see the main chat workspace. The interface is organized into several areas:
 
 - Sidebar: Access new chats, search history, Agent mode, conversation history, account settings, and connectors.
 - Chat area: View your conversation, generated files, sources, images, and system responses.
@@ -21,7 +21,7 @@ The interface supports English, Chinese, and Bahasa Malaysia. You can switch lan
 
 ## 3. Account And Login
 
-MSME.AI can be used as a guest for a limited number of normal chat questions. To unlock file uploads, Agent mode, connectors, image uploads, and advanced workflows, you need to log in.
+bisnes.ai can be used as a guest for a limited number of normal chat questions. To unlock file uploads, Agent mode, connectors, image uploads, and advanced workflows, you need to log in.
 
 ### 3.1 Email Registration
 
@@ -62,7 +62,7 @@ From the account page, you can:
 
 ## 4. Language
 
-MSME.AI supports:
+bisnes.ai supports:
 
 - English
 - Chinese
@@ -85,7 +85,7 @@ Normal chat can also use internal memory and knowledge base retrieval when relev
 
 ## 6. Web Search Mode
 
-Web Search mode allows MSME.AI to search live web sources before answering. It is useful for current or time-sensitive questions.
+Web Search mode allows bisnes.ai to search live web sources before answering. It is useful for current or time-sensitive questions.
 
 Use Web Search mode for:
 
@@ -103,7 +103,7 @@ Examples:
 - "Find the current SSM registration requirements."
 - "Compare the latest business bank accounts for small businesses in Malaysia."
 
-When web search is used, MSME.AI shows source cards above the answer. These sources can be opened in a new tab.
+When web search is used, bisnes.ai shows source cards above the answer. These sources can be opened in a new tab.
 
 ### 6.1 Source-Based Answers
 
@@ -179,7 +179,7 @@ Uploaded files are shown as attachment cards above your message. PDFs can be cli
 
 ## 12. Image Upload And Image Analysis
 
-You can upload or paste images into the composer. If you upload an image without typing a question, MSME.AI automatically uses a default image analysis prompt.
+You can upload or paste images into the composer. If you upload an image without typing a question, bisnes.ai automatically uses a default image analysis prompt.
 
 The image analysis feature can:
 
@@ -199,7 +199,7 @@ Examples:
 
 ## 13. Image Generation
 
-MSME.AI can generate images locally. Depending on the configured image provider, it may use Stable Diffusion 3.5 Medium or a ComfyUI workflow.
+bisnes.ai can generate images locally. Depending on the configured image provider, it may use Stable Diffusion 3.5 Medium or a ComfyUI workflow.
 
 You can request:
 
@@ -222,7 +222,7 @@ Generated images appear as image cards with options to open or download the file
 
 ## 14. Editing Generated Images
 
-If a generated image already exists in the conversation, MSME.AI can understand follow-up edit requests.
+If a generated image already exists in the conversation, bisnes.ai can understand follow-up edit requests.
 
 Examples:
 
@@ -341,7 +341,7 @@ Example:
 
 ## 18. Local File Generation Skills
 
-In Agent Mode, the upload menu includes Skills. These allow MSME.AI to create downloadable files directly.
+In Agent Mode, the upload menu includes Skills. These allow bisnes.ai to create downloadable files directly.
 
 Supported file types:
 
@@ -390,7 +390,7 @@ Generated files appear as file cards with open and download options.
 
 ## 19. Renaming Generated Files
 
-After generating a DOCX, PDF, PPTX, or XLSX file, you can ask MSME.AI to rename it.
+After generating a DOCX, PDF, PPTX, or XLSX file, you can ask bisnes.ai to rename it.
 
 Examples:
 
@@ -408,7 +408,7 @@ In normal mode, recent image files are especially useful for image follow-up wor
 
 ## 21. Google Workspace Connectors
 
-Google Workspace connectors allow MSME.AI to perform actions in your Google account.
+Google Workspace connectors allow bisnes.ai to perform actions in your Google account.
 
 Available connectors include:
 
@@ -456,7 +456,7 @@ Examples:
 
 ### 23.2 Gmail Confirmation Flow
 
-For safety, MSME.AI does not immediately send the email. It first creates a preview card showing:
+For safety, bisnes.ai does not immediately send the email. It first creates a preview card showing:
 
 - Recipient
 - Subject
@@ -577,7 +577,7 @@ The result includes the meeting title, time, Meet link, and Calendar link.
 
 ## 29. Account Data Export
 
-From the account page, you can request a data export. MSME.AI emails a text export containing account information and recent chat history to your registered email address.
+From the account page, you can request a data export. bisnes.ai emails a text export containing account information and recent chat history to your registered email address.
 
 ## 30. Account Deletion
 
@@ -592,7 +592,7 @@ This action is permanent.
 
 ## 31. Privacy And Data Handling
 
-MSME.AI stores user data to provide persistent features.
+bisnes.ai stores user data to provide persistent features.
 
 Stored data may include:
 
@@ -681,7 +681,7 @@ Open the Connectors panel and re-enable the required connector. Google may requi
 
 ### 34.4 Gmail Did Not Send Immediately
 
-This is expected. MSME.AI creates a draft preview first. Click Confirm Send to send the email.
+This is expected. bisnes.ai creates a draft preview first. Click Confirm Send to send the email.
 
 ### 34.5 No Web Sources Are Shown
 
@@ -707,5 +707,5 @@ Local image generation depends on the configured image backend. If the local mod
 
 ## 36. Summary
 
-MSME.AI is designed to be a practical AI workspace. You can use it as a conversational assistant, a document analyst, a file generator, a web researcher, an image tool, and a Google Workspace operator. For simple questions, use normal chat. For live information, enable Web Search. For documents, files, images, and Google actions, use Agent Mode.
+bisnes.ai is designed to be a practical AI workspace. You can use it as a conversational assistant, a document analyst, a file generator, a web researcher, an image tool, and a Google Workspace operator. For simple questions, use normal chat. For live information, enable Web Search. For documents, files, images, and Google actions, use Agent Mode.
 
