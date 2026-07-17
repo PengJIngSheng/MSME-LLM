@@ -83,7 +83,7 @@ async def add_security_headers(request: Request, call_next):
     response.headers.setdefault(
         "Content-Security-Policy",
         "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; "
-        "form-action 'self'; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; "
+        "form-action 'self'; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; "
         "script-src 'self' 'unsafe-inline' https://accounts.google.com https://cdn.jsdelivr.net; "
         "connect-src 'self' https://accounts.google.com https://www.googleapis.com;",
@@ -157,13 +157,6 @@ UPLOAD_CONTENT_TYPES = {
     ".webp": "image/webp",
 }
 INLINE_CONTENT_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
-
-
-def _optional_auth_user(request: Request) -> dict | None:
-    """Return the signed-in user, but allow a deliberately stateless guest chat."""
-    if request.headers.get("authorization") or request.cookies.get("msme_session"):
-        return _auth_user(request)
-    return None
 
 
 def _set_file_owner(filename: str, user_id: str, kind: str = "generated") -> None:
@@ -279,7 +272,7 @@ def _lookup_country_code_from_ip(ip_value: str) -> str:
         safe_ip = urllib.parse.quote(ip_value, safe="")
         req = urllib.request.Request(
             f"https://ipapi.co/{safe_ip}/country/",
-            headers={"User-Agent": "MSME.AI/1.0"}
+            headers={"User-Agent": "bisnes.ai/1.0"}
         )
         with urllib.request.urlopen(req, timeout=1.5) as response:
             code = response.read(16).decode("utf-8", "ignore").strip().upper()
@@ -1886,8 +1879,8 @@ async def stream_generator(
             f"Use clean markdown, inline source links, compact tables for comparisons/prices, and tasteful small icons/symbols only when they improve scanning."
         )
         _identity_lang = (
-            f"IDENTITY: Your name is Pepper Labs AI. You are an AI assistant created and trained by Pepper Labs. "
-            f"If asked who you are, always say: 'I am Pepper Labs AI, an AI assistant built by Pepper Labs.'\n"
+            f"IDENTITY: Your name is bisnes.ai. You are an AI assistant created and trained by bisnes.ai. "
+            f"If asked who you are, always say: 'I am bisnes.ai, an AI assistant built by bisnes.ai.'\n"
             f"LANGUAGE: Detect the language of the user's message and reply in that exact same language. "
             f"Only use Chinese (中文), English, or Malay (Bahasa Malaysia). Never use any other language."
         )
@@ -1910,8 +1903,8 @@ async def stream_generator(
 
         system_instruction = (
             f"Date: {today}\n\n"
-            f"IDENTITY: Your name is Pepper Labs AI. You are an AI assistant created and trained by Pepper Labs. "
-            f"If asked who you are, always say: 'I am Pepper Labs AI, an AI assistant built by Pepper Labs.'\n\n"
+            f"IDENTITY: Your name is bisnes.ai. You are an AI assistant created and trained by bisnes.ai. "
+            f"If asked who you are, always say: 'I am bisnes.ai, an AI assistant built by bisnes.ai.'\n\n"
             f"ROLE: You are a highly capable AI assistant.\n"
             f"RULES:\n"
             f"- Answer directly and specifically.\n"
@@ -2349,25 +2342,18 @@ async def stream_generator(
 
 @app.post("/api/chat")
 async def chat_endpoint(req: ChatRequest, request: Request):
-    user = _optional_auth_user(request)
-    authenticated_user_id = str(user["_id"]) if user else None
+    # Chat is an account-only feature. Keep this check on the server as well
+    # as in the UI so a direct API request cannot consume model capacity.
+    user = _auth_user(request)
+    authenticated_user_id = str(user["_id"])
     if req.user_id and req.user_id != authenticated_user_id:
         raise HTTPException(status_code=403, detail="The requested user does not match the active session")
-    if not user and (
-        req.agent_mode
-        or req.attachments
-        or req.skill_type
-        or req.regenerate_pdf
-        or image_gemma4.is_image_generation_request(req.message or "")
-    ):
-        raise HTTPException(status_code=401, detail="Sign in to use files, skills, and Agent Mode")
-    if user:
-        _validate_owned_attachments(req.attachments, authenticated_user_id)
+    _validate_owned_attachments(req.attachments, authenticated_user_id)
 
     client_ip = _extract_client_ip(request)
     user_country = _infer_country_from_locale_timezone(req.browser_language or "", req.user_timezone or "")
     chat_id = req.chat_id
-    if user and not chat_id:
+    if not chat_id:
         chat_id = str(uuid.uuid4())
         title = req.message[:30] + ("..." if len(req.message) > 30 else "")
         chats_col.insert_one({
@@ -2375,35 +2361,26 @@ async def chat_endpoint(req: ChatRequest, request: Request):
             "title": title, "updated_at": datetime.utcnow(), "messages": [],
             "agent_mode": req.agent_mode
         })
-    elif user:
+    else:
         owner_query = {"_id": chat_id, "user_id": authenticated_user_id}
         if not chats_col.find_one(owner_query, {"_id": 1}):
             raise HTTPException(status_code=404, detail="Chat not found")
         chats_col.update_one(owner_query, {"$set": {"updated_at": datetime.utcnow()}})
-    else:
-        # Guests may use normal chat, but their transcript is never persisted.
-        chat_id = chat_id or str(uuid.uuid4())
 
-    if user:
-        # A browser-provided transcript is untrusted: accepting it would let an
-        # attacker manufacture legacy file references and later claim ownership.
-        # The database is the canonical transcript for authenticated chats.
-        chat_doc = chats_col.find_one({"_id": chat_id, "user_id": authenticated_user_id}) or {}
-        messages = list(chat_doc.get("messages") or [])
-        if not req.is_resume:
-            user_message = {"role": "user", "content": req.message}
-            if req.attachments:
-                user_message["attachments"] = req.attachments
-            chats_col.update_one(
-                {"_id": chat_id, "user_id": authenticated_user_id},
-                {"$push": {"messages": user_message}},
-            )
-            messages.append(user_message)
-    elif req.messages is not None:
-        # Guest sessions are deliberately non-persistent and cannot use files.
-        messages = req.messages
-    else:
-        messages = [{"role": "user", "content": req.message}]
+    # A browser-provided transcript is untrusted: accepting it would let an
+    # attacker manufacture file references and later claim ownership. The
+    # database is the canonical transcript for every chat.
+    chat_doc = chats_col.find_one({"_id": chat_id, "user_id": authenticated_user_id}) or {}
+    messages = list(chat_doc.get("messages") or [])
+    if not req.is_resume:
+        user_message = {"role": "user", "content": req.message}
+        if req.attachments:
+            user_message["attachments"] = req.attachments
+        chats_col.update_one(
+            {"_id": chat_id, "user_id": authenticated_user_id},
+            {"$push": {"messages": user_message}},
+        )
+        messages.append(user_message)
 
     async def wrapped():
         yield _sse({'chat_id': chat_id})

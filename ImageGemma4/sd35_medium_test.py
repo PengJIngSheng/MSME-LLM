@@ -15,7 +15,7 @@ def _disable_t5_from_env() -> bool:
 
 def main():
     parser = argparse.ArgumentParser(description="Generate one local SD3.5 Medium test image.")
-    parser.add_argument("prompt", nargs="?", default="A modern MSME.AI logo, white background, black and electric blue accents")
+    parser.add_argument("prompt", nargs="?", default="A modern bisnes.ai logo, white background, black and electric blue accents")
     parser.add_argument("--out", default="ImageGemma4/sd35_medium_test.png")
     parser.add_argument("--width", type=int, default=int(os.getenv("SD35_IMAGE_WIDTH", "768")))
     parser.add_argument("--height", type=int, default=int(os.getenv("SD35_IMAGE_HEIGHT", "768")))

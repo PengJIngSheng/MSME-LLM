@@ -3,7 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Login - MSME.AI</title>
+    <title>Login - bisnes.ai</title>
+    <script>
+        // Google treats bisnes.ai. and bisnes.ai as different OAuth origins.
+        // Normalize the dotted form before Google Identity Services is loaded.
+        (() => {
+            if (window.location.hostname.toLowerCase() !== 'bisnes.ai.') return;
+            const canonical = new URL(window.location.href);
+            canonical.hostname = 'bisnes.ai';
+            window.location.replace(canonical.toString());
+        })();
+    </script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -18,23 +28,88 @@
                 noAccount: "Don't have an account?",
                 regLink: "Register",
                 title2: "Log in with Email",
+                registerTitle1: "Create your account",
+                registerEmailLog: "Sign up with Email",
+                registerGoogleLog: "Sign up with Google",
+                registerNoAccount: "Already have an account?",
+                registerLink: "Log in",
+                registerTitle2: "Sign up with Email",
+                registerSubmit: "Register",
+                registerAuth: "Registering...",
+                registerFailed: "Registration failed.",
+                otpTitle: "Verify your email",
+                otpDescription: "Enter the six-digit code we sent to your email address.",
+                otpVerify: "Verify account",
+                otpVerifying: "Verifying...",
+                otpResend: "Resend code",
+                otpResending: "Sending...",
+                otpResendIn: "Resend code in {seconds}s",
+                otpMissing: "Enter all six digits.",
+                otpFailed: "Verification failed. Please try again.",
+                otpResent: "A new code has been sent.",
+                otpBack: "Back",
+                otpDigitLabel: "Digit {number} of 6",
+                cancel: "Cancel",
+                cancelGoogleProfile: "Cancel and sign out",
+                forgotPassword: "Forgot password?",
+                resetRequestTitle: "Reset your password",
+                resetRequestDescription: "Enter the email address associated with your bisnes.ai account.",
+                sendResetCode: "Send reset code",
+                sendingResetCode: "Sending code...",
+                resetRequestSent: "If an account exists for this email, we sent a verification code.",
+                resetOtpTitle: "Check your email",
+                resetOtpDescription: "Enter the six-digit code we sent to your email address.",
+                verifyResetCode: "Verify code",
+                verifyingResetCode: "Verifying...",
+                resendResetCode: "Resend code",
+                resetPasswordTitle: "Set a new password",
+                resetPasswordDescription: "Choose a new password for your bisnes.ai account.",
+                updatePassword: "Update password",
+                updatingPassword: "Updating password...",
+                passwordUpdated: "Your password has been updated. Please sign in.",
+                resetInvalidEmail: "Enter the email address for your account.",
+                resetExpired: "Your reset session has expired. Start again to receive a new code.",
                 completeTitle: "Complete your profile",
                 completeDesc: "Google sign-in was successful. Please add your name, phone number, and region to continue.",
                 emailUser: "Email",
                 name: "Name",
+                firstName: "First name",
+                lastName: "Last name",
                 phone: "Phone number",
                 region: "Region",
+                selectCountry: "Select country / region",
+                selectRegion: "Select region",
                 pass: "Password",
                 submit: "Login",
                 continueBtn: "Continue",
                 saving: "Saving...",
                 invalidName: "Please enter your name.",
+                invalidFirstName: "Enter your first name using letters only.",
+                invalidLastName: "Enter your last name using letters only.",
                 invalidPhone: "Please enter a valid phone number.",
+                phoneDigitsOnly: "Phone number can only contain digits.",
+                phoneInvalidForCountry: "Enter a valid phone number for the selected country or region.",
+                phoneValidationUnavailable: "Phone validation is temporarily unavailable. Please refresh and try again.",
+                countryRequired: "Select your country or region first.",
                 invalidRegion: "Please select your region.",
                 completeFailed: "Could not save your profile. Please try again.",
-                loginFailed: "Login failed",
+                loginFailed: "Login failed.",
                 auth: "Authenticating...",
-                tos: "By continuing you agree to MSME.AI's <a href='#' style='color:inherit;'>Terms of Service</a> and <a href='#' style='color:inherit;'>Privacy Policy</a>."
+                showPassword: "Show password",
+                hidePassword: "Hide password",
+                passwordRule: "Password must have at least 8 characters, start with an uppercase letter, and include a special character.",
+                passwordMinLength: "8+ characters",
+                passwordStartsUppercase: "Starts with uppercase",
+                passwordSpecialCharacter: "1 symbol",
+                networkError: "Network error. Please try again.",
+                googleOAuthLoading: "Google sign-in is still loading. Please try again shortly.",
+                googleOAuthConfiguration: "Google sign-in is unavailable right now. Please try again from bisnes.ai.",
+                invalidCredentials: "Incorrect email or password.",
+                usernameTaken: "This email is already registered.",
+                phoneAlreadyRegistered: "This phone number is already registered.",
+                googleEmailRegistered: "This email is registered with Google. Please sign in with Google.",
+                genericError: "Something went wrong. Please try again.",
+                tos: "By continuing you agree to bisnes.ai's <a href='#' style='color:inherit;'>Terms of Service</a> and <a href='#' style='color:inherit;'>Privacy Policy</a>. More information: <a href='https://airakanniaga.pepperlabs.my/' target='_blank' rel='noopener noreferrer' style='color:inherit;'>airakanniaga.pepperlabs.my</a>."
             },
             zh: {
                 title1: "登录您的账户",
@@ -43,23 +118,88 @@
                 noAccount: "没有账户？",
                 regLink: "注册",
                 title2: "使用邮箱登录",
+                registerTitle1: "创建您的账户",
+                registerEmailLog: "使用邮箱注册",
+                registerGoogleLog: "使用 Google 注册",
+                registerNoAccount: "已有账户？",
+                registerLink: "登录",
+                registerTitle2: "使用邮箱注册",
+                registerSubmit: "注册 Register",
+                registerAuth: "注册中 / Registering...",
+                registerFailed: "注册失败。",
+                otpTitle: "验证邮箱",
+                otpDescription: "请输入我们发送到您邮箱的六位验证码。",
+                otpVerify: "验证账户",
+                otpVerifying: "验证中...",
+                otpResend: "重新发送验证码",
+                otpResending: "发送中...",
+                otpResendIn: "{seconds} 秒后可重新发送",
+                otpMissing: "请输入完整的六位验证码。",
+                otpFailed: "验证失败，请重试。",
+                otpResent: "新的验证码已发送。",
+                otpBack: "返回",
+                otpDigitLabel: "第 {number} 位，共 6 位",
+                cancel: "取消",
+                cancelGoogleProfile: "取消并退出登录",
+                forgotPassword: "忘记密码？",
+                resetRequestTitle: "重置您的密码",
+                resetRequestDescription: "请输入与您的 bisnes.ai 账户关联的邮箱地址。",
+                sendResetCode: "发送重置验证码",
+                sendingResetCode: "正在发送验证码...",
+                resetRequestSent: "若此邮箱已有账户，我们已发送验证码。",
+                resetOtpTitle: "查看您的邮箱",
+                resetOtpDescription: "请输入我们发送到您邮箱的六位验证码。",
+                verifyResetCode: "验证验证码",
+                verifyingResetCode: "验证中...",
+                resendResetCode: "重新发送验证码",
+                resetPasswordTitle: "设置新密码",
+                resetPasswordDescription: "请为您的 bisnes.ai 账户设置一个新密码。",
+                updatePassword: "更新密码",
+                updatingPassword: "正在更新密码...",
+                passwordUpdated: "您的密码已更新，请登录。",
+                resetInvalidEmail: "请输入您的账户邮箱地址。",
+                resetExpired: "重置会话已过期，请重新获取验证码。",
                 completeTitle: "补全您的资料",
                 completeDesc: "Google 登录已成功。请填写您的名字、电话号码和所在区域后继续。",
                 emailUser: "邮箱 (Email)",
                 name: "名字 (Name)",
+                firstName: "名字 (First name)",
+                lastName: "姓氏 (Last name)",
                 phone: "手机号 (Phone number)",
                 region: "所在区域 (Region)",
+                selectCountry: "选择国家或地区",
+                selectRegion: "选择区域",
                 pass: "密码 (Password)",
                 submit: "登录 Login",
                 continueBtn: "继续 Continue",
                 saving: "保存中...",
                 invalidName: "请输入您的名字。",
+                invalidFirstName: "请输入有效的名字（只可使用文字）。",
+                invalidLastName: "请输入有效的姓氏（只可使用文字）。",
                 invalidPhone: "请输入有效的电话号码。",
+                phoneDigitsOnly: "电话号码只能输入数字。",
+                phoneInvalidForCountry: "请输入符合所选国家或地区格式的电话号码。",
+                phoneValidationUnavailable: "电话号码验证暂时不可用，请刷新页面后重试。",
+                countryRequired: "请先选择国家或地区。",
                 invalidRegion: "请选择您的所在区域。",
                 completeFailed: "无法保存资料，请重试。",
-                loginFailed: "登录失败 / Login failed",
+                loginFailed: "登录失败。",
                 auth: "登录中 / Authenticating...",
-                tos: "继续即表示您同意 MSME.AI 的 <a href='#' style='color:inherit;'>服务条款</a> 和 <a href='#' style='color:inherit;'>隐私政策</a>。"
+                showPassword: "显示密码",
+                hidePassword: "隐藏密码",
+                passwordRule: "密码至少需要 8 个字符，首位为大写字母，并包含一个特殊符号。",
+                passwordMinLength: "至少 8 个字符",
+                passwordStartsUppercase: "首位大写",
+                passwordSpecialCharacter: "1 个特殊符号",
+                networkError: "网络错误，请重试。",
+                googleOAuthLoading: "Google 登录仍在加载，请稍后重试。",
+                googleOAuthConfiguration: "Google 登录暂时不可用。请从 bisnes.ai 重新尝试。",
+                invalidCredentials: "邮箱或密码错误。",
+                usernameTaken: "此邮箱已注册。",
+                phoneAlreadyRegistered: "此手机号已注册。",
+                googleEmailRegistered: "此邮箱已通过 Google 注册，请使用 Google 登录。",
+                genericError: "操作失败，请重试。",
+                tos: "继续即表示您同意 bisnes.ai 的 <a href='#' style='color:inherit;'>服务条款</a> 和 <a href='#' style='color:inherit;'>隐私政策</a>。更多信息请访问 <a href='https://airakanniaga.pepperlabs.my/' target='_blank' rel='noopener noreferrer' style='color:inherit;'>airakanniaga.pepperlabs.my</a>。"
             },
             ms: {
                 title1: "Log masuk akaun anda",
@@ -68,23 +208,88 @@
                 noAccount: "Tiada akaun?",
                 regLink: "Daftar",
                 title2: "Log masuk dengan E-mel",
+                registerTitle1: "Cipta akaun anda",
+                registerEmailLog: "Daftar dengan E-mel",
+                registerGoogleLog: "Daftar dengan Google",
+                registerNoAccount: "Sudah ada akaun?",
+                registerLink: "Log masuk",
+                registerTitle2: "Daftar dengan E-mel",
+                registerSubmit: "Daftar",
+                registerAuth: "Mendaftar...",
+                registerFailed: "Pendaftaran gagal.",
+                otpTitle: "Sahkan e-mel anda",
+                otpDescription: "Masukkan kod enam digit yang kami hantar ke alamat e-mel anda.",
+                otpVerify: "Sahkan akaun",
+                otpVerifying: "Mengesahkan...",
+                otpResend: "Hantar semula kod",
+                otpResending: "Menghantar...",
+                otpResendIn: "Hantar semula kod dalam {seconds}s",
+                otpMissing: "Masukkan kesemua enam digit.",
+                otpFailed: "Pengesahan gagal. Sila cuba lagi.",
+                otpResent: "Kod baharu telah dihantar.",
+                otpBack: "Kembali",
+                otpDigitLabel: "Digit {number} daripada 6",
+                cancel: "Batal",
+                cancelGoogleProfile: "Batal dan log keluar",
+                forgotPassword: "Lupa kata laluan?",
+                resetRequestTitle: "Tetapkan semula kata laluan anda",
+                resetRequestDescription: "Masukkan alamat e-mel yang berkaitan dengan akaun bisnes.ai anda.",
+                sendResetCode: "Hantar kod tetapan semula",
+                sendingResetCode: "Menghantar kod...",
+                resetRequestSent: "Jika akaun wujud untuk e-mel ini, kami telah menghantar kod pengesahan.",
+                resetOtpTitle: "Semak e-mel anda",
+                resetOtpDescription: "Masukkan kod enam digit yang kami hantar ke alamat e-mel anda.",
+                verifyResetCode: "Sahkan kod",
+                verifyingResetCode: "Mengesahkan...",
+                resendResetCode: "Hantar semula kod",
+                resetPasswordTitle: "Tetapkan kata laluan baharu",
+                resetPasswordDescription: "Pilih kata laluan baharu untuk akaun bisnes.ai anda.",
+                updatePassword: "Kemas kini kata laluan",
+                updatingPassword: "Mengemas kini kata laluan...",
+                passwordUpdated: "Kata laluan anda telah dikemas kini. Sila log masuk.",
+                resetInvalidEmail: "Masukkan alamat e-mel akaun anda.",
+                resetExpired: "Sesi tetapan semula anda telah tamat tempoh. Mulakan semula untuk menerima kod baharu.",
                 completeTitle: "Lengkapkan profil anda",
                 completeDesc: "Log masuk Google berjaya. Sila tambah nama, nombor telefon dan wilayah anda untuk meneruskan.",
                 emailUser: "E-mel",
                 name: "Nama",
+                firstName: "Nama pertama",
+                lastName: "Nama keluarga",
                 phone: "Nombor telefon",
                 region: "Wilayah",
+                selectCountry: "Pilih negara / rantau",
+                selectRegion: "Pilih wilayah",
                 pass: "Kata Laluan",
                 submit: "Log Masuk",
                 continueBtn: "Teruskan",
                 saving: "Menyimpan...",
                 invalidName: "Sila masukkan nama anda.",
+                invalidFirstName: "Masukkan nama pertama menggunakan huruf sahaja.",
+                invalidLastName: "Masukkan nama keluarga menggunakan huruf sahaja.",
                 invalidPhone: "Sila masukkan nombor telefon yang sah.",
+                phoneDigitsOnly: "Nombor telefon hanya boleh mengandungi digit.",
+                phoneInvalidForCountry: "Masukkan nombor telefon yang sah untuk negara atau rantau dipilih.",
+                phoneValidationUnavailable: "Pengesahan nombor telefon tidak tersedia buat sementara waktu. Sila muat semula dan cuba lagi.",
+                countryRequired: "Pilih negara atau rantau anda dahulu.",
                 invalidRegion: "Sila pilih wilayah anda.",
                 completeFailed: "Profil tidak dapat disimpan. Sila cuba lagi.",
                 loginFailed: "Log masuk gagal",
                 auth: "Mengesahkan...",
-                tos: "Dengan meneruskan, anda bersetuju dengan <a href='#' style='color:inherit;'>Terma Perkhidmatan</a> dan <a href='#' style='color:inherit;'>Dasar Privasi</a> MSME.AI."
+                showPassword: "Papar kata laluan",
+                hidePassword: "Sembunyikan kata laluan",
+                passwordRule: "Kata laluan mesti sekurang-kurangnya 8 aksara, bermula dengan huruf besar dan mempunyai simbol khas.",
+                passwordMinLength: "8+ aksara",
+                passwordStartsUppercase: "Bermula huruf besar",
+                passwordSpecialCharacter: "1 simbol",
+                networkError: "Ralat rangkaian. Sila cuba lagi.",
+                googleOAuthLoading: "Log masuk Google masih dimuatkan. Sila cuba sebentar lagi.",
+                googleOAuthConfiguration: "Log masuk Google tidak tersedia buat masa ini. Sila cuba semula dari bisnes.ai.",
+                invalidCredentials: "E-mel atau kata laluan tidak tepat.",
+                usernameTaken: "E-mel ini telah didaftarkan.",
+                phoneAlreadyRegistered: "Nombor telefon ini telah didaftarkan.",
+                googleEmailRegistered: "E-mel ini telah didaftarkan melalui Google. Sila log masuk dengan Google.",
+                genericError: "Sesuatu telah berlaku. Sila cuba lagi.",
+                tos: "Dengan meneruskan, anda bersetuju dengan <a href='#' style='color:inherit;'>Terma Perkhidmatan</a> dan <a href='#' style='color:inherit;'>Dasar Privasi</a> bisnes.ai. Maklumat lanjut: <a href='https://airakanniaga.pepperlabs.my/' target='_blank' rel='noopener noreferrer' style='color:inherit;'>airakanniaga.pepperlabs.my</a>."
             }
         };
 
@@ -93,6 +298,8 @@
             const browserLang = (navigator.language || navigator.userLanguage || 'en').toLowerCase();
             const defaultLang = browserLang.startsWith('zh') ? 'zh' : (browserLang.startsWith('ms') || browserLang.includes('my') ? 'ms' : 'en');
             currentLang = localStorage.getItem('pepperLang') || defaultLang;
+            if (!authTranslations[currentLang]) currentLang = defaultLang;
+            document.documentElement.lang = currentLang;
         })();
     </script>
     <style>
@@ -164,6 +371,8 @@
             align-items: center;
             padding: 0 40px;
             margin-top: -80px;
+            position: relative;
+            width: 100%;
         }
         .auth-box {
             width: 100%;
@@ -183,11 +392,66 @@
         /* Mode transition classes */
         .auth-step {
             transition: opacity 0.3s ease, transform 0.3s ease;
+            width: 100%;
+            min-width: 0;
+        }
+        .auth-step.form-exiting {
+            opacity: 0;
+            transform: translateY(-8px);
+            pointer-events: none;
+        }
+        .auth-step.form-entering {
+            animation: authFormEnter 0.48s cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
+        .auth-step.form-entering .form-helper,
+        .auth-step.form-entering form > * {
+            animation: authFormContentEnter 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
+        .auth-step.form-entering .form-helper { animation-delay: 70ms; }
+        .auth-step.form-entering form > *:nth-child(1) { animation-delay: 90ms; }
+        .auth-step.form-entering form > *:nth-child(2) { animation-delay: 135ms; }
+        .auth-step.form-entering form > *:nth-child(3) { animation-delay: 180ms; }
+        .auth-step.form-entering form > *:nth-child(4) { animation-delay: 225ms; }
+        .auth-step.form-entering form > *:nth-child(5) { animation-delay: 270ms; }
+        .auth-step.form-entering form > *:nth-child(6) { animation-delay: 315ms; }
+        @keyframes authFormEnter {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes authFormContentEnter {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .auth-mode-panel {
+            transition: opacity 0.22s ease, transform 0.22s ease;
+        }
+        .auth-mode-panel.mode-exiting {
+            opacity: 0;
+            transform: translateY(-8px);
+            pointer-events: none;
+        }
+        .auth-mode-panel.mode-entering {
+            animation: authModeEnter 0.48s cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
+        @keyframes authModeEnter {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
         }
         .hidden {
             display: none !important;
             opacity: 0;
             transform: scale(0.98);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .auth-step,
+            .auth-mode-panel,
+            .auth-step.form-entering,
+            .auth-step.form-entering .form-helper,
+            .auth-step.form-entering form > * {
+                animation: none !important;
+                transition: none !important;
+            }
         }
 
         /* OAuth Buttons */
@@ -205,6 +469,11 @@
             gap: 10px;
             transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
             margin-bottom: 1rem;
+        }
+        .oauth-btn:disabled,
+        .submit-btn:disabled {
+            cursor: wait;
+            opacity: 0.62;
         }
         .primary-oauth {
             background: var(--btn-primary-bg);
@@ -283,9 +552,114 @@
             border-color: var(--text-main);
             box-shadow: 0 0 0 3px var(--focus-glow);
         }
+        .password-input-wrap { position: relative; }
+        .password-input-wrap .input-field { padding-right: 48px; }
+        .password-toggle {
+            position: absolute;
+            top: 50%;
+            right: 4px;
+            transform: translateY(-50%);
+            width: 40px;
+            height: 40px;
+            border: 0;
+            border-radius: 7px;
+            background: transparent;
+            color: var(--text-dim);
+            cursor: pointer;
+        }
+        .password-toggle:hover, .password-toggle:focus-visible {
+            color: var(--text-main);
+            background: rgba(0,0,0,0.06);
+            outline: none;
+        }
+        .password-requirements {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 7px 12px;
+            margin-top: 10px;
+            color: var(--text-dim);
+            font-size: 0.76rem;
+            line-height: 1.35;
+        }
+        .password-rule {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            transition: color 0.2s ease;
+        }
+        .password-rule i {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 14px;
+            height: 14px;
+            border: 1px solid currentColor;
+            border-radius: 50%;
+            font-size: 0.52rem;
+            opacity: 0.5;
+            transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, opacity 0.2s ease;
+        }
+        .password-rule.is-met {
+            color: var(--text-main);
+        }
+        .password-rule.is-met i {
+            background: var(--text-main);
+            border-color: var(--text-main);
+            color: #fff;
+            opacity: 1;
+        }
+        .password-requirements.has-error .password-rule:not(.is-met) {
+            color: #d92d20;
+        }
+        .password-requirements.has-error .password-rule:not(.is-met) i {
+            border-color: currentColor;
+            color: #d92d20;
+            opacity: 1;
+        }
+        .forgot-password-row {
+            display: flex;
+            justify-content: flex-end;
+            margin: -0.65rem 0 0.25rem;
+        }
+        .forgot-password-link {
+            appearance: none;
+            border: 0;
+            background: transparent;
+            color: var(--text-dim);
+            cursor: pointer;
+            font: 500 0.8rem/1.4 var(--font-family);
+            padding: 4px 0;
+            text-decoration: none;
+            transition: color 0.2s ease, opacity 0.2s ease;
+        }
+        .forgot-password-link:hover,
+        .forgot-password-link:focus-visible {
+            color: var(--text-main);
+            outline: none;
+        }
         .phone-row {
             display: flex;
             gap: 10px;
+        }
+        .name-row {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+        }
+        .field-error {
+            min-height: 0;
+            margin: 8px 0 0;
+            color: #d92d20;
+            font-size: 0.78rem;
+            line-height: 1.35;
+        }
+        .field-error:empty {
+            display: none;
+        }
+        .input-field[aria-invalid="true"],
+        .custom-select-trigger[aria-invalid="true"] {
+            border-color: #d92d20;
+            box-shadow: 0 0 0 3px rgba(217, 45, 32, 0.08);
         }
         .country-select {
             width: 112px;
@@ -362,6 +736,133 @@
             opacity: 0.7;
         }
 
+        /* OTP steps live in the same left-side auth flow as registration. */
+        .email-otp-step .auth-title,
+        .password-reset-otp-step .auth-title {
+            margin-bottom: 0.75rem;
+        }
+        .email-otp-step .back-btn,
+        .password-reset-otp-step .back-btn {
+            top: -42px;
+        }
+        .email-otp-step .form-helper,
+        .password-reset-otp-step .form-helper {
+            margin: 0 0 1.7rem;
+        }
+        .otp-container {
+            display: grid;
+            grid-template-columns: repeat(6, minmax(0, 1fr));
+            gap: 8px;
+            margin: 0 0 0.2rem;
+        }
+        .otp-input {
+            width: 100%;
+            height: 52px;
+            padding: 0;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            background: var(--input-bg);
+            color: var(--text-main);
+            font: 600 1.15rem/1 'universalSansDisplay', 'universalSans', 'Inter', sans-serif;
+            text-align: center;
+            outline: none;
+            transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+        }
+        .otp-input:hover,
+        .otp-input.filled {
+            border-color: var(--text-dim);
+        }
+        .otp-input:focus {
+            background: transparent;
+            border-color: var(--text-main);
+            box-shadow: 0 0 0 3px var(--focus-glow);
+        }
+        .otp-container.verifying .otp-input {
+            opacity: 0.72;
+            transform: translateY(-1px);
+        }
+        .otp-container.shake {
+            animation: otp-shake 0.34s ease;
+        }
+        .otp-error {
+            margin: 0.8rem 0 0;
+            text-align: center;
+        }
+        .otp-error.is-success { color: #18794e; }
+        .otp-resend-row {
+            margin: 1.25rem 0 0;
+            text-align: center;
+            color: var(--text-dim);
+            font-size: 0.85rem;
+        }
+        .otp-resend-row button {
+            border: 0;
+            background: transparent;
+            color: var(--text-main);
+            cursor: pointer;
+            font: inherit;
+            font-weight: 600;
+            transition: opacity 0.2s ease;
+        }
+        .otp-resend-row button:hover:not(:disabled) { opacity: 0.68; }
+        .otp-resend-row button:disabled { cursor: wait; opacity: 0.55; }
+        .auth-step.form-entering.email-otp-step form > *,
+        .auth-step.form-entering.password-reset-otp-step form > * {
+            animation: none;
+        }
+        .auth-step.form-entering.email-otp-step .otp-container,
+        .auth-step.form-entering.password-reset-otp-step .otp-container {
+            animation: authFormContentEnter 0.4s cubic-bezier(0.22, 1, 0.36, 1) 120ms both;
+        }
+        .auth-step.form-entering.email-otp-step .otp-error,
+        .auth-step.form-entering.password-reset-otp-step .otp-error {
+            animation: authFormContentEnter 0.34s cubic-bezier(0.22, 1, 0.36, 1) 180ms both;
+        }
+        .auth-step.form-entering.email-otp-step .submit-btn,
+        .auth-step.form-entering.password-reset-otp-step .submit-btn {
+            animation: authFormContentEnter 0.4s cubic-bezier(0.22, 1, 0.36, 1) 340ms both;
+        }
+        .auth-step.form-entering.email-otp-step .otp-resend-row,
+        .auth-step.form-entering.password-reset-otp-step .otp-resend-row {
+            animation: authFormContentEnter 0.38s cubic-bezier(0.22, 1, 0.36, 1) 400ms both;
+        }
+        .auth-step.form-entering.email-otp-step .otp-input,
+        .auth-step.form-entering.password-reset-otp-step .otp-input {
+            animation: otp-input-enter 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
+        .auth-step.form-entering.email-otp-step .otp-input:nth-child(1), .auth-step.form-entering.password-reset-otp-step .otp-input:nth-child(1) { animation-delay: 165ms; }
+        .auth-step.form-entering.email-otp-step .otp-input:nth-child(2), .auth-step.form-entering.password-reset-otp-step .otp-input:nth-child(2) { animation-delay: 190ms; }
+        .auth-step.form-entering.email-otp-step .otp-input:nth-child(3), .auth-step.form-entering.password-reset-otp-step .otp-input:nth-child(3) { animation-delay: 215ms; }
+        .auth-step.form-entering.email-otp-step .otp-input:nth-child(4), .auth-step.form-entering.password-reset-otp-step .otp-input:nth-child(4) { animation-delay: 240ms; }
+        .auth-step.form-entering.email-otp-step .otp-input:nth-child(5), .auth-step.form-entering.password-reset-otp-step .otp-input:nth-child(5) { animation-delay: 265ms; }
+        .auth-step.form-entering.email-otp-step .otp-input:nth-child(6), .auth-step.form-entering.password-reset-otp-step .otp-input:nth-child(6) { animation-delay: 290ms; }
+        @keyframes otp-shake {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-7px); }
+            40% { transform: translateX(6px); }
+            60% { transform: translateX(-4px); }
+            80% { transform: translateX(3px); }
+        }
+        @keyframes otp-input-enter {
+            from { opacity: 0; transform: translateY(7px) scale(0.985); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .auth-step.form-entering.email-otp-step .otp-container,
+            .auth-step.form-entering.password-reset-otp-step .otp-container,
+            .auth-step.form-entering.email-otp-step .otp-error,
+            .auth-step.form-entering.password-reset-otp-step .otp-error,
+            .auth-step.form-entering.email-otp-step .submit-btn,
+            .auth-step.form-entering.password-reset-otp-step .submit-btn,
+            .auth-step.form-entering.email-otp-step .otp-resend-row,
+            .auth-step.form-entering.password-reset-otp-step .otp-resend-row,
+            .auth-step.form-entering.email-otp-step .otp-input,
+            .auth-step.form-entering.password-reset-otp-step .otp-input,
+            .otp-container.shake {
+                animation: none !important;
+            }
+        }
+
         /* Toast Notification */
         .toast {
             position: fixed;
@@ -370,7 +871,7 @@
             transform: translateX(-50%) translateY(-100px);
             opacity: 0;
             background: var(--text-main);
-            color: var(--btn-primary-bg);
+            color: var(--btn-primary-text);
             padding: 14px 24px;
             border-radius: 30px;
             font-weight: 600;
@@ -411,28 +912,34 @@
             font-size: 0.75rem;
             color: var(--text-dim);
             text-align: center;
-            width: 100%;
+            width: min(320px, calc(100% - 48px));
+            line-height: 1.5;
         }
 
         @media (max-width: 900px) {
             .split-left { width: 100%; box-shadow: none; }
             .split-right { display: none; }
         }
+        @media (max-width: 520px) {
+            .name-row { grid-template-columns: 1fr; gap: 0; }
+            .otp-container { gap: 6px; }
+            .otp-input { height: 48px; font-size: 1rem; }
+        }
     </style>
-    <link href="/static/auth-screen.css?v=1.0.7" rel="stylesheet">
-    <link href="/static/auth-profile-location.css?v=1.0.5" rel="stylesheet">
+    <link href="/static/auth-screen.css?v=1.0.12" rel="stylesheet">
+    <link href="/static/auth-profile-location.css?v=1.0.6" rel="stylesheet">
 </head>
 <body class="auth-page">
 
-    <div class="toast" id="toastBox">
+    <div class="toast" id="toastBox" role="status" aria-live="polite" aria-atomic="true">
         <i class="fa-solid fa-circle-exclamation"></i> <span id="toastMsg"></span>
     </div>
 
     <div class="split-left">
         <div class="top-nav">
             <div class="logo-container">
-                <a href="/" id="logoHomeLink" aria-label="Go to MSME.AI home">
-                    <img src="/static/Main%20Logo.png" alt="MSME.AI Logo">
+                <a href="/" id="logoHomeLink" aria-label="Go to bisnes.ai home">
+                    <img src="/static/Main%20Logo.png" alt="bisnes.ai Logo">
                 </a>
             </div>
         </div>
@@ -441,81 +948,276 @@
             <div class="auth-box">
                 <!-- STEP 1: Method Selection -->
                 <div id="stepSelection" class="auth-step">
-                    <h2 class="auth-title" data-i18n="title1">登录您的账户</h2>
+                    <section id="loginSelectionPanel" class="auth-mode-panel">
+                        <h2 class="auth-title" data-i18n="title1">登录您的账户</h2>
 
-                    <button class="oauth-btn primary-oauth" id="openEmailFormBtn">
-                        <i class="fa-regular fa-envelope" style="margin-right: 4px;"></i> <span data-i18n="emailLog">使用邮箱登录</span>
-                    </button>
+                        <button class="oauth-btn primary-oauth" id="openEmailFormBtn">
+                            <i class="fa-regular fa-envelope" style="margin-right: 4px;"></i> <span data-i18n="emailLog">使用邮箱登录</span>
+                        </button>
 
-                    <button class="oauth-btn secondary-oauth" id="googleAuthBtn">
-                        <svg width="18" height="18" viewBox="0 0 48 48" style="margin-right: 6px;">
-                            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.7 17.74 9.5 24 9.5z"/>
-                            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-                            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-                            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-                        </svg>
-                        <span data-i18n="googleLog">使用 Google 登录</span>
-                    </button>
+                        <button class="oauth-btn secondary-oauth" id="loginGoogleAuthBtn">
+                            <svg width="18" height="18" viewBox="0 0 48 48" style="margin-right: 6px;">
+                                <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.7 17.74 9.5 24 9.5z"/>
+                                <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                                <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+                                <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+                            </svg>
+                            <span data-i18n="googleLog">使用 Google 登录</span>
+                        </button>
 
-                    <div class="auth-links">
-                        <span data-i18n="noAccount">没有账户？</span> <a href="/static/register.html" data-i18n="regLink">注册</a>
-                    </div>
+                        <div class="auth-links">
+                            <span data-i18n="noAccount">没有账户？</span> <a href="?mode=register" id="switchToRegisterLink" data-i18n="regLink">注册</a>
+                        </div>
+                    </section>
+
+                    <section id="registerSelectionPanel" class="auth-mode-panel hidden">
+                        <h2 class="auth-title" data-i18n="registerTitle1">创建您的账户</h2>
+
+                        <button class="oauth-btn primary-oauth" id="openRegisterEmailFormBtn">
+                            <i class="fa-regular fa-envelope" style="margin-right: 4px;"></i> <span data-i18n="registerEmailLog">使用邮箱注册</span>
+                        </button>
+
+                        <button class="oauth-btn secondary-oauth" id="registerGoogleAuthBtn">
+                            <svg width="18" height="18" viewBox="0 0 48 48" style="margin-right: 6px;">
+                                <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.7 17.74 9.5 24 9.5z"/>
+                                <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                                <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+                                <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+                            </svg>
+                            <span data-i18n="registerGoogleLog">使用 Google 注册</span>
+                        </button>
+
+                        <div class="auth-links">
+                            <span data-i18n="registerNoAccount">已有账户？</span> <a href="?mode=login" id="switchToLoginLink" data-i18n="registerLink">登录</a>
+                        </div>
+                    </section>
                 </div>
 
                 <!-- STEP 2: Email Login Form -->
-                <div id="stepEmailForm" class="auth-step hidden">
-                    <button class="back-btn" id="backToSelectionBtn" title="返回"><i class="fa-solid fa-arrow-left"></i></button>
+                <div id="stepLoginForm" class="auth-step hidden">
+                    <button type="button" class="back-btn" id="backToSelectionBtn" aria-label="Back" title="Back"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i></button>
                     <h2 class="auth-title" id="loginFormTitle" data-i18n="title2">使用邮箱登录</h2>
 
                     <form id="standaloneLoginForm">
                         <div class="input-group">
-                            <label id="loginIdentifierLabel" data-i18n="emailUser">邮箱 (Email)</label>
+                            <label for="loginUsername" id="loginIdentifierLabel" data-i18n="emailUser">邮箱 (Email)</label>
                             <input type="email" id="loginUsername" class="input-field" required autocomplete="email">
                         </div>
                         <div class="input-group">
-                            <label data-i18n="pass">密码 (Password)</label>
-                            <input type="password" id="loginPassword" class="input-field" required autocomplete="current-password">
+                            <label for="loginPassword" data-i18n="pass">密码 (Password)</label>
+                            <div class="password-input-wrap">
+                                <input type="password" id="loginPassword" class="input-field" required autocomplete="current-password">
+                                <button type="button" class="password-toggle" id="loginPasswordToggle" aria-pressed="false">
+                                    <i class="fa-regular fa-eye-slash" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="forgot-password-row">
+                            <button type="button" class="forgot-password-link" id="openPasswordResetBtn" data-i18n="forgotPassword">Forgot password?</button>
                         </div>
 
                         <button type="submit" class="submit-btn" id="loginSubmitBtn" data-i18n="submit">登录 Login</button>
                     </form>
                 </div>
 
-                <!-- STEP 3: Google Profile Completion -->
+                <!-- STEP 3: Email Registration Form -->
+                <div id="stepRegisterForm" class="auth-step hidden">
+                    <button type="button" class="back-btn" id="backFromRegisterBtn" aria-label="Back" title="Back"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i></button>
+                    <h2 class="auth-title" id="registerFormTitle" data-i18n="registerTitle2">使用邮箱注册</h2>
+
+                    <form id="standaloneRegisterForm">
+                        <div class="name-row" id="registerNameGroup">
+                            <div class="input-group">
+                                <label for="registerFirstName" data-i18n="firstName">名字 (First name)</label>
+                                <input type="text" id="registerFirstName" class="input-field" required autocomplete="given-name" maxlength="64">
+                            </div>
+                            <div class="input-group">
+                                <label for="registerLastName" data-i18n="lastName">姓氏 (Last name)</label>
+                                <input type="text" id="registerLastName" class="input-field" required autocomplete="family-name" maxlength="64">
+                            </div>
+                        </div>
+                        <p class="field-error" id="registerNameError" role="alert"></p>
+                        <div class="input-group" id="registerEmailGroup">
+                            <label for="registerUsername" data-i18n="emailUser">邮箱 (Email)</label>
+                            <input type="email" id="registerUsername" class="input-field" required autocomplete="email">
+                        </div>
+                        <div class="input-group" id="registerPhoneGroup">
+                            <label for="registerPhone" id="registerPhoneFieldLabel" data-i18n="phone">手机号 (Phone number)</label>
+                            <div class="phone-row">
+                                <input type="hidden" id="registerCountryCode" value="">
+                                <input type="hidden" id="registerCountry" value="">
+                                <input type="hidden" id="registerCountryIso" value="">
+                                <div class="custom-select phone-country-select" id="registerPhoneCountrySelect">
+                                    <button type="button" class="custom-select-trigger" id="registerPhoneCountryTrigger" aria-labelledby="registerPhoneFieldLabel registerPhoneCountryLabel" aria-haspopup="listbox" aria-expanded="false">
+                                        <span class="select-current">
+                                            <span class="flag" id="registerPhoneCountryFlag" aria-hidden="true"></span>
+                                            <span class="select-current-text" id="registerPhoneCountryLabel" data-i18n="selectCountry">选择国家或地区</span>
+                                        </span>
+                                        <i class="fa-solid fa-chevron-down select-chevron" aria-hidden="true"></i>
+                                    </button>
+                                    <div class="custom-select-menu" id="registerPhoneCountryMenu" role="listbox"></div>
+                                </div>
+                                <input type="tel" id="registerPhone" class="input-field" required autocomplete="tel-national" inputmode="numeric" pattern="[0-9]*" maxlength="15" placeholder="123456789">
+                            </div>
+                            <p class="field-error" id="registerPhoneError" role="alert"></p>
+                        </div>
+                        <div class="input-group" id="registerRegionGroup">
+                            <label id="registerRegionFieldLabel" data-i18n="region">所在区域 (Region)</label>
+                            <input type="hidden" id="registerRegion" value="">
+                            <div class="custom-select region-select" id="registerRegionSelect">
+                                <button type="button" class="custom-select-trigger" id="registerRegionTrigger" aria-labelledby="registerRegionFieldLabel registerRegionLabel" aria-haspopup="listbox" aria-expanded="false">
+                                    <span class="select-current">
+                                        <span class="select-current-text" id="registerRegionLabel" data-i18n="selectRegion">选择区域</span>
+                                    </span>
+                                    <i class="fa-solid fa-chevron-down select-chevron" aria-hidden="true"></i>
+                                </button>
+                                <div class="custom-select-menu" id="registerRegionMenu" role="listbox"></div>
+                            </div>
+                        </div>
+                        <div class="input-group" id="registerPasswordGroup">
+                            <label for="registerPassword" data-i18n="pass">密码 (Password)</label>
+                            <div class="password-input-wrap">
+                                <input type="password" id="registerPassword" class="input-field" required autocomplete="new-password">
+                                <button type="button" class="password-toggle" id="registerPasswordToggle" aria-pressed="false">
+                                    <i class="fa-regular fa-eye-slash" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                            <div class="password-requirements" id="registerPasswordRequirements" aria-label="Password requirements">
+                                <span class="password-rule" data-password-rule="length"><i class="fa-solid fa-check" aria-hidden="true"></i><span data-i18n="passwordMinLength">至少 8 个字符</span></span>
+                                <span class="password-rule" data-password-rule="uppercase"><i class="fa-solid fa-check" aria-hidden="true"></i><span data-i18n="passwordStartsUppercase">首位大写</span></span>
+                                <span class="password-rule" data-password-rule="symbol"><i class="fa-solid fa-check" aria-hidden="true"></i><span data-i18n="passwordSpecialCharacter">1 个特殊符号</span></span>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="submit-btn" id="registerSubmitBtn" data-i18n="registerSubmit">注册 Register</button>
+                    </form>
+                </div>
+
+                <!-- STEP 4: Email OTP Verification (in-page, after registration) -->
+                <div id="stepEmailOtpForm" class="auth-step email-otp-step hidden">
+                    <button type="button" class="back-btn" id="backFromEmailOtpBtn" aria-label="Back" title="Back"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i></button>
+                    <h2 class="auth-title" id="emailOtpTitle" data-i18n="otpTitle">Verify your email</h2>
+                    <p class="form-helper" id="emailOtpDescription" data-i18n="otpDescription">Enter the six-digit code we sent to your email address.</p>
+
+                    <form id="emailOtpForm" novalidate>
+                        <div class="otp-container" id="emailOtpInputs">
+                            <input type="text" maxlength="1" class="otp-input" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" aria-label="Digit 1" required>
+                            <input type="text" maxlength="1" class="otp-input" inputmode="numeric" pattern="[0-9]*" aria-label="Digit 2" required>
+                            <input type="text" maxlength="1" class="otp-input" inputmode="numeric" pattern="[0-9]*" aria-label="Digit 3" required>
+                            <input type="text" maxlength="1" class="otp-input" inputmode="numeric" pattern="[0-9]*" aria-label="Digit 4" required>
+                            <input type="text" maxlength="1" class="otp-input" inputmode="numeric" pattern="[0-9]*" aria-label="Digit 5" required>
+                            <input type="text" maxlength="1" class="otp-input" inputmode="numeric" pattern="[0-9]*" aria-label="Digit 6" required>
+                        </div>
+                        <p class="field-error otp-error" id="emailOtpError" role="alert"></p>
+                        <button type="submit" class="submit-btn" id="emailOtpVerifyBtn" data-i18n="otpVerify">Verify account</button>
+                    </form>
+                    <p class="otp-resend-row"><button type="button" id="emailOtpResendBtn" data-i18n="otpResend">Resend code</button></p>
+                </div>
+
+                <!-- STEP 5: Password Reset Email Request -->
+                <div id="stepPasswordResetRequest" class="auth-step hidden">
+                    <button type="button" class="back-btn" id="backFromPasswordResetRequestBtn" aria-label="Back" title="Back"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i></button>
+                    <h2 class="auth-title" id="passwordResetRequestTitle" data-i18n="resetRequestTitle">Reset your password</h2>
+                    <p class="form-helper" id="passwordResetRequestDescription" data-i18n="resetRequestDescription">Enter the email address associated with your bisnes.ai account.</p>
+                    <form id="passwordResetRequestForm" novalidate>
+                        <div class="input-group">
+                            <label for="passwordResetEmail" data-i18n="emailUser">Email</label>
+                            <input type="email" id="passwordResetEmail" class="input-field" required autocomplete="email">
+                            <p class="field-error" id="passwordResetEmailError" role="alert"></p>
+                        </div>
+                        <button type="submit" class="submit-btn" id="passwordResetRequestSubmitBtn" data-i18n="sendResetCode">Send reset code</button>
+                    </form>
+                </div>
+
+                <!-- STEP 6: Password Reset OTP -->
+                <div id="stepPasswordResetOtp" class="auth-step password-reset-otp-step hidden">
+                    <button type="button" class="back-btn" id="backFromPasswordResetOtpBtn" aria-label="Back" title="Back"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i></button>
+                    <h2 class="auth-title" id="passwordResetOtpTitle" data-i18n="resetOtpTitle">Check your email</h2>
+                    <p class="form-helper" id="passwordResetOtpDescription" data-i18n="resetOtpDescription">Enter the six-digit code we sent to your email address.</p>
+                    <form id="passwordResetOtpForm" novalidate>
+                        <div class="otp-container" id="passwordResetOtpInputs">
+                            <input type="text" maxlength="1" class="otp-input" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" aria-label="Digit 1" required>
+                            <input type="text" maxlength="1" class="otp-input" inputmode="numeric" pattern="[0-9]*" aria-label="Digit 2" required>
+                            <input type="text" maxlength="1" class="otp-input" inputmode="numeric" pattern="[0-9]*" aria-label="Digit 3" required>
+                            <input type="text" maxlength="1" class="otp-input" inputmode="numeric" pattern="[0-9]*" aria-label="Digit 4" required>
+                            <input type="text" maxlength="1" class="otp-input" inputmode="numeric" pattern="[0-9]*" aria-label="Digit 5" required>
+                            <input type="text" maxlength="1" class="otp-input" inputmode="numeric" pattern="[0-9]*" aria-label="Digit 6" required>
+                        </div>
+                        <p class="field-error otp-error" id="passwordResetOtpError" role="alert"></p>
+                        <button type="submit" class="submit-btn" id="passwordResetOtpVerifyBtn" data-i18n="verifyResetCode">Verify code</button>
+                    </form>
+                    <p class="otp-resend-row"><button type="button" id="passwordResetOtpResendBtn" data-i18n="resendResetCode">Resend code</button></p>
+                </div>
+
+                <!-- STEP 7: New Password -->
+                <div id="stepPasswordResetNewPassword" class="auth-step hidden">
+                    <button type="button" class="back-btn" id="cancelPasswordResetNewPasswordBtn" aria-label="Cancel" title="Cancel"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i></button>
+                    <h2 class="auth-title" id="passwordResetNewPasswordTitle" data-i18n="resetPasswordTitle">Set a new password</h2>
+                    <p class="form-helper" id="passwordResetNewPasswordDescription" data-i18n="resetPasswordDescription">Choose a new password for your bisnes.ai account.</p>
+                    <form id="passwordResetNewPasswordForm" novalidate>
+                        <div class="input-group">
+                            <label for="passwordResetNewPassword" data-i18n="pass">Password</label>
+                            <div class="password-input-wrap">
+                                <input type="password" id="passwordResetNewPassword" class="input-field" required autocomplete="new-password">
+                                <button type="button" class="password-toggle" id="passwordResetNewPasswordToggle" aria-pressed="false">
+                                    <i class="fa-regular fa-eye-slash" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                            <div class="password-requirements" id="passwordResetNewPasswordRequirements" aria-label="Password requirements">
+                                <span class="password-rule" data-password-rule="length"><i class="fa-solid fa-check" aria-hidden="true"></i><span data-i18n="passwordMinLength">8+ characters</span></span>
+                                <span class="password-rule" data-password-rule="uppercase"><i class="fa-solid fa-check" aria-hidden="true"></i><span data-i18n="passwordStartsUppercase">Starts with uppercase</span></span>
+                                <span class="password-rule" data-password-rule="symbol"><i class="fa-solid fa-check" aria-hidden="true"></i><span data-i18n="passwordSpecialCharacter">1 symbol</span></span>
+                            </div>
+                        </div>
+                        <button type="submit" class="submit-btn" id="passwordResetNewPasswordSubmitBtn" data-i18n="updatePassword">Update password</button>
+                    </form>
+                </div>
+
+                <!-- STEP 8: Google Profile Completion -->
                 <div id="stepGoogleProfileForm" class="auth-step hidden">
+                    <button type="button" class="back-btn" id="cancelGoogleProfileBtn" aria-label="Cancel and sign out" title="Cancel and sign out"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i></button>
                     <h2 class="auth-title" data-i18n="completeTitle">补全您的资料</h2>
                     <p class="form-helper" data-i18n="completeDesc">Google 登录已成功。请填写您的名字、电话号码和所在区域后继续。</p>
 
                     <form id="googleProfileForm">
-                        <div class="input-group">
-                            <label data-i18n="name">名字 (Name)</label>
-                            <input type="text" id="googleProfileName" class="input-field" required autocomplete="name" maxlength="80">
+                        <div class="name-row" id="googleProfileNameGroup">
+                            <div class="input-group">
+                                <label for="googleProfileFirstName" data-i18n="firstName">名字 (First name)</label>
+                                <input type="text" id="googleProfileFirstName" class="input-field" required autocomplete="given-name" maxlength="64">
+                            </div>
+                            <div class="input-group">
+                                <label for="googleProfileLastName" data-i18n="lastName">姓氏 (Last name)</label>
+                                <input type="text" id="googleProfileLastName" class="input-field" required autocomplete="family-name" maxlength="64">
+                            </div>
                         </div>
+                        <p class="field-error" id="googleProfileNameError" role="alert"></p>
                         <div class="input-group">
-                            <label data-i18n="phone">手机号 (Phone number)</label>
+                            <label for="googleProfilePhone" id="googleProfilePhoneFieldLabel" data-i18n="phone">手机号 (Phone number)</label>
                             <div class="phone-row">
-                                <input type="hidden" id="googleProfileCountryCode" value="+60">
-                                <input type="hidden" id="googleProfileCountry" value="Malaysia">
+                                <input type="hidden" id="googleProfileCountryCode" value="">
+                                <input type="hidden" id="googleProfileCountry" value="">
+                                <input type="hidden" id="googleProfileCountryIso" value="">
                                 <div class="custom-select phone-country-select" id="phoneCountrySelect">
-                                    <button type="button" class="custom-select-trigger" id="phoneCountryTrigger" aria-haspopup="listbox" aria-expanded="false">
+                                    <button type="button" class="custom-select-trigger" id="phoneCountryTrigger" aria-labelledby="googleProfilePhoneFieldLabel phoneCountryLabel" aria-haspopup="listbox" aria-expanded="false">
                                         <span class="select-current">
                                             <span class="flag" id="phoneCountryFlag" aria-hidden="true"></span>
-                                            <span class="select-current-text" id="phoneCountryLabel">MY +60</span>
+                                            <span class="select-current-text" id="phoneCountryLabel" data-i18n="selectCountry">选择国家或地区</span>
                                         </span>
                                         <i class="fa-solid fa-chevron-down select-chevron" aria-hidden="true"></i>
                                     </button>
                                     <div class="custom-select-menu" id="phoneCountryMenu" role="listbox"></div>
                                 </div>
-                                <input type="tel" id="googleProfilePhone" class="input-field" autocomplete="tel" inputmode="tel" placeholder="12 345 6789">
+                                <input type="tel" id="googleProfilePhone" class="input-field" required autocomplete="tel-national" inputmode="numeric" pattern="[0-9]*" maxlength="15" placeholder="123456789">
                             </div>
+                            <p class="field-error" id="googleProfilePhoneError" role="alert"></p>
                         </div>
                         <div class="input-group">
-                            <label data-i18n="region">所在区域 (Region)</label>
+                            <label id="googleProfileRegionFieldLabel" data-i18n="region">所在区域 (Region)</label>
                             <input type="hidden" id="googleProfileRegion" value="">
                             <div class="custom-select region-select" id="regionSelect">
-                                <button type="button" class="custom-select-trigger" id="regionTrigger" aria-haspopup="listbox" aria-expanded="false">
+                                <button type="button" class="custom-select-trigger" id="regionTrigger" aria-labelledby="googleProfileRegionFieldLabel regionLabel" aria-haspopup="listbox" aria-expanded="false">
                                     <span class="select-current">
-                                        <span class="select-current-text" id="regionLabel">Selangor</span>
+                                        <span class="select-current-text" id="regionLabel" data-i18n="selectRegion">选择区域</span>
                                     </span>
                                     <i class="fa-solid fa-chevron-down select-chevron" aria-hidden="true"></i>
                                 </button>
@@ -530,7 +1232,7 @@
             </div>
 
             <div class="brand-footer" id="legalText" data-i18n="tos">
-                继续即表示您同意 MSME.AI 的 <a href="#" style="color:inherit;">服务条款</a> 和 <a href="#" style="color:inherit;">隐私政策</a>。
+                继续即表示您同意 bisnes.ai 的 <a href="#" style="color:inherit;">服务条款</a> 和 <a href="#" style="color:inherit;">隐私政策</a>。更多信息请访问 <a href="https://airakanniaga.pepperlabs.my/" target="_blank" rel="noopener noreferrer" style="color:inherit;">airakanniaga.pepperlabs.my</a>。
             </div>
         </div>
     </div>
@@ -539,27 +1241,427 @@
         <canvas id="techCanvas"></canvas>
     </div>
 
-    <script src="/static/auth-profile-location.js?v=1.0.1"></script>
+    <script src="/static/auth-profile-location.js?v=1.0.2"></script>
     <script>
         // Apply Translations
         function applyTranslations() {
             const t = authTranslations[currentLang] || authTranslations.en;
+            document.documentElement.lang = authTranslations[currentLang] ? currentLang : 'en';
             document.querySelectorAll('[data-i18n]').forEach(el => {
                 const key = el.getAttribute('data-i18n');
                 if (t[key]) {
                     el.innerHTML = t[key];
                 }
             });
+            document.querySelectorAll('.otp-container .otp-input').forEach((input, index) => {
+                input.setAttribute('aria-label', t.otpDigitLabel.replace('{number}', String(index % 6 + 1)));
+            });
+            document.querySelectorAll('#backToSelectionBtn, #backFromRegisterBtn, #backFromEmailOtpBtn, #backFromPasswordResetRequestBtn, #backFromPasswordResetOtpBtn')
+                .forEach((button) => {
+                    button.setAttribute('aria-label', t.otpBack);
+                    button.title = t.otpBack;
+                });
+            const cancelPasswordReset = document.getElementById('cancelPasswordResetNewPasswordBtn');
+            cancelPasswordReset?.setAttribute('aria-label', t.cancel);
+            if (cancelPasswordReset) cancelPasswordReset.title = t.cancel;
+            const cancelGoogleProfile = document.getElementById('cancelGoogleProfileBtn');
+            cancelGoogleProfile?.setAttribute('aria-label', t.cancelGoogleProfile);
+            if (cancelGoogleProfile) cancelGoogleProfile.title = t.cancelGoogleProfile;
+            document.querySelectorAll('.password-requirements').forEach((requirements) => {
+                requirements.setAttribute('aria-label', t.passwordRule);
+            });
         }
         applyTranslations(); // Run on load
 
+        function bindPasswordVisibility(inputId, buttonId) {
+            const input = document.getElementById(inputId);
+            const button = document.getElementById(buttonId);
+            if (!input || !button) return;
+
+            const update = () => {
+                const hidden = input.type === 'password';
+                const t = authTranslations[currentLang] || authTranslations.en;
+                button.setAttribute('aria-pressed', String(!hidden));
+                button.setAttribute('aria-label', hidden ? t.showPassword : t.hidePassword);
+                button.title = hidden ? t.showPassword : t.hidePassword;
+                button.querySelector('i').className = hidden ? 'fa-regular fa-eye-slash' : 'fa-regular fa-eye';
+            };
+
+            button.addEventListener('click', () => {
+                input.type = input.type === 'password' ? 'text' : 'password';
+                update();
+                input.focus();
+            });
+            update();
+        }
+        bindPasswordVisibility('loginPassword', 'loginPasswordToggle');
+        bindPasswordVisibility('registerPassword', 'registerPasswordToggle');
+        bindPasswordVisibility('passwordResetNewPassword', 'passwordResetNewPasswordToggle');
+
+        function passwordRuleStatus(password) {
+            return {
+                length: password.length >= 8,
+                uppercase: /^[A-Z]/.test(password),
+                symbol: /[^\w\s]/.test(password)
+            };
+        }
+
+        function passwordMeetsPolicy(password) {
+            return Object.values(passwordRuleStatus(password)).every(Boolean);
+        }
+
+        function updatePasswordRequirements(passwordInputId, requirementsId) {
+            const password = document.getElementById(passwordInputId).value;
+            const rules = passwordRuleStatus(password);
+            const requirements = document.getElementById(requirementsId);
+            const isValid = Object.values(rules).every(Boolean);
+            if (isValid) requirements.classList.remove('has-error');
+            requirements.querySelectorAll('[data-password-rule]').forEach(rule => {
+                rule.classList.toggle('is-met', Boolean(rules[rule.dataset.passwordRule]));
+            });
+        }
+
+        function updateRegisterPasswordRequirements() {
+            updatePasswordRequirements('registerPassword', 'registerPasswordRequirements');
+        }
+
+        function updatePasswordResetRequirements() {
+            updatePasswordRequirements('passwordResetNewPassword', 'passwordResetNewPasswordRequirements');
+        }
+
+        function showRegisterPasswordRequirementsError() {
+            document.getElementById('registerPasswordRequirements').classList.add('has-error');
+            updateRegisterPasswordRequirements();
+        }
+
+        function showPasswordResetRequirementsError() {
+            document.getElementById('passwordResetNewPasswordRequirements').classList.add('has-error');
+            updatePasswordResetRequirements();
+        }
+
+        document.getElementById('registerPassword').addEventListener('input', updateRegisterPasswordRequirements);
+        document.getElementById('passwordResetNewPassword').addEventListener('input', updatePasswordResetRequirements);
+        updateRegisterPasswordRequirements();
+        updatePasswordResetRequirements();
+
+        function setFieldError(input, errorId, message) {
+            const error = document.getElementById(errorId);
+            if (input) input.setAttribute('aria-invalid', message ? 'true' : 'false');
+            if (error) error.textContent = message || '';
+        }
+
+        function validateNameFields(firstNameId, lastNameId, errorId) {
+            const t = authTranslations[currentLang] || authTranslations.en;
+            const firstName = document.getElementById(firstNameId);
+            const lastName = document.getElementById(lastNameId);
+            const firstValue = firstName.value.trim();
+            const lastValue = lastName.value.trim();
+            let message = '';
+            const allowedName = /^[\p{L}\p{M} .'’-]+$/u;
+            if (!firstValue || firstValue.length > 64 || !allowedName.test(firstValue)) message = t.invalidFirstName;
+            else if (!lastValue || lastValue.length > 64 || !allowedName.test(lastValue)) message = t.invalidLastName;
+            setFieldError(firstName, errorId, message);
+            if (lastName) lastName.setAttribute('aria-invalid', message ? 'true' : 'false');
+            return message ? null : { firstName: firstValue, lastName: lastValue };
+        }
+
+        function bindDigitsOnlyPhoneInput(inputId, errorId) {
+            const input = document.getElementById(inputId);
+            if (!input) return;
+            input.addEventListener('beforeinput', (event) => {
+                if (event.inputType?.startsWith('delete') || !event.data) return;
+                if (!/^\d+$/.test(event.data)) {
+                    event.preventDefault();
+                    setFieldError(input, errorId, (authTranslations[currentLang] || authTranslations.en).phoneDigitsOnly);
+                }
+            });
+            input.addEventListener('paste', (event) => {
+                const pasted = event.clipboardData?.getData('text') || '';
+                if (pasted && !/^\d+$/.test(pasted)) {
+                    event.preventDefault();
+                    setFieldError(input, errorId, (authTranslations[currentLang] || authTranslations.en).phoneDigitsOnly);
+                }
+            });
+            input.addEventListener('input', () => {
+                if (!/^\d*$/.test(input.value)) {
+                    input.value = input.value.replace(/\D/g, '');
+                    setFieldError(input, errorId, (authTranslations[currentLang] || authTranslations.en).phoneDigitsOnly);
+                } else {
+                    setFieldError(input, errorId, '');
+                }
+            });
+        }
+
+        async function validatePhoneField(countryIsoId, phoneId, errorId) {
+            const t = authTranslations[currentLang] || authTranslations.en;
+            const countryIso = document.getElementById(countryIsoId).value.trim();
+            const phoneInput = document.getElementById(phoneId);
+            const countryTrigger = phoneInput.closest('.phone-row')?.querySelector('.custom-select-trigger');
+            const phoneNumber = phoneInput.value.trim();
+            if (!countryIso) {
+                if (countryTrigger) countryTrigger.setAttribute('aria-invalid', 'true');
+                setFieldError(phoneInput, errorId, t.countryRequired);
+                return null;
+            }
+            if (countryTrigger) countryTrigger.setAttribute('aria-invalid', 'false');
+            if (!phoneNumber || !/^\d+$/.test(phoneNumber)) {
+                setFieldError(phoneInput, errorId, phoneNumber ? t.phoneDigitsOnly : t.invalidPhone);
+                return null;
+            }
+            try {
+                const response = await fetch('/api/phone/validate', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({country_iso: countryIso, phone_number: phoneNumber})
+                });
+                const data = await response.json().catch(() => ({}));
+                if (response.status === 404) {
+                    // A server deployed before this form's validation endpoint should
+                    // not make a valid number look invalid to the person registering.
+                    setFieldError(phoneInput, errorId, t.phoneValidationUnavailable);
+                    return null;
+                }
+                if (!response.ok || data.status !== 'success') {
+                    setFieldError(phoneInput, errorId, t.phoneInvalidForCountry);
+                    return null;
+                }
+                setFieldError(phoneInput, errorId, '');
+                return data;
+            } catch (error) {
+                setFieldError(phoneInput, errorId, t.networkError);
+                return null;
+            }
+        }
+
+        bindDigitsOnlyPhoneInput('registerPhone', 'registerPhoneError');
+        bindDigitsOnlyPhoneInput('googleProfilePhone', 'googleProfilePhoneError');
+        document.getElementById('registerPhoneCountrySelect').addEventListener('countrychange', () => {
+            document.getElementById('registerPhoneCountryTrigger').setAttribute('aria-invalid', 'false');
+            setFieldError(document.getElementById('registerPhone'), 'registerPhoneError', '');
+        });
+        document.getElementById('phoneCountrySelect').addEventListener('countrychange', () => {
+            document.getElementById('phoneCountryTrigger').setAttribute('aria-invalid', 'false');
+            setFieldError(document.getElementById('googleProfilePhone'), 'googleProfilePhoneError', '');
+        });
+
         // Transition Logic
         const stepSelection = document.getElementById('stepSelection');
-        const stepEmailForm = document.getElementById('stepEmailForm');
+        const stepLoginForm = document.getElementById('stepLoginForm');
+        const stepRegisterForm = document.getElementById('stepRegisterForm');
+        const stepEmailOtpForm = document.getElementById('stepEmailOtpForm');
+        const stepPasswordResetRequest = document.getElementById('stepPasswordResetRequest');
+        const stepPasswordResetOtp = document.getElementById('stepPasswordResetOtp');
+        const stepPasswordResetNewPassword = document.getElementById('stepPasswordResetNewPassword');
         const stepGoogleProfileForm = document.getElementById('stepGoogleProfileForm');
+        const loginSelectionPanel = document.getElementById('loginSelectionPanel');
+        const registerSelectionPanel = document.getElementById('registerSelectionPanel');
         const PROFILE_SKIP_KEY = 'pepperSkipGoogleProfileCompletion';
+        let activeAuthMode = 'login';
+        let modeTransitionToken = 0;
+        let authStepTransitionToken = 0;
+        let formEntranceToken = 0;
+        let animateNextHistoryTransition = false;
+
+        function motionIsReduced() {
+            return Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+        }
+
+        function afterVisualMotion(element, callback, { subtree = true } = {}) {
+            if (!element || motionIsReduced()) {
+                window.queueMicrotask(callback);
+                return;
+            }
+            window.requestAnimationFrame(() => {
+                const animations = typeof element.getAnimations === 'function'
+                    ? element.getAnimations({ subtree }).filter((animation) => animation.playState !== 'finished')
+                    : [];
+                if (!animations.length) {
+                    window.queueMicrotask(callback);
+                    return;
+                }
+                let finished = false;
+                const finish = () => {
+                    if (finished) return;
+                    finished = true;
+                    callback();
+                };
+                Promise.allSettled(animations.map((animation) => animation.finished)).then(finish);
+                // Lifecycle changes can cancel events/promises. This guard is
+                // deliberately longer than every auth animation and never cuts one short.
+                window.setTimeout(finish, 1600);
+            });
+        }
+
+        function canAutoFocusAuthControl() {
+            return Boolean(window.matchMedia?.('(hover: hover) and (pointer: fine)').matches);
+        }
+
+        function focusAfterStepEntrance(step, control, { animate = true } = {}) {
+            if (!control || !canAutoFocusAuthControl()) return;
+            const focus = () => {
+                if (!step.classList.contains('hidden') && !control.disabled) control.focus({ preventScroll: true });
+            };
+            if (animate) afterVisualMotion(step, focus);
+            else window.requestAnimationFrame(focus);
+        }
+
+        function requestedAuthMode() {
+            return new URLSearchParams(window.location.search).get('mode') === 'register' ? 'register' : 'login';
+        }
+
+        function updateAuthModeUrl(mode, replace = false) {
+            const url = new URL(window.location.href);
+            url.searchParams.set('mode', mode);
+            url.searchParams.delete('step');
+            window.history[replace ? 'replaceState' : 'pushState']({}, '', `${url.pathname}${url.search}${url.hash}`);
+        }
+
+        function hasEmailFormIntent() {
+            return new URLSearchParams(window.location.search || '').get('step') === 'email';
+        }
+
+        function updateEmailFormUrl(mode, { replace = false } = {}) {
+            const url = new URL(window.location.href);
+            const nextMode = mode === 'register' ? 'register' : 'login';
+            url.searchParams.set('mode', nextMode);
+            url.searchParams.set('step', 'email');
+            url.searchParams.delete('reset');
+            url.searchParams.delete('verify');
+            url.searchParams.delete('from');
+            window.history[replace ? 'replaceState' : 'pushState'](
+                { authStep: 'email-form', mode: nextMode },
+                '',
+                `${url.pathname}${url.search}${url.hash}`,
+            );
+        }
+
+        function clearEmailFormUrl(mode, { replace = true } = {}) {
+            const url = new URL(window.location.href);
+            url.searchParams.set('mode', mode === 'register' ? 'register' : 'login');
+            url.searchParams.delete('step');
+            window.history[replace ? 'replaceState' : 'pushState']({}, '', `${url.pathname}${url.search}${url.hash}`);
+        }
+
+        function setAuthMode(mode, { animate = true, updateUrl = true, replaceUrl = false } = {}) {
+            const nextMode = mode === 'register' ? 'register' : 'login';
+            const transitionToken = ++modeTransitionToken;
+            loginSelectionPanel.classList.remove('mode-exiting');
+            registerSelectionPanel.classList.remove('mode-exiting');
+            const outgoing = activeAuthMode === 'register' ? registerSelectionPanel : loginSelectionPanel;
+            const incoming = nextMode === 'register' ? registerSelectionPanel : loginSelectionPanel;
+
+            if (activeAuthMode === nextMode && !outgoing.classList.contains('hidden')) {
+                if (updateUrl) updateAuthModeUrl(nextMode, replaceUrl);
+                return;
+            }
+
+            activeAuthMode = nextMode;
+            if (updateUrl) updateAuthModeUrl(nextMode, replaceUrl);
+
+            const revealIncoming = () => {
+                if (transitionToken !== modeTransitionToken || activeAuthMode !== nextMode) return;
+                outgoing.classList.add('hidden');
+                outgoing.classList.remove('mode-exiting');
+                incoming.classList.remove('hidden');
+                if (animate) {
+                    void incoming.offsetWidth;
+                    incoming.classList.add('mode-entering');
+                    afterVisualMotion(incoming, () => {
+                        if (transitionToken === modeTransitionToken) incoming.classList.remove('mode-entering');
+                    });
+                }
+            };
+
+            if (animate && !outgoing.classList.contains('hidden')) {
+                outgoing.classList.add('mode-exiting');
+                afterVisualMotion(outgoing, revealIncoming, { subtree: false });
+            } else {
+                revealIncoming();
+            }
+        }
+
+        function playFormEntrance(step) {
+            const entranceToken = ++formEntranceToken;
+            step.classList.remove('form-entering', 'form-exiting');
+            if (motionIsReduced()) return;
+            void step.offsetWidth;
+            step.classList.add('form-entering');
+            afterVisualMotion(step, () => {
+                if (entranceToken === formEntranceToken) step.classList.remove('form-entering');
+            });
+        }
+
+        function transitionToStep(formStep, { animate = true } = {}) {
+            const transitionToken = ++authStepTransitionToken;
+            const outgoing = [
+                stepSelection, stepLoginForm, stepRegisterForm, stepEmailOtpForm,
+                stepPasswordResetRequest, stepPasswordResetOtp,
+                stepPasswordResetNewPassword, stepGoogleProfileForm,
+            ]
+                .find(step => step !== formStep && !step.classList.contains('hidden'));
+            const revealForm = () => {
+                if (transitionToken !== authStepTransitionToken) return;
+                if (outgoing) outgoing.classList.add('hidden');
+                outgoing?.classList.remove('form-entering', 'form-exiting');
+                formStep.classList.remove('hidden');
+                if (animate) playFormEntrance(formStep);
+                else formStep.classList.remove('form-entering', 'form-exiting');
+            };
+
+            if (animate && outgoing && !motionIsReduced()) {
+                outgoing.classList.remove('form-entering');
+                outgoing.classList.add('form-exiting');
+                afterVisualMotion(outgoing, revealForm, { subtree: false });
+            } else {
+                revealForm();
+            }
+        }
+
+        function showFormStep(formStep, { animate = true } = {}) {
+            document.body.classList.remove('profile-completion-active');
+            document.body.classList.add('email-form-active');
+            document.querySelector('.auth-box').classList.remove('profile-mode');
+            transitionToStep(formStep, { animate });
+        }
+
+        function backToSelection(fromStep, { animate = true } = {}) {
+            const transitionToken = ++authStepTransitionToken;
+            document.body.classList.remove('profile-completion-active', 'email-form-active');
+            document.querySelector('.auth-box').classList.remove('profile-mode');
+            fromStep.classList.remove('form-entering');
+            const revealSelection = () => {
+                if (transitionToken !== authStepTransitionToken) return;
+                fromStep.classList.add('hidden');
+                fromStep.classList.remove('form-exiting');
+                stepSelection.classList.remove('hidden');
+                if (animate) playFormEntrance(stepSelection);
+                else stepSelection.classList.remove('form-entering', 'form-exiting');
+            };
+            if (animate && !motionIsReduced()) {
+                fromStep.classList.add('form-exiting');
+                afterVisualMotion(fromStep, revealSelection, { subtree: false });
+            } else {
+                revealSelection();
+            }
+        }
 
         function leaveProfileCompletionForHome(event) {
+            // Keep every auth sub-step inside the same flow.  In particular, the
+            // brand link must not strand someone on the home page from email OTP.
+            if (!stepEmailOtpForm.classList.contains('hidden')) {
+                event.preventDefault();
+                returnFromEmailOtp();
+                return;
+            }
+            if (
+                !stepPasswordResetRequest.classList.contains('hidden')
+                || !stepPasswordResetOtp.classList.contains('hidden')
+                || !stepPasswordResetNewPassword.classList.contains('hidden')
+            ) {
+                event.preventDefault();
+                returnFromPasswordReset();
+                return;
+            }
             if (!document.body.classList.contains('profile-completion-active')) return;
             event.preventDefault();
             sessionStorage.removeItem('pepperCompleteGoogleProfile');
@@ -570,25 +1672,801 @@
 
         document.getElementById('logoHomeLink').addEventListener('click', leaveProfileCompletionForHome);
 
-        function openLoginForm() {
+        function openLoginForm({ animate = true, updateUrl = true, replaceUrl = false } = {}) {
             const t = authTranslations[currentLang] || authTranslations.en;
-            document.body.classList.remove('profile-completion-active');
-            document.body.classList.add('email-form-active');
-            document.querySelector('.auth-box').classList.remove('profile-mode');
             document.getElementById('loginFormTitle').innerHTML = t.title2;
             document.getElementById('loginIdentifierLabel').innerHTML = t.emailUser;
-            stepGoogleProfileForm.classList.add('hidden');
-            stepGoogleProfileForm.style.display = 'none';
-            stepSelection.classList.add('hidden');
-            setTimeout(() => {
-                stepSelection.style.display = 'none';
-                stepEmailForm.classList.remove('hidden');
-                stepEmailForm.style.display = 'block';
-            }, 300);
+            activeAuthMode = 'login';
+            if (updateUrl) updateEmailFormUrl('login', { replace: replaceUrl });
+            showFormStep(stepLoginForm, { animate });
+        }
+
+        function openRegisterForm({ animate = true, updateUrl = true, replaceUrl = false } = {}) {
+            const t = authTranslations[currentLang] || authTranslations.en;
+            document.getElementById('registerFormTitle').innerHTML = t.registerTitle2;
+            activeAuthMode = 'register';
+            if (window.MSMEProfileLocation) {
+                window.MSMEProfileLocation.initPhoneRegionForm({
+                    useStoredProfile: false,
+                    countryCodeInputId: 'registerCountryCode',
+                    countryInputId: 'registerCountry',
+                    countryIsoInputId: 'registerCountryIso',
+                    regionInputId: 'registerRegion',
+                    requireCountrySelection: true,
+                    countryPlaceholder: t.selectCountry,
+                    regionPlaceholder: t.selectRegion,
+                    phoneRootId: 'registerPhoneCountrySelect',
+                    phoneTriggerId: 'registerPhoneCountryTrigger',
+                    phoneFlagId: 'registerPhoneCountryFlag',
+                    phoneLabelId: 'registerPhoneCountryLabel',
+                    phoneMenuId: 'registerPhoneCountryMenu',
+                    regionRootId: 'registerRegionSelect',
+                    regionTriggerId: 'registerRegionTrigger',
+                    regionLabelId: 'registerRegionLabel',
+                    regionMenuId: 'registerRegionMenu'
+                });
+            }
+            if (updateUrl) updateEmailFormUrl('register', { replace: replaceUrl });
+            showFormStep(stepRegisterForm, { animate });
+        }
+
+        function returnFromEmailForm(step, mode, { animate = true } = {}) {
+            if (hasEmailFormIntent() && window.history.state?.authStep === 'email-form') {
+                animateNextHistoryTransition = animate;
+                window.history.back();
+                return;
+            }
+            clearEmailFormUrl(mode, { replace: true });
+            backToSelection(step, { animate });
+        }
+
+        const emailOtpInputs = [...document.querySelectorAll('#emailOtpInputs .otp-input')];
+        const emailOtpContainer = document.getElementById('emailOtpInputs');
+        const emailOtpError = document.getElementById('emailOtpError');
+        const EMAIL_OTP_RESEND_COOLDOWN_SECONDS = 60;
+        const EMAIL_OTP_ORIGIN_KEY = 'pendingEmailOtpOrigin';
+        let emailOtpCooldownTimer = null;
+        let emailOtpVerifying = false;
+
+        function pendingEmailVerificationId() {
+            return localStorage.getItem('pendingUserId') || '';
+        }
+
+        function normaliseEmailOtpOrigin(value) {
+            return value === 'login' ? 'login' : 'register';
+        }
+
+        function emailOtpOrigin() {
+            const params = new URLSearchParams(window.location.search || '');
+            return normaliseEmailOtpOrigin(params.get('from') || sessionStorage.getItem(EMAIL_OTP_ORIGIN_KEY));
+        }
+
+        function setEmailOtpOrigin(source) {
+            const normalised = normaliseEmailOtpOrigin(source);
+            sessionStorage.setItem(EMAIL_OTP_ORIGIN_KEY, normalised);
+            return normalised;
+        }
+
+        function hasEmailOtpIntent() {
+            const params = new URLSearchParams(window.location.search || '');
+            const pendingIdFromLegacyUrl = params.get('id');
+            if (pendingIdFromLegacyUrl) {
+                localStorage.setItem('pendingUserId', pendingIdFromLegacyUrl);
+                setEmailOtpOrigin(params.get('from'));
+                return true;
+            }
+            if (params.get('verify') === 'email') setEmailOtpOrigin(params.get('from'));
+            return params.get('verify') === 'email' && Boolean(pendingEmailVerificationId());
+        }
+
+        function updateEmailOtpUrl({ replace = false, source = emailOtpOrigin() } = {}) {
+            const normalisedSource = setEmailOtpOrigin(source);
+            const url = new URL(window.location.href);
+            url.searchParams.set('mode', 'register');
+            url.searchParams.set('verify', 'email');
+            url.searchParams.set('from', normalisedSource);
+            // The pending id remains in browser storage, rather than the address bar.
+            url.searchParams.delete('id');
+            window.history[replace ? 'replaceState' : 'pushState'](
+                { authStep: 'email-otp', from: normalisedSource },
+                '',
+                `${url.pathname}${url.search}${url.hash}`,
+            );
+        }
+
+        function clearEmailOtpUrl() {
+            const url = new URL(window.location.href);
+            url.searchParams.delete('verify');
+            url.searchParams.delete('id');
+            url.searchParams.delete('from');
+            window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+        }
+
+        function emailOtpCode() {
+            return emailOtpInputs.map(input => input.value).join('');
+        }
+
+        function showEmailOtpError(message = '', { success = false } = {}) {
+            emailOtpError.textContent = message;
+            emailOtpError.classList.toggle('is-success', Boolean(message) && success);
+        }
+
+        function clearEmailOtpInputs({ focus = false } = {}) {
+            emailOtpInputs.forEach(input => {
+                input.value = '';
+                input.classList.remove('filled');
+            });
+            if (focus) emailOtpInputs[0]?.focus();
+        }
+
+        function shakeEmailOtpInputs() {
+            emailOtpContainer.classList.remove('shake');
+            void emailOtpContainer.offsetWidth;
+            emailOtpContainer.classList.add('shake');
+        }
+
+        function emailOtpCooldownStorageKey(pendingId) {
+            return `emailOtpResendCooldownUntil:${pendingId}`;
+        }
+
+        function stopEmailOtpCooldown() {
+            if (emailOtpCooldownTimer) window.clearInterval(emailOtpCooldownTimer);
+            emailOtpCooldownTimer = null;
+        }
+
+        function setEmailOtpResendButton(remainingSeconds) {
+            const t = authTranslations[currentLang] || authTranslations.en;
+            const button = document.getElementById('emailOtpResendBtn');
+            const isCoolingDown = remainingSeconds > 0;
+            button.disabled = isCoolingDown || emailOtpVerifying;
+            button.textContent = isCoolingDown
+                ? t.otpResendIn.replace('{seconds}', String(remainingSeconds))
+                : t.otpResend;
+        }
+
+        function setEmailOtpBusy(isBusy) {
+            emailOtpVerifying = Boolean(isBusy);
+            emailOtpContainer.classList.toggle('verifying', emailOtpVerifying);
+            emailOtpContainer.setAttribute('aria-busy', String(emailOtpVerifying));
+            emailOtpInputs.forEach((input) => { input.disabled = emailOtpVerifying; });
+            document.getElementById('emailOtpVerifyBtn').disabled = emailOtpVerifying;
+            if (emailOtpVerifying) document.getElementById('emailOtpResendBtn').disabled = true;
+            else restoreEmailOtpCooldown();
+        }
+
+        function startEmailOtpCooldown(seconds) {
+            const pendingId = pendingEmailVerificationId();
+            if (!pendingId) return;
+            const expiresAt = Date.now() + Math.max(0, seconds) * 1000;
+            sessionStorage.setItem(emailOtpCooldownStorageKey(pendingId), String(expiresAt));
+            stopEmailOtpCooldown();
+            const render = () => {
+                const remaining = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+                setEmailOtpResendButton(remaining);
+                if (remaining === 0) {
+                    stopEmailOtpCooldown();
+                    sessionStorage.removeItem(emailOtpCooldownStorageKey(pendingId));
+                }
+            };
+            render();
+            if (expiresAt > Date.now()) emailOtpCooldownTimer = window.setInterval(render, 250);
+        }
+
+        function restoreEmailOtpCooldown() {
+            const pendingId = pendingEmailVerificationId();
+            if (!pendingId) return setEmailOtpResendButton(0);
+            const expiresAt = Number(sessionStorage.getItem(emailOtpCooldownStorageKey(pendingId)) || 0);
+            const remaining = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+            if (remaining) startEmailOtpCooldown(remaining);
+            else {
+                sessionStorage.removeItem(emailOtpCooldownStorageKey(pendingId));
+                stopEmailOtpCooldown();
+                setEmailOtpResendButton(0);
+            }
+        }
+
+        function returnFromEmailOtp({ updateUrl = true } = {}) {
+            const source = emailOtpOrigin();
+            setEmailOtpBusy(false);
+            stopEmailOtpCooldown();
+            sessionStorage.removeItem(EMAIL_OTP_ORIGIN_KEY);
+            showEmailOtpError('');
+            if (updateUrl) clearEmailOtpUrl();
+            if (source === 'login') {
+                const button = document.getElementById('loginSubmitBtn');
+                button.disabled = false;
+                button.textContent = (authTranslations[currentLang] || authTranslations.en).submit;
+                showFormStep(stepLoginForm);
+            } else {
+                const button = document.getElementById('registerSubmitBtn');
+                button.disabled = false;
+                button.textContent = (authTranslations[currentLang] || authTranslations.en).registerSubmit;
+                showFormStep(stepRegisterForm);
+            }
+        }
+
+        function openEmailOtpForm(userId, { animate = true, updateUrl = true, source, resendCooldownSeconds = 0 } = {}) {
+            const pendingId = userId || pendingEmailVerificationId();
+            if (!pendingId) return false;
+            localStorage.setItem('pendingUserId', pendingId);
+            const origin = setEmailOtpOrigin(source || emailOtpOrigin());
+            activeAuthMode = 'register';
+            if (updateUrl) updateEmailOtpUrl({ replace: !animate, source: origin });
+            const t = authTranslations[currentLang] || authTranslations.en;
+            document.getElementById('emailOtpTitle').textContent = t.otpTitle;
+            document.getElementById('emailOtpDescription').textContent = t.otpDescription;
+            document.getElementById('emailOtpVerifyBtn').textContent = t.otpVerify;
+            document.getElementById('emailOtpResendBtn').textContent = t.otpResend;
+            const backButton = document.getElementById('backFromEmailOtpBtn');
+            backButton.setAttribute('aria-label', t.otpBack);
+            backButton.title = t.otpBack;
+            showEmailOtpError('');
+            setEmailOtpBusy(false);
+            clearEmailOtpInputs();
+            showFormStep(stepEmailOtpForm, { animate });
+            if (resendCooldownSeconds > 0) startEmailOtpCooldown(resendCooldownSeconds);
+            else restoreEmailOtpCooldown();
+            focusAfterStepEntrance(stepEmailOtpForm, emailOtpInputs[0], { animate });
+            return true;
+        }
+
+        function distributeOtpDigits(inputs, rawValue, startIndex = 0) {
+            const digits = String(rawValue || '').replace(/\D/g, '').slice(0, inputs.length);
+            if (!digits) return false;
+            const firstIndex = digits.length >= inputs.length ? 0 : startIndex;
+            digits.split('').forEach((digit, offset) => {
+                const target = inputs[firstIndex + offset];
+                if (!target) return;
+                target.value = digit;
+                target.classList.add('filled');
+            });
+            const focusIndex = Math.min(firstIndex + digits.length - 1, inputs.length - 1);
+            inputs[focusIndex]?.focus({ preventScroll: true });
+            return true;
+        }
+
+        function bindOtpInputGroup(inputs, clearError) {
+            inputs.forEach((input, index) => {
+                input.addEventListener('beforeinput', (event) => {
+                    const digits = String(event.data || '').replace(/\D/g, '');
+                    if (digits.length > 1 || (event.inputType === 'insertReplacementText' && digits)) {
+                        event.preventDefault();
+                        clearError();
+                        inputs.forEach((item) => {
+                            item.value = '';
+                            item.classList.remove('filled');
+                        });
+                        distributeOtpDigits(inputs, digits, index);
+                    }
+                });
+                input.addEventListener('input', () => {
+                    const digits = input.value.replace(/\D/g, '');
+                    clearError();
+                    if (digits.length > 1) {
+                        inputs.forEach((item) => {
+                            item.value = '';
+                            item.classList.remove('filled');
+                        });
+                        distributeOtpDigits(inputs, digits, index);
+                        return;
+                    }
+                    input.value = digits.slice(0, 1);
+                    input.classList.toggle('filled', Boolean(input.value));
+                    if (input.value && inputs[index + 1]) inputs[index + 1].focus({ preventScroll: true });
+                });
+                input.addEventListener('keydown', (event) => {
+                    if (event.key === 'Backspace' && !input.value && inputs[index - 1]) {
+                        inputs[index - 1].focus({ preventScroll: true });
+                    }
+                });
+                input.addEventListener('paste', (event) => {
+                    const digits = (event.clipboardData?.getData('text') || '').replace(/\D/g, '').slice(0, inputs.length);
+                    if (!digits) return;
+                    event.preventDefault();
+                    clearError();
+                    inputs.forEach((item) => {
+                        item.value = '';
+                        item.classList.remove('filled');
+                    });
+                    distributeOtpDigits(inputs, digits, index);
+                });
+            });
+        }
+
+        bindOtpInputGroup(emailOtpInputs, () => showEmailOtpError(''));
+
+        function storeVerifiedEmailSession(data) {
+            localStorage.setItem('pepperSession', 'cookie');
+            localStorage.setItem('pepperUserId', data.user_id);
+            localStorage.setItem('pepperUsername', data.username);
+            if (data.display_name) localStorage.setItem('pepperDisplayName', data.display_name);
+            if (data.preferences?.language) localStorage.setItem('pepperLang', data.preferences.language);
+            localStorage.removeItem('pendingUserId');
+            sessionStorage.removeItem(EMAIL_OTP_ORIGIN_KEY);
+            stopEmailOtpCooldown();
+            clearEmailOtpUrl();
+        }
+
+        document.getElementById('emailOtpForm').addEventListener('submit', async event => {
+            event.preventDefault();
+            const t = authTranslations[currentLang] || authTranslations.en;
+            const pendingId = pendingEmailVerificationId();
+            const otp = emailOtpCode();
+            if (!pendingId || otp.length !== 6) {
+                shakeEmailOtpInputs();
+                showEmailOtpError(t.otpMissing);
+                return;
+            }
+            const button = document.getElementById('emailOtpVerifyBtn');
+            setEmailOtpBusy(true);
+            button.textContent = t.otpVerifying;
+            showEmailOtpError('');
+            try {
+                const response = await fetch('/api/verify-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: pendingId, otp })
+                });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok || data.status !== 'success') throw new Error(data.detail || t.otpFailed);
+                storeVerifiedEmailSession(data);
+                window.location.assign('/');
+            } catch (error) {
+                setEmailOtpBusy(false);
+                clearEmailOtpInputs({ focus: true });
+                shakeEmailOtpInputs();
+                showEmailOtpError(error.message || t.otpFailed);
+                button.disabled = false;
+                button.textContent = t.otpVerify;
+            }
+        });
+
+        document.getElementById('emailOtpResendBtn').addEventListener('click', async () => {
+            const t = authTranslations[currentLang] || authTranslations.en;
+            if (emailOtpVerifying || document.getElementById('emailOtpResendBtn').disabled) return;
+            const pendingId = pendingEmailVerificationId();
+            if (!pendingId) {
+                showEmailOtpError(t.otpFailed);
+                return;
+            }
+            // Start the visible cooldown before the request returns. If the
+            // network result is unknown, this still prevents duplicate sends.
+            startEmailOtpCooldown(EMAIL_OTP_RESEND_COOLDOWN_SECONDS);
+            try {
+                const response = await fetch('/api/resend-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: pendingId })
+                });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok || data.status !== 'resent') {
+                    const retryAfter = Number(data.retry_after || response.headers.get('Retry-After'));
+                    if (Number.isFinite(retryAfter) && retryAfter > 0) startEmailOtpCooldown(retryAfter);
+                    throw new Error(data.detail || t.otpFailed);
+                }
+                startEmailOtpCooldown(Number(data.resend_available_in) || EMAIL_OTP_RESEND_COOLDOWN_SECONDS);
+                clearEmailOtpInputs({ focus: true });
+                showEmailOtpError(t.otpResent, { success: true });
+            } catch (error) {
+                shakeEmailOtpInputs();
+                showEmailOtpError(error.message || t.otpFailed);
+            }
+        });
+
+        document.getElementById('backFromEmailOtpBtn').addEventListener('click', () => {
+            returnFromEmailOtp();
+        });
+
+        // Password reset stays in this same page, with its sensitive reset
+        // token held only in sessionStorage (never in the address bar).
+        const PASSWORD_RESET_ID_KEY = 'passwordResetId';
+        const PASSWORD_RESET_EMAIL_KEY = 'passwordResetEmail';
+        const PASSWORD_RESET_TOKEN_KEY = 'passwordResetToken';
+        let passwordResetCooldownTimer = null;
+        let passwordResetOtpVerifying = false;
+        const passwordResetOtpInputs = [...document.querySelectorAll('#passwordResetOtpInputs .otp-input')];
+        const passwordResetOtpContainer = document.getElementById('passwordResetOtpInputs');
+        const passwordResetOtpError = document.getElementById('passwordResetOtpError');
+
+        function passwordResetId() {
+            return sessionStorage.getItem(PASSWORD_RESET_ID_KEY) || '';
+        }
+
+        function passwordResetEmail() {
+            return sessionStorage.getItem(PASSWORD_RESET_EMAIL_KEY) || '';
+        }
+
+        function passwordResetUrlStep() {
+            return new URLSearchParams(window.location.search || '').get('reset') || '';
+        }
+
+        function hasPasswordResetIntent() {
+            const step = passwordResetUrlStep();
+            if (step === 'request') return true;
+            if (step === 'verify') return Boolean(passwordResetId());
+            if (step === 'password') return Boolean(passwordResetId() && sessionStorage.getItem(PASSWORD_RESET_TOKEN_KEY));
+            return false;
+        }
+
+        function updatePasswordResetUrl(step, { replace = false } = {}) {
+            const url = new URL(window.location.href);
+            url.searchParams.set('mode', 'login');
+            url.searchParams.set('reset', step);
+            url.searchParams.delete('verify');
+            url.searchParams.delete('from');
+            window.history[replace ? 'replaceState' : 'pushState']({}, '', `${url.pathname}${url.search}${url.hash}`);
+        }
+
+        function clearPasswordResetUrl({ replace = true } = {}) {
+            const url = new URL(window.location.href);
+            url.searchParams.delete('reset');
+            window.history[replace ? 'replaceState' : 'pushState']({}, '', `${url.pathname}${url.search}${url.hash}`);
+        }
+
+        function passwordResetCooldownStorageKey(resetId) {
+            return `passwordResetCooldown:${resetId}`;
+        }
+
+        function stopPasswordResetCooldown() {
+            if (passwordResetCooldownTimer) {
+                window.clearInterval(passwordResetCooldownTimer);
+                passwordResetCooldownTimer = null;
+            }
+        }
+
+        function setPasswordResetResendButton(remainingSeconds) {
+            const t = authTranslations[currentLang] || authTranslations.en;
+            const button = document.getElementById('passwordResetOtpResendBtn');
+            const isCoolingDown = remainingSeconds > 0;
+            button.disabled = isCoolingDown || passwordResetOtpVerifying;
+            button.textContent = isCoolingDown
+                ? t.otpResendIn.replace('{seconds}', String(remainingSeconds))
+                : t.resendResetCode;
+        }
+
+        function setPasswordResetOtpBusy(isBusy) {
+            passwordResetOtpVerifying = Boolean(isBusy);
+            passwordResetOtpContainer.classList.toggle('verifying', passwordResetOtpVerifying);
+            passwordResetOtpContainer.setAttribute('aria-busy', String(passwordResetOtpVerifying));
+            passwordResetOtpInputs.forEach((input) => { input.disabled = passwordResetOtpVerifying; });
+            document.getElementById('passwordResetOtpVerifyBtn').disabled = passwordResetOtpVerifying;
+            if (passwordResetOtpVerifying) document.getElementById('passwordResetOtpResendBtn').disabled = true;
+            else restorePasswordResetCooldown();
+        }
+
+        function startPasswordResetCooldown(seconds) {
+            const resetId = passwordResetId();
+            if (!resetId) return;
+            const expiresAt = Date.now() + Math.max(0, seconds) * 1000;
+            sessionStorage.setItem(passwordResetCooldownStorageKey(resetId), String(expiresAt));
+            stopPasswordResetCooldown();
+            const render = () => {
+                const remaining = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+                setPasswordResetResendButton(remaining);
+                if (remaining === 0) {
+                    stopPasswordResetCooldown();
+                    sessionStorage.removeItem(passwordResetCooldownStorageKey(resetId));
+                }
+            };
+            render();
+            if (expiresAt > Date.now()) passwordResetCooldownTimer = window.setInterval(render, 250);
+        }
+
+        function restorePasswordResetCooldown() {
+            const resetId = passwordResetId();
+            if (!resetId) return setPasswordResetResendButton(0);
+            const expiresAt = Number(sessionStorage.getItem(passwordResetCooldownStorageKey(resetId)) || 0);
+            const remaining = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+            if (remaining) startPasswordResetCooldown(remaining);
+            else {
+                sessionStorage.removeItem(passwordResetCooldownStorageKey(resetId));
+                stopPasswordResetCooldown();
+                setPasswordResetResendButton(0);
+            }
+        }
+
+        function showPasswordResetOtpError(message, { success = false } = {}) {
+            passwordResetOtpError.textContent = message || '';
+            passwordResetOtpError.classList.toggle('is-success', Boolean(message && success));
+        }
+
+        function passwordResetOtpCode() {
+            return passwordResetOtpInputs.map(input => input.value).join('');
+        }
+
+        function clearPasswordResetOtpInputs({ focus = false } = {}) {
+            passwordResetOtpInputs.forEach(input => {
+                input.value = '';
+                input.classList.remove('filled');
+            });
+            if (focus) passwordResetOtpInputs[0]?.focus();
+        }
+
+        function shakePasswordResetOtpInputs() {
+            passwordResetOtpContainer.classList.remove('shake');
+            void passwordResetOtpContainer.offsetWidth;
+            passwordResetOtpContainer.classList.add('shake');
+        }
+
+        function clearPasswordResetState({ keepEmail = false } = {}) {
+            const resetId = passwordResetId();
+            if (resetId) sessionStorage.removeItem(passwordResetCooldownStorageKey(resetId));
+            sessionStorage.removeItem(PASSWORD_RESET_ID_KEY);
+            sessionStorage.removeItem(PASSWORD_RESET_TOKEN_KEY);
+            if (!keepEmail) sessionStorage.removeItem(PASSWORD_RESET_EMAIL_KEY);
+            stopPasswordResetCooldown();
+            setPasswordResetOtpBusy(false);
+            const newPasswordInput = document.getElementById('passwordResetNewPassword');
+            if (newPasswordInput) newPasswordInput.value = '';
+            document.getElementById('passwordResetNewPasswordRequirements')?.classList.remove('has-error');
+            updatePasswordResetRequirements();
+        }
+
+        function openPasswordResetRequest({ animate = true, updateUrl = true, fresh = false } = {}) {
+            const t = authTranslations[currentLang] || authTranslations.en;
+            if (fresh) clearPasswordResetState({ keepEmail: true });
+            const emailInput = document.getElementById('passwordResetEmail');
+            const email = passwordResetEmail() || document.getElementById('loginUsername').value.trim();
+            if (email && !emailInput.value) emailInput.value = email;
+            document.getElementById('passwordResetRequestTitle').textContent = t.resetRequestTitle;
+            document.getElementById('passwordResetRequestDescription').textContent = t.resetRequestDescription;
+            const submitButton = document.getElementById('passwordResetRequestSubmitBtn');
+            submitButton.disabled = false;
+            submitButton.textContent = t.sendResetCode;
+            setFieldError(emailInput, 'passwordResetEmailError', '');
+            if (updateUrl) updatePasswordResetUrl('request', { replace: !animate });
+            showFormStep(stepPasswordResetRequest, { animate });
+            focusAfterStepEntrance(stepPasswordResetRequest, emailInput, { animate });
+        }
+
+        function openPasswordResetOtp({ animate = true, updateUrl = true, resendCooldownSeconds = 0 } = {}) {
+            const resetId = passwordResetId();
+            if (!resetId) {
+                openPasswordResetRequest({ animate, updateUrl });
+                return false;
+            }
+            const t = authTranslations[currentLang] || authTranslations.en;
+            document.getElementById('passwordResetOtpTitle').textContent = t.resetOtpTitle;
+            document.getElementById('passwordResetOtpDescription').textContent = t.resetOtpDescription;
+            const verifyButton = document.getElementById('passwordResetOtpVerifyBtn');
+            verifyButton.disabled = false;
+            verifyButton.textContent = t.verifyResetCode;
+            document.getElementById('passwordResetOtpResendBtn').textContent = t.resendResetCode;
+            const backButton = document.getElementById('backFromPasswordResetOtpBtn');
+            backButton.setAttribute('aria-label', t.otpBack);
+            backButton.title = t.otpBack;
+            showPasswordResetOtpError('');
+            setPasswordResetOtpBusy(false);
+            clearPasswordResetOtpInputs();
+            if (updateUrl) updatePasswordResetUrl('verify', { replace: !animate });
+            showFormStep(stepPasswordResetOtp, { animate });
+            if (resendCooldownSeconds > 0) startPasswordResetCooldown(resendCooldownSeconds);
+            else restorePasswordResetCooldown();
+            focusAfterStepEntrance(stepPasswordResetOtp, passwordResetOtpInputs[0], { animate });
+            return true;
+        }
+
+        function openPasswordResetNewPassword({ animate = true, updateUrl = true } = {}) {
+            if (!passwordResetId() || !sessionStorage.getItem(PASSWORD_RESET_TOKEN_KEY)) {
+                returnFromPasswordReset({ updateUrl });
+                return false;
+            }
+            const t = authTranslations[currentLang] || authTranslations.en;
+            document.getElementById('passwordResetNewPasswordTitle').textContent = t.resetPasswordTitle;
+            document.getElementById('passwordResetNewPasswordDescription').textContent = t.resetPasswordDescription;
+            const submitButton = document.getElementById('passwordResetNewPasswordSubmitBtn');
+            submitButton.disabled = false;
+            submitButton.textContent = t.updatePassword;
+            updatePasswordResetRequirements();
+            if (updateUrl) updatePasswordResetUrl('password', { replace: !animate });
+            showFormStep(stepPasswordResetNewPassword, { animate });
+            focusAfterStepEntrance(stepPasswordResetNewPassword, document.getElementById('passwordResetNewPassword'), { animate });
+            return true;
+        }
+
+        function returnFromPasswordReset({ updateUrl = true } = {}) {
+            const email = passwordResetEmail();
+            clearPasswordResetState();
+            showPasswordResetOtpError('');
+            setFieldError(document.getElementById('passwordResetEmail'), 'passwordResetEmailError', '');
+            if (email) document.getElementById('loginUsername').value = email;
+            if (updateUrl) clearPasswordResetUrl();
+            const button = document.getElementById('loginSubmitBtn');
+            button.disabled = false;
+            button.textContent = (authTranslations[currentLang] || authTranslations.en).submit;
+            showFormStep(stepLoginForm);
+        }
+
+        function returnToPasswordResetRequest({ updateUrl = true } = {}) {
+            const email = passwordResetEmail();
+            clearPasswordResetState({ keepEmail: true });
+            if (email) document.getElementById('passwordResetEmail').value = email;
+            openPasswordResetRequest({ updateUrl, animate: true });
+        }
+
+        function passwordResetErrorText(message, fallback) {
+            const t = authTranslations[currentLang] || authTranslations.en;
+            const value = String(message || '');
+            if (/valid email address/i.test(value)) return t.resetInvalidEmail;
+            if (/expired|start (again|a new reset)|reset session/i.test(value)) return t.resetExpired;
+            if (/invalid.*(verification|code)|verification code/i.test(value)) return t.otpFailed;
+            return value || fallback;
+        }
+
+        bindOtpInputGroup(passwordResetOtpInputs, () => showPasswordResetOtpError(''));
+
+        document.getElementById('passwordResetRequestForm').addEventListener('submit', async event => {
+            event.preventDefault();
+            const t = authTranslations[currentLang] || authTranslations.en;
+            const emailInput = document.getElementById('passwordResetEmail');
+            const email = emailInput.value.trim().toLowerCase();
+            if (!email || !emailInput.checkValidity()) {
+                setFieldError(emailInput, 'passwordResetEmailError', t.resetInvalidEmail);
+                emailInput.focus();
+                return;
+            }
+            const button = document.getElementById('passwordResetRequestSubmitBtn');
+            button.disabled = true;
+            button.textContent = t.sendingResetCode;
+            setFieldError(emailInput, 'passwordResetEmailError', '');
+            try {
+                const response = await fetch('/api/password-reset/request', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, language: currentLang }),
+                });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok || data.status !== 'pending' || !data.reset_id) {
+                    throw new Error(data.detail || t.networkError);
+                }
+                sessionStorage.setItem(PASSWORD_RESET_ID_KEY, data.reset_id);
+                sessionStorage.setItem(PASSWORD_RESET_EMAIL_KEY, email);
+                sessionStorage.removeItem(PASSWORD_RESET_TOKEN_KEY);
+                showToast(t.resetRequestSent, false);
+                openPasswordResetOtp({
+                    resendCooldownSeconds: Number(data.resend_available_in) || EMAIL_OTP_RESEND_COOLDOWN_SECONDS,
+                });
+            } catch (error) {
+                setFieldError(emailInput, 'passwordResetEmailError', passwordResetErrorText(error.message, t.networkError));
+                button.disabled = false;
+                button.textContent = t.sendResetCode;
+            }
+        });
+
+        document.getElementById('passwordResetOtpForm').addEventListener('submit', async event => {
+            event.preventDefault();
+            const t = authTranslations[currentLang] || authTranslations.en;
+            const resetId = passwordResetId();
+            const otp = passwordResetOtpCode();
+            if (!resetId || otp.length !== 6) {
+                shakePasswordResetOtpInputs();
+                showPasswordResetOtpError(t.otpMissing);
+                return;
+            }
+            const button = document.getElementById('passwordResetOtpVerifyBtn');
+            setPasswordResetOtpBusy(true);
+            button.textContent = t.verifyingResetCode;
+            showPasswordResetOtpError('');
+            try {
+                const response = await fetch('/api/password-reset/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reset_id: resetId, otp }),
+                });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok || data.status !== 'verified' || !data.reset_token) {
+                    throw new Error(data.detail || t.otpFailed);
+                }
+                sessionStorage.setItem(PASSWORD_RESET_TOKEN_KEY, data.reset_token);
+                stopPasswordResetCooldown();
+                openPasswordResetNewPassword();
+            } catch (error) {
+                setPasswordResetOtpBusy(false);
+                clearPasswordResetOtpInputs({ focus: true });
+                shakePasswordResetOtpInputs();
+                showPasswordResetOtpError(passwordResetErrorText(error.message, t.otpFailed));
+                button.disabled = false;
+                button.textContent = t.verifyResetCode;
+            }
+        });
+
+        document.getElementById('passwordResetOtpResendBtn').addEventListener('click', async () => {
+            const t = authTranslations[currentLang] || authTranslations.en;
+            if (passwordResetOtpVerifying || document.getElementById('passwordResetOtpResendBtn').disabled) return;
+            const resetId = passwordResetId();
+            if (!resetId) {
+                returnToPasswordResetRequest();
+                return;
+            }
+            startPasswordResetCooldown(EMAIL_OTP_RESEND_COOLDOWN_SECONDS);
+            try {
+                const response = await fetch('/api/password-reset/resend', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reset_id: resetId }),
+                });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok || data.status !== 'resent') {
+                    const retryAfter = Number(data.retry_after || response.headers.get('Retry-After'));
+                    if (Number.isFinite(retryAfter) && retryAfter > 0) startPasswordResetCooldown(retryAfter);
+                    throw new Error(data.detail || t.otpFailed);
+                }
+                startPasswordResetCooldown(Number(data.resend_available_in) || EMAIL_OTP_RESEND_COOLDOWN_SECONDS);
+                clearPasswordResetOtpInputs({ focus: true });
+                showPasswordResetOtpError(t.otpResent, { success: true });
+            } catch (error) {
+                shakePasswordResetOtpInputs();
+                showPasswordResetOtpError(passwordResetErrorText(error.message, t.otpFailed));
+            }
+        });
+
+        document.getElementById('passwordResetNewPasswordForm').addEventListener('submit', async event => {
+            event.preventDefault();
+            const t = authTranslations[currentLang] || authTranslations.en;
+            const password = document.getElementById('passwordResetNewPassword').value;
+            if (!passwordMeetsPolicy(password)) {
+                showPasswordResetRequirementsError();
+                showToast(t.passwordRule, true);
+                return;
+            }
+            const resetId = passwordResetId();
+            const resetToken = sessionStorage.getItem(PASSWORD_RESET_TOKEN_KEY) || '';
+            if (!resetId || !resetToken) {
+                returnFromPasswordReset();
+                showToast(t.resetExpired, true);
+                return;
+            }
+            const button = document.getElementById('passwordResetNewPasswordSubmitBtn');
+            button.disabled = true;
+            button.textContent = t.updatingPassword;
+            try {
+                const response = await fetch('/api/password-reset/complete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reset_id: resetId, reset_token: resetToken, new_password: password }),
+                });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok || data.status !== 'success') {
+                    throw new Error(data.detail || t.resetExpired);
+                }
+                const email = passwordResetEmail();
+                document.getElementById('passwordResetNewPassword').value = '';
+                updatePasswordResetRequirements();
+                clearPasswordResetState();
+                if (email) document.getElementById('loginUsername').value = email;
+                clearPasswordResetUrl();
+                showFormStep(stepLoginForm);
+                showToast(t.passwordUpdated, false);
+            } catch (error) {
+                if (/expired|start again/i.test(error.message || '')) {
+                    returnFromPasswordReset();
+                    showToast(t.resetExpired, true);
+                    return;
+                }
+                showToast(passwordResetErrorText(error.message, t.networkError), true);
+                button.disabled = false;
+                button.textContent = t.updatePassword;
+            }
+        });
+
+        document.getElementById('openPasswordResetBtn').addEventListener('click', () => {
+            const email = document.getElementById('loginUsername').value.trim().toLowerCase();
+            if (email) sessionStorage.setItem(PASSWORD_RESET_EMAIL_KEY, email);
+            openPasswordResetRequest({ fresh: true });
+        });
+        document.getElementById('backFromPasswordResetRequestBtn').addEventListener('click', () => returnFromPasswordReset());
+        document.getElementById('backFromPasswordResetOtpBtn').addEventListener('click', () => returnToPasswordResetRequest());
+        document.getElementById('cancelPasswordResetNewPasswordBtn').addEventListener('click', () => returnFromPasswordReset());
+
+        function splitDisplayNameForForm(value) {
+            const parts = (value || '').trim().split(/\s+/, 2);
+            return { firstName: parts[0] || '', lastName: parts[1] || '' };
         }
 
         function openGoogleProfileForm() {
-            const nameInput = document.getElementById('googleProfileName');
+            const t = authTranslations[currentLang] || authTranslations.en;
+            const firstNameInput = document.getElementById('googleProfileFirstName');
+            const lastNameInput = document.getElementById('googleProfileLastName');
             const countryCodeInput = document.getElementById('googleProfileCountryCode');
             const countryInput = document.getElementById('googleProfileCountry');
             const regionInput = document.getElementById('googleProfileRegion');
@@ -598,7 +2476,9 @@
             document.body.classList.add('profile-completion-active');
             document.body.classList.remove('email-form-active');
             document.querySelector('.auth-box').classList.add('profile-mode');
-            if (nameInput) nameInput.value = localStorage.getItem('pepperDisplayName') || '';
+            const profileName = splitDisplayNameForForm(localStorage.getItem('pepperDisplayName'));
+            if (firstNameInput) firstNameInput.value = profileName.firstName;
+            if (lastNameInput) lastNameInput.value = profileName.lastName;
             if (countryCodeInput) countryCodeInput.value = storedCountryCode || '+60';
             if (countryInput) countryInput.value = storedCountry || 'Malaysia';
             if (regionInput) regionInput.value = storedRegion;
@@ -606,18 +2486,25 @@
                 window.MSMEProfileLocation.initGoogleProfileLocationForm({
                     preferredCountryCode: storedCountryCode,
                     preferredCountry: storedCountry,
-                    preferredRegion: storedRegion
+                    preferredRegion: storedRegion,
+                    countryIsoInputId: 'googleProfileCountryIso',
+                    requireCountrySelection: true,
+                    countryPlaceholder: t.selectCountry,
+                    regionPlaceholder: t.selectRegion
                 });
             } else if (regionInput && !regionInput.value) {
                 regionInput.value = 'Malaysia - Selangor';
             }
 
             stepSelection.classList.add('hidden');
-            stepEmailForm.classList.add('hidden');
-            stepSelection.style.display = 'none';
-            stepEmailForm.style.display = 'none';
+            stepLoginForm.classList.add('hidden');
+            stepRegisterForm.classList.add('hidden');
+            stepEmailOtpForm.classList.add('hidden');
+            stepPasswordResetRequest.classList.add('hidden');
+            stepPasswordResetOtp.classList.add('hidden');
+            stepPasswordResetNewPassword.classList.add('hidden');
             stepGoogleProfileForm.classList.remove('hidden');
-            stepGoogleProfileForm.style.display = 'block';
+            playFormEntrance(stepGoogleProfileForm);
         }
 
         function hasGoogleProfileCompletionIntent() {
@@ -638,6 +2525,34 @@
             localStorage.setItem('pepperRequiresProfileCompletion', 'false');
         }
 
+        async function cancelGoogleProfileCompletion() {
+            const button = document.getElementById('cancelGoogleProfileBtn');
+            if (button?.disabled) return;
+            if (button) button.disabled = true;
+            try {
+                await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
+            } catch (error) {
+                console.warn('Could not confirm Google profile sign-out with the server', error);
+            } finally {
+                [
+                    'pepperSession', 'pepperUserId', 'pepperUsername', 'pepperDisplayName',
+                    'pepperGoogleLinked', 'pepperAuthProvider', 'pepperGoogleEmail', 'pepperAvatar',
+                    'pepperPhone', 'pepperPhoneCountryCode', 'pepperCountry', 'pepperCountryIso',
+                    'pepperRegion', 'pepperRequiresProfileCompletion'
+                ].forEach((key) => localStorage.removeItem(key));
+                sessionStorage.removeItem('pepperCompleteGoogleProfile');
+                sessionStorage.removeItem(PROFILE_SKIP_KEY);
+                sessionStorage.removeItem('pepperGoogleFullscreenAuth');
+                localStorage.removeItem('pepperGoogleFullscreenAuth');
+                const url = new URL(window.location.href);
+                url.search = '';
+                url.searchParams.set('mode', 'login');
+                window.location.replace(`${url.pathname}${url.search}`);
+            }
+        }
+
+        document.getElementById('cancelGoogleProfileBtn').addEventListener('click', cancelGoogleProfileCompletion);
+
         async function redirectIncompleteGoogleProfileFromServer() {
             const token = localStorage.getItem('pepperSession');
             if (!token) return;
@@ -649,7 +2564,8 @@
                 if (!res.ok) return;
                 const data = await res.json();
                 if (data.display_name) localStorage.setItem('pepperDisplayName', data.display_name);
-                if (data.phone_country_code) localStorage.setItem('pepperPhoneCountryCode', data.phone_country_code);
+                if (data.country_code || data.phone_country_code) localStorage.setItem('pepperPhoneCountryCode', data.country_code || data.phone_country_code);
+                if (data.country_iso) localStorage.setItem('pepperCountryIso', data.country_iso);
                 if (data.region) localStorage.setItem('pepperRegion', data.region);
                 if (data.requires_profile_completion) {
                     sessionStorage.setItem('pepperCompleteGoogleProfile', '1');
@@ -668,23 +2584,96 @@
             openLoginForm();
         });
 
-        document.getElementById('backToSelectionBtn').addEventListener('click', () => {
-            document.body.classList.remove('profile-completion-active');
-            document.body.classList.remove('email-form-active');
-            document.querySelector('.auth-box').classList.remove('profile-mode');
-            stepEmailForm.classList.add('hidden');
-            setTimeout(() => {
-                stepEmailForm.style.display = 'none';
-                stepSelection.classList.remove('hidden');
-                stepSelection.style.display = 'block';
-            }, 300);
+        document.getElementById('openRegisterEmailFormBtn').addEventListener('click', () => {
+            openRegisterForm();
         });
+
+        document.getElementById('backToSelectionBtn').addEventListener('click', () => {
+            returnFromEmailForm(stepLoginForm, 'login');
+        });
+
+        document.getElementById('backFromRegisterBtn').addEventListener('click', () => {
+            returnFromEmailForm(stepRegisterForm, 'register');
+        });
+
+        document.getElementById('switchToRegisterLink').addEventListener('click', (event) => {
+            event.preventDefault();
+            setAuthMode('register');
+        });
+
+        document.getElementById('switchToLoginLink').addEventListener('click', (event) => {
+            event.preventDefault();
+            setAuthMode('login');
+        });
+
+        window.addEventListener('popstate', () => {
+            const animateHistoryTransition = animateNextHistoryTransition;
+            animateNextHistoryTransition = false;
+            if (hasPasswordResetIntent()) {
+                const resetStep = passwordResetUrlStep();
+                if (resetStep === 'request') openPasswordResetRequest({ animate: false, updateUrl: false });
+                else if (resetStep === 'verify') openPasswordResetOtp({ animate: false, updateUrl: false });
+                else openPasswordResetNewPassword({ animate: false, updateUrl: false });
+            } else if (hasEmailOtpIntent()) {
+                openEmailOtpForm(null, { animate: false, updateUrl: false });
+            } else if (hasEmailFormIntent()) {
+                if (
+                    !stepPasswordResetRequest.classList.contains('hidden')
+                    || !stepPasswordResetOtp.classList.contains('hidden')
+                    || !stepPasswordResetNewPassword.classList.contains('hidden')
+                ) {
+                    returnFromPasswordReset({ updateUrl: false });
+                    return;
+                }
+                if (!stepEmailOtpForm.classList.contains('hidden')) {
+                    returnFromEmailOtp({ updateUrl: false });
+                    return;
+                }
+                const mode = requestedAuthMode();
+                setAuthMode(mode, { animate: false, updateUrl: false });
+                if (mode === 'register') openRegisterForm({ animate: false, updateUrl: false });
+                else openLoginForm({ animate: false, updateUrl: false });
+            } else if (
+                !stepPasswordResetRequest.classList.contains('hidden')
+                || !stepPasswordResetOtp.classList.contains('hidden')
+                || !stepPasswordResetNewPassword.classList.contains('hidden')
+            ) {
+                returnFromPasswordReset({ updateUrl: false });
+            } else if (!stepEmailOtpForm.classList.contains('hidden')) {
+                // Back from the OTP history entry returns to the form that
+                // initiated it, without losing the values still in the DOM.
+                returnFromEmailOtp({ updateUrl: false });
+            } else if (!stepLoginForm.classList.contains('hidden')) {
+                backToSelection(stepLoginForm, { animate: animateHistoryTransition });
+                setAuthMode(requestedAuthMode(), { animate: false, updateUrl: false });
+            } else if (!stepRegisterForm.classList.contains('hidden')) {
+                backToSelection(stepRegisterForm, { animate: animateHistoryTransition });
+                setAuthMode(requestedAuthMode(), { animate: false, updateUrl: false });
+            } else {
+                setAuthMode(requestedAuthMode(), { animate: false, updateUrl: false });
+            }
+        });
+        setAuthMode(requestedAuthMode(), { animate: false, updateUrl: false });
 
         // Toast logic
         const toastBox = document.getElementById('toastBox');
         const toastMsg = document.getElementById('toastMsg');
         function showToast(msg, isError=false) {
-            toastMsg.innerText = msg;
+            const t = authTranslations[currentLang] || authTranslations.en;
+            const translated = {
+                'Network error.': t.networkError,
+                'Google OAuth 模块加载中，请稍后再试。': t.googleOAuthLoading,
+                'Password must contain at least 8 characters': t.passwordRule,
+                'Password must start with an uppercase letter': t.passwordRule,
+                'Password must contain at least one special character': t.passwordRule,
+                'Invalid username or password': t.invalidCredentials,
+                'Username already taken': t.usernameTaken,
+                'Phone number already registered': t.phoneAlreadyRegistered,
+                'This email is already registered with Google. Please log in with Google.': t.googleEmailRegistered
+            }[msg] || msg;
+            toastMsg.innerText = currentLang !== 'en' && /^[\x00-\x7F]+$/.test(translated) ? t.genericError : translated;
+            toastBox.setAttribute('role', isError ? 'alert' : 'status');
+            toastBox.setAttribute('aria-live', isError ? 'assertive' : 'polite');
             toastBox.className = 'toast show ' + (isError ? 'error' : '');
             setTimeout(() => { toastBox.classList.remove('show'); }, 4000);
         }
@@ -705,24 +2694,39 @@
         }
 
         // Form Submit Logic
-        let googleOAuthClientId = '685645444928-ivt7lgsjiatv0ff0r68ckmbln1rdrrm4.apps.googleusercontent.com';
+        let googleOAuthClientId = '';
         let googleLoginRedirectUriValue = '';
+        let googleAuthInFlight = false;
+        const GOOGLE_REDIRECT_FALLBACK_KEY = 'pepperGoogleRedirectFallbackAt';
+        function canonicalBrowserOrigin() {
+            const url = new URL(window.location.href);
+            if (url.hostname.toLowerCase() === 'bisnes.ai.') url.hostname = 'bisnes.ai';
+            return url.origin;
+        }
         function googleLoginRedirectUri() {
-            return googleLoginRedirectUriValue || new URL('/', window.location.origin).href;
+            return googleLoginRedirectUriValue || new URL('/', canonicalBrowserOrigin()).href;
         }
         async function loadPublicConfig() {
-            try {
-                const res = await fetch('/api/public-config', { cache: 'no-store' });
-                if (!res.ok) return;
-                const data = await res.json();
-                const loginClientId = data.google_login_oauth_client_id || data.google_oauth_client_id;
-                if (loginClientId) googleOAuthClientId = loginClientId;
-                if (data.google_login_redirect_uri) googleLoginRedirectUriValue = data.google_login_redirect_uri;
-            } catch (err) {
-                console.warn('Failed to load public config', err);
-            }
+            const res = await fetch('/api/public-config', { cache: 'no-store' });
+            if (!res.ok) throw new Error('Google OAuth configuration is unavailable');
+            const data = await res.json();
+            const loginClientId = data.google_login_oauth_client_id || data.google_oauth_client_id;
+            if (!loginClientId) throw new Error('Google OAuth client ID is unavailable');
+            googleOAuthClientId = loginClientId;
+            if (data.google_login_redirect_uri) googleLoginRedirectUriValue = data.google_login_redirect_uri;
         }
-        const publicConfigReady = loadPublicConfig();
+        const publicConfigReady = loadPublicConfig().catch(error => {
+            console.warn('Failed to load public OAuth configuration', error);
+            return null;
+        });
+
+        function showGoogleOAuthError(error) {
+            console.warn('Google OAuth failed', error);
+            const t = authTranslations[currentLang] || authTranslations.en;
+            const message = String(error?.message || error || '');
+            const configurationProblem = /access.?blocked|redirect_uri|origin|unauthorized_client|configuration|client id/i.test(message);
+            showToast(configurationProblem ? t.googleOAuthConfiguration : t.googleOAuthLoading, true);
+        }
 
         function createGoogleAuthState() {
             if (window.crypto && typeof window.crypto.randomUUID === 'function') {
@@ -745,9 +2749,14 @@
                 if (data.phone) localStorage.setItem('pepperPhone', data.phone);
                 else localStorage.removeItem('pepperPhone');
             }
-            if (Object.prototype.hasOwnProperty.call(data, 'phone_country_code')) {
-                if (data.phone_country_code) localStorage.setItem('pepperPhoneCountryCode', data.phone_country_code);
+            if (Object.prototype.hasOwnProperty.call(data, 'country_code') || Object.prototype.hasOwnProperty.call(data, 'phone_country_code')) {
+                const countryCode = data.country_code || data.phone_country_code;
+                if (countryCode) localStorage.setItem('pepperPhoneCountryCode', countryCode);
                 else localStorage.removeItem('pepperPhoneCountryCode');
+            }
+            if (Object.prototype.hasOwnProperty.call(data, 'country_iso')) {
+                if (data.country_iso) localStorage.setItem('pepperCountryIso', data.country_iso);
+                else localStorage.removeItem('pepperCountryIso');
             }
             if (Object.prototype.hasOwnProperty.call(data, 'region')) {
                 if (data.region) localStorage.setItem('pepperRegion', data.region);
@@ -772,6 +2781,7 @@
                 throw new Error(data.detail || data.message || 'Google Login Failed');
             }
             storeGoogleAuthData(data);
+            sessionStorage.removeItem(GOOGLE_REDIRECT_FALLBACK_KEY);
             if (data.requires_profile_completion) {
                 sessionStorage.removeItem(PROFILE_SKIP_KEY);
                 sessionStorage.setItem('pepperCompleteGoogleProfile', '1');
@@ -784,6 +2794,9 @@
 
         async function startGoogleFullScreenAuth() {
             await publicConfigReady;
+            if (!googleOAuthClientId) {
+                throw new Error('Google OAuth client ID is unavailable');
+            }
             if (!window.google?.accounts?.oauth2) {
                 throw new Error('Google OAuth 模块加载中，请稍后再试。');
             }
@@ -791,6 +2804,7 @@
             sessionStorage.removeItem('pepperGoogleFullscreenAuth');
             localStorage.removeItem('pepperGoogleFullscreenAuth');
 
+            const popupRequestedAt = Date.now();
             await new Promise((resolve, reject) => {
                 const client = google.accounts.oauth2.initTokenClient({
                     client_id: googleOAuthClientId,
@@ -809,7 +2823,10 @@
                         }
                     },
                     error_callback: (error) => {
-                        reject(new Error(error?.message || error?.type || 'Google OAuth popup was closed.'));
+                        const popupError = new Error(error?.message || error?.type || 'Google OAuth popup was closed.');
+                        popupError.oauthCode = String(error?.type || error?.code || '');
+                        popupError.popupElapsedMs = Date.now() - popupRequestedAt;
+                        reject(popupError);
                     }
                 });
                 client.requestAccessToken({ prompt: 'select_account' });
@@ -818,6 +2835,7 @@
 
         async function startGoogleRedirectAuthFallback() {
             await publicConfigReady;
+            if (!googleOAuthClientId) throw new Error('Google OAuth client ID is unavailable');
             const state = createGoogleAuthState();
             const authPayload = JSON.stringify({
                 state,
@@ -842,37 +2860,69 @@
             window.location.assign(`https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`);
         }
 
-        document.getElementById('googleAuthBtn').addEventListener('click', () => {
-            startGoogleFullScreenAuth().catch(() => {
-                showToast("Google OAuth 模块加载中，请稍后再试。", true);
-            });
-        });
-
-        function buildPhoneNumber(countryCode, localNumber) {
-            const raw = (localNumber || '').trim();
-            if (raw.startsWith('+')) return raw.replace(/[\\s()-]/g, '');
-            const digits = raw.replace(/\\D/g, '').replace(/^0+/, '');
-            return `${countryCode}${digits}`;
+        function shouldUseGoogleRedirectFallback(error) {
+            const code = String(error?.oauthCode || error?.message || '').toLowerCase();
+            if (/popup_failed_to_open|popup.?blocked|failed.?to.?open/.test(code)) return true;
+            const isQuickMobileClose = /popup_closed|popup was closed/.test(code)
+                && window.matchMedia?.('(pointer: coarse)').matches
+                && Number(error?.popupElapsedMs || Infinity) < 2500;
+            return Boolean(isQuickMobileClose);
         }
+
+        async function handleGoogleAuthClick() {
+            if (googleAuthInFlight) return;
+            googleAuthInFlight = true;
+            const googleButtons = [
+                document.getElementById('loginGoogleAuthBtn'),
+                document.getElementById('registerGoogleAuthBtn')
+            ];
+            googleButtons.forEach((button) => { button.disabled = true; });
+            let redirecting = false;
+            try {
+                await startGoogleFullScreenAuth();
+            } catch (error) {
+                const previousFallbackAt = Number(sessionStorage.getItem(GOOGLE_REDIRECT_FALLBACK_KEY) || 0);
+                const fallbackIsRecent = Date.now() - previousFallbackAt < 120000;
+                if (shouldUseGoogleRedirectFallback(error) && !fallbackIsRecent) {
+                    sessionStorage.setItem(GOOGLE_REDIRECT_FALLBACK_KEY, String(Date.now()));
+                    redirecting = true;
+                    try {
+                        await startGoogleRedirectAuthFallback();
+                        return;
+                    } catch (fallbackError) {
+                        redirecting = false;
+                        showGoogleOAuthError(fallbackError);
+                    }
+                } else {
+                    showGoogleOAuthError(error);
+                }
+            } finally {
+                if (!redirecting) {
+                    googleAuthInFlight = false;
+                    googleButtons.forEach((button) => { button.disabled = false; });
+                }
+            }
+        }
+
+        document.getElementById('loginGoogleAuthBtn').addEventListener('click', handleGoogleAuthClick);
+        document.getElementById('registerGoogleAuthBtn').addEventListener('click', handleGoogleAuthClick);
 
         document.getElementById('googleProfileForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const t = authTranslations[currentLang] || authTranslations.en;
             const btn = document.getElementById('googleProfileSubmitBtn');
-            const displayName = document.getElementById('googleProfileName').value.trim();
-            const phoneCountryCode = document.getElementById('googleProfileCountryCode').value;
+            const identity = validateNameFields('googleProfileFirstName', 'googleProfileLastName', 'googleProfileNameError');
+            if (!identity) {
+                showToast(document.getElementById('googleProfileNameError').textContent, true);
+                return;
+            }
+            const phoneData = await validatePhoneField('googleProfileCountryIso', 'googleProfilePhone', 'googleProfilePhoneError');
+            if (!phoneData) {
+                showToast(document.getElementById('googleProfilePhoneError').textContent || t.invalidPhone, true);
+                return;
+            }
             const country = document.getElementById('googleProfileCountry')?.value || '';
-            const phone = buildPhoneNumber(phoneCountryCode, document.getElementById('googleProfilePhone').value);
             const region = document.getElementById('googleProfileRegion').value;
-
-            if (!displayName) {
-                showToast(t.invalidName, true);
-                return;
-            }
-            if (phone && phone.replace(/\\D/g, '').length < 8) {
-                showToast(t.invalidPhone, true);
-                return;
-            }
             if (!region) {
                 showToast(t.invalidRegion, true);
                 return;
@@ -888,9 +2938,10 @@
                         'Authorization': `Bearer ${localStorage.getItem('pepperSession')}`
                     },
                     body: JSON.stringify({
-                        display_name: displayName,
-                        phone,
-                        phone_country_code: phoneCountryCode,
+                        first_name: identity.firstName,
+                        last_name: identity.lastName,
+                        country_iso: phoneData.country_iso,
+                        phone_number: phoneData.phone_number,
                         region
                     })
                 });
@@ -898,9 +2949,9 @@
                 if (!res.ok || data.status !== 'success') {
                     throw new Error(data.detail || t.completeFailed);
                 }
-                localStorage.setItem('pepperDisplayName', data.display_name || displayName);
-                localStorage.setItem('pepperPhone', data.phone || phone);
-                localStorage.setItem('pepperPhoneCountryCode', data.phone_country_code || phoneCountryCode);
+                localStorage.setItem('pepperDisplayName', data.display_name || `${identity.firstName} ${identity.lastName}`);
+                localStorage.setItem('pepperPhone', data.phone_e164 || data.phone || phoneData.phone_e164);
+                localStorage.setItem('pepperPhoneCountryCode', data.country_code || phoneData.country_code);
                 if (country) localStorage.setItem('pepperCountry', country);
                 localStorage.setItem('pepperRegion', data.region || region);
                 clearGoogleProfileCompletionState();
@@ -914,6 +2965,16 @@
 
         if (shouldCompleteGoogleProfile()) {
             openGoogleProfileForm();
+        } else if (hasPasswordResetIntent()) {
+            const resetStep = passwordResetUrlStep();
+            if (resetStep === 'request') openPasswordResetRequest({ animate: false, updateUrl: false });
+            else if (resetStep === 'verify') openPasswordResetOtp({ animate: false, updateUrl: false });
+            else openPasswordResetNewPassword({ animate: false, updateUrl: false });
+        } else if (hasEmailOtpIntent()) {
+            openEmailOtpForm(null, { animate: false, updateUrl: true });
+        } else if (hasEmailFormIntent()) {
+            if (requestedAuthMode() === 'register') openRegisterForm({ animate: false, updateUrl: false });
+            else openLoginForm({ animate: false, updateUrl: false });
         } else if (!localStorage.getItem('pepperSession')) {
             sessionStorage.removeItem('pepperCompleteGoogleProfile');
             sessionStorage.removeItem('pepperRestartGoogleRegistration');
@@ -956,17 +3017,79 @@
                     }
                     window.location.href = '/';
                 } else if (!res.ok && data.status === "unverified") {
-                    // Forward to verifier
-                    localStorage.setItem('pendingUserId', data.user_id);
-                    window.location.href = `/static/verify.html?id=${data.user_id}`;
+                    // Keep verification inside this left-side auth flow.
+                    openEmailOtpForm(data.user_id, { source: 'login' });
                 } else {
                     showToast(data.detail || t.loginFailed, true);
                     btn.textContent = t.submit;
                     btn.disabled = false;
                 }
             } catch(error) {
-                showToast('Network error.', true);
+                showToast(t.networkError, true);
                 btn.textContent = t.submit;
+                btn.disabled = false;
+            }
+        });
+
+        document.getElementById('standaloneRegisterForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('registerSubmitBtn');
+            const identity = validateNameFields('registerFirstName', 'registerLastName', 'registerNameError');
+            const username = document.getElementById('registerUsername').value.trim();
+            const region = document.getElementById('registerRegion').value;
+            const password = document.getElementById('registerPassword').value;
+            const t = authTranslations[currentLang] || authTranslations.en;
+
+            if (!identity) {
+                showToast(document.getElementById('registerNameError').textContent, true);
+                return;
+            }
+            const phoneData = await validatePhoneField('registerCountryIso', 'registerPhone', 'registerPhoneError');
+            if (!phoneData) {
+                showToast(document.getElementById('registerPhoneError').textContent || t.invalidPhone, true);
+                return;
+            }
+            if (!region) {
+                showToast(t.invalidRegion, true);
+                return;
+            }
+            if (!passwordMeetsPolicy(password)) {
+                showRegisterPasswordRequirementsError();
+                showToast(t.passwordRule, true);
+                return;
+            }
+
+            try {
+                btn.textContent = t.registerAuth;
+                btn.disabled = true;
+                const res = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        username,
+                        first_name: identity.firstName,
+                        last_name: identity.lastName,
+                        country_iso: phoneData.country_iso,
+                        phone_number: phoneData.phone_number,
+                        region,
+                        password,
+                        language: currentLang
+                    })
+                });
+                const data = await res.json();
+                if (res.ok && data.status === 'pending_verification') {
+                    openEmailOtpForm(data.user_id, {
+                        source: 'register',
+                        resendCooldownSeconds: Number(data.resend_available_in) || EMAIL_OTP_RESEND_COOLDOWN_SECONDS,
+                    });
+                    return;
+                }
+                showToast(data.detail || t.registerFailed, true);
+                btn.textContent = t.registerSubmit;
+                btn.disabled = false;
+            } catch (error) {
+                showToast(t.networkError, true);
+                btn.textContent = t.registerSubmit;
                 btn.disabled = false;
             }
         });
@@ -976,30 +3099,41 @@
         // =========================================================================
         const canvas = document.getElementById('techCanvas');
         const ctx = canvas.getContext('2d');
-        let width, height;
+        const particleDesktopQuery = window.matchMedia('(min-width: 901px)');
+        const particleReducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+        let width = 0;
+        let height = 0;
         let particles = [];
+        let particleAnimationFrame = null;
 
-        function resize() {
-            width = canvas.width = canvas.parentElement.clientWidth;
-            height = canvas.height = window.innerHeight;
-        }
-        window.addEventListener('resize', resize);
-        resize();
-
-        // Particle System
         const PARTICLE_COUNT = 150;
         const CONNECTION_DIST = 140;
 
-        for (let i = 0; i < PARTICLE_COUNT; i++) {
-            particles.push({
-                x: Math.random() * width,
-                y: Math.random() * height,
-                z: Math.random() * 2 + 0.1, // 3D depth multiplier
-                vx: (Math.random() - 0.5) * 0.6,
-                vy: (Math.random() - 0.5) * 0.6,
-                baseVx: (Math.random() - 0.5) * 0.6,
-                baseVy: (Math.random() - 0.5) * 0.6
-            });
+        function particlesShouldRun() {
+            if (document.hidden || particleReducedMotionQuery.matches || !particleDesktopQuery.matches) return false;
+            if (!canvas.isConnected || !canvas.getClientRects().length) return false;
+            return window.getComputedStyle(canvas).display !== 'none';
+        }
+
+        function resizeParticleCanvas() {
+            if (!particlesShouldRun()) return;
+            width = canvas.width = Math.max(1, canvas.parentElement.clientWidth);
+            height = canvas.height = Math.max(1, canvas.parentElement.clientHeight || window.innerHeight);
+        }
+
+        function ensureParticles() {
+            if (particles.length) return;
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                particles.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    z: Math.random() * 2 + 0.1,
+                    vx: (Math.random() - 0.5) * 0.6,
+                    vy: (Math.random() - 0.5) * 0.6,
+                    baseVx: (Math.random() - 0.5) * 0.6,
+                    baseVy: (Math.random() - 0.5) * 0.6
+                });
+            }
         }
 
         let mouseX = -1000;
@@ -1117,9 +3251,26 @@
                 }
             }
 
-            requestAnimationFrame(animate);
+            if (particlesShouldRun()) particleAnimationFrame = window.requestAnimationFrame(animate);
+            else particleAnimationFrame = null;
         }
-        animate();
+
+        function syncParticleAnimation() {
+            if (!particlesShouldRun()) {
+                if (particleAnimationFrame !== null) window.cancelAnimationFrame(particleAnimationFrame);
+                particleAnimationFrame = null;
+                return;
+            }
+            resizeParticleCanvas();
+            ensureParticles();
+            if (particleAnimationFrame === null) particleAnimationFrame = window.requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('resize', syncParticleAnimation, { passive: true });
+        document.addEventListener('visibilitychange', syncParticleAnimation);
+        particleDesktopQuery.addEventListener?.('change', syncParticleAnimation);
+        particleReducedMotionQuery.addEventListener?.('change', syncParticleAnimation);
+        syncParticleAnimation();
     </script>
 </body>
 </html>

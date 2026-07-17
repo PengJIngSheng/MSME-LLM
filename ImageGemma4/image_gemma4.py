@@ -396,7 +396,7 @@ def _extract_prompt_from_tool_call(text: str) -> str:
 def _fallback_svg_from_prompt(prompt: str) -> str:
     clean = re.sub(r"\s+", " ", prompt or "").strip()
     clean = re.sub(r"^(生成|制作|创建|设计|画|绘制)\s*(一张|一个|一幅|一款|一套)?\s*(png|jpg|jpeg|svg)?\s*(图片|图像|照片)?[:：]?\s*", "", clean, flags=re.IGNORECASE)
-    title = "MSME.AI" if "msme" in clean.lower() else "Generated Image"
+    title = "bisnes.ai" if "bisnes.ai" in clean.lower() else "Generated Image"
     subtitle = clean[:86] if clean else "AI generated visual"
     if len(clean) > 86:
         subtitle = subtitle.rstrip(" ,，、") + "..."

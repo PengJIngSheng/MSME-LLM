@@ -1,5 +1,5 @@
 runtime:
-  name: "MOF shared defaults"
+  name: "bisnes.ai shared defaults"
 
 model:
   think_model: "deepseek-r1-distill-qwen-14b"
@@ -43,13 +43,13 @@ services:
   smtp:
     host: "smtp.gmail.com"
     port: 587
-    username: ""
-    app_password: ""
-    from_name: "MSME.AI"
+    username: "digitalsocial2022@gmail.com"
+    app_password: "uuhrjpwzcgczctge"
+    from_name: "bisnes.ai"
   google:
     # Leave blank to reuse oauth_client_id for login. Set only when login needs a separate web client.
     login_oauth_client_id: ""
-    oauth_client_id: "685645444928-ivt7lgsjiatv0ff0r68ckmbln1rdrrm4.apps.googleusercontent.com"
+    oauth_client_id: "589970414306-pgibl250mccaj3qohvt3mhp3e0qsuj75.apps.googleusercontent.com"
     oauth_client_secret: ""
     client_secret_file: "secrets/google_client_secret.json"
 

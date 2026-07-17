@@ -374,7 +374,7 @@ hr {{
     <div class="cover-accent-bar"></div>
   </div>
   <div class="cover-note">
-    Pepper AI Agent • {now}
+    bisnes.ai • {now}
   </div>
 </div>
 
@@ -737,7 +737,7 @@ hr {{
     <div class="cover-accent-bar"></div>
   </div>
   <div class="cover-note">
-    Pepper AI Agent • {now}
+    bisnes.ai • {now}
   </div>
 </div>
 

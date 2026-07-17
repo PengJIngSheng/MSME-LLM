@@ -1,4 +1,4 @@
-MSME.AI USER MANUAL
+bisnes.ai USER MANUAL
 Comprehensive End-User Guide
 Version date: 2026-06-22
 
@@ -7,18 +7,18 @@ DOCUMENT INFORMATION
 ============================================================
 
 Product name:
-MSME.AI
+bisnes.ai
 
 Document type:
 User Manual
 
 Intended audience:
 End users, company staff, MSME owners, business operators, analysts, administrators,
-finance users, marketing users, and workspace users who need to use MSME.AI in daily
+finance users, marketing users, and workspace users who need to use bisnes.ai in daily
 work.
 
 Purpose of this manual:
-This manual explains how to use MSME.AI from an end-user perspective. It introduces
+This manual explains how to use bisnes.ai from an end-user perspective. It introduces
 the system, the main interface, account features, chat modes, web search, Agent mode,
 file upload, PDF analysis, data analysis, file generation, image features, Google
 Workspace connectors, account management, privacy controls, and troubleshooting.
@@ -33,7 +33,7 @@ TABLE OF CONTENTS
 ============================================================
 
 1. Introduction
-2. What MSME.AI Is
+2. What bisnes.ai Is
 3. Key Capabilities At A Glance
 4. Recommended Browser And Basic Requirements
 5. First-Time User Walkthrough
@@ -108,10 +108,10 @@ TABLE OF CONTENTS
 1. INTRODUCTION
 ============================================================
 
-MSME.AI is an AI workspace assistant designed to help users complete everyday business
+bisnes.ai is an AI workspace assistant designed to help users complete everyday business
 and knowledge-work tasks through a chat-based interface.
 
-Instead of switching between many separate tools, users can ask MSME.AI to help with:
+Instead of switching between many separate tools, users can ask bisnes.ai to help with:
 
 - Writing
 - Summarizing
@@ -135,19 +135,19 @@ Instead of switching between many separate tools, users can ask MSME.AI to help 
 
 The system is built around a simple idea:
 
-You tell MSME.AI what you need, and the system chooses the most suitable workflow
+You tell bisnes.ai what you need, and the system chooses the most suitable workflow
 based on the active mode, your message, uploaded files, connected services, and
 conversation context.
 
 
 ============================================================
-2. WHAT MSME.AI IS
+2. WHAT bisnes.ai IS
 ============================================================
 
-MSME.AI is not only a general chatbot. It is a workspace assistant with multiple
+bisnes.ai is not only a general chatbot. It is a workspace assistant with multiple
 specialized capabilities.
 
-From the user's point of view, MSME.AI can be understood as five assistants in one:
+From the user's point of view, bisnes.ai can be understood as five assistants in one:
 
 1. A conversational assistant
    It answers questions, writes text, translates, explains ideas, and helps with
@@ -246,7 +246,7 @@ Account features:
 4. RECOMMENDED BROWSER AND BASIC REQUIREMENTS
 ============================================================
 
-MSME.AI is a browser-based application.
+bisnes.ai is a browser-based application.
 
 Recommended browsers:
 
@@ -273,7 +273,7 @@ disable strict privacy extensions.
 5. FIRST-TIME USER WALKTHROUGH
 ============================================================
 
-If you are using MSME.AI for the first time, follow this recommended path:
+If you are using bisnes.ai for the first time, follow this recommended path:
 
 Step 1: Open the application.
 
@@ -425,7 +425,7 @@ Common keyboard behavior:
 10. ACCOUNT ACCESS: GUEST, LOGIN, AND REGISTRATION
 ============================================================
 
-MSME.AI can be used in different access states.
+bisnes.ai can be used in different access states.
 
 Guest access:
 
@@ -452,7 +452,7 @@ For serious use, users should log in.
 11. EMAIL REGISTRATION
 ============================================================
 
-Use email registration when you want to create a new MSME.AI account.
+Use email registration when you want to create a new bisnes.ai account.
 
 Procedure:
 
@@ -514,11 +514,11 @@ Signing in with Google is not the same as authorizing Google Workspace connector
 Google login:
 
 - Confirms your identity.
-- Lets you access your MSME.AI account.
+- Lets you access your bisnes.ai account.
 
 Google Workspace connector authorization:
 
-- Lets MSME.AI perform specific actions such as creating Docs, uploading to Drive,
+- Lets bisnes.ai perform specific actions such as creating Docs, uploading to Drive,
   or sending Gmail.
 
 If a connector fails even after Google login, open the connector panel and authorize
@@ -531,7 +531,7 @@ the required service.
 
 OTP means one-time password or one-time verification code.
 
-MSME.AI uses OTP for:
+bisnes.ai uses OTP for:
 
 - New account verification
 - Email address changes
@@ -553,7 +553,7 @@ If the OTP expires:
 15. LANGUAGE SETTINGS
 ============================================================
 
-MSME.AI supports multiple interface languages:
+bisnes.ai supports multiple interface languages:
 
 - English
 - Chinese
@@ -583,7 +583,7 @@ Examples:
 16. INTERFACE SETTINGS
 ============================================================
 
-MSME.AI uses a light visual interface throughout the app.
+bisnes.ai uses a light visual interface throughout the app.
 
 Interface settings now focus on language selection and account-level preferences.
 
@@ -674,7 +674,7 @@ Use Web mode for those.
 20. WEB SEARCH MODE
 ============================================================
 
-Web mode allows MSME.AI to search live web sources before answering.
+Web mode allows bisnes.ai to search live web sources before answering.
 
 Use Web mode for:
 
@@ -718,7 +718,7 @@ Tips:
 21. SOURCE CARDS AND EVIDENCE-BASED ANSWERS
 ============================================================
 
-When Web mode is used, MSME.AI may show source cards.
+When Web mode is used, bisnes.ai may show source cards.
 
 Source cards can include:
 
@@ -784,7 +784,7 @@ users understand how the assistant is approaching the task.
 
 Agent mode is the advanced workspace mode.
 
-Use Agent mode when you want MSME.AI to do work with files, tools, or external
+Use Agent mode when you want bisnes.ai to do work with files, tools, or external
 workspace services.
 
 Agent mode is best for:
@@ -1146,7 +1146,7 @@ Limitations:
 32. IMAGE GENERATION
 ============================================================
 
-MSME.AI can generate images based on text prompts.
+bisnes.ai can generate images based on text prompts.
 
 Possible image requests:
 
@@ -1569,7 +1569,7 @@ If the file does not open:
 44. RENAMING GENERATED FILES
 ============================================================
 
-You can ask MSME.AI to rename generated files.
+You can ask bisnes.ai to rename generated files.
 
 Examples:
 
@@ -1592,7 +1592,7 @@ Use clear file names:
 45. GOOGLE WORKSPACE CONNECTORS OVERVIEW
 ============================================================
 
-Google Workspace connectors let MSME.AI work with your Google account after
+Google Workspace connectors let bisnes.ai work with your Google account after
 authorization.
 
 Available connectors:
@@ -1607,13 +1607,13 @@ Available connectors:
 
 General setup:
 
-1. Log in to MSME.AI.
+1. Log in to bisnes.ai.
 2. Link your Google account if required.
 3. Open Agent mode.
 4. Open Connectors.
 5. Enable the connector you need.
 6. Complete the authorization flow.
-7. Ask MSME.AI to perform a Google Workspace task.
+7. Ask bisnes.ai to perform a Google Workspace task.
 
 Connector safety:
 
@@ -1673,7 +1673,7 @@ PDF."
 Safety flow:
 
 1. You request an email.
-2. MSME.AI prepares a preview.
+2. bisnes.ai prepares a preview.
 3. You review recipient, subject, body, and attachments.
 4. You click Confirm Send or Cancel.
 5. The email is sent only after confirmation.
@@ -2071,7 +2071,7 @@ functionality.
 62. DATA HANDLING AND USER RESPONSIBILITY
 ============================================================
 
-MSME.AI stores data to provide useful features.
+bisnes.ai stores data to provide useful features.
 
 Stored data may include:
 
@@ -2238,7 +2238,7 @@ Workflow 5: Send a report by Gmail
 
 1. Generate or upload the report.
 2. Enable Gmail connector.
-3. Ask MSME.AI to draft an email.
+3. Ask bisnes.ai to draft an email.
 4. Review the Gmail confirmation card.
 5. Confirm send.
 
@@ -2246,7 +2246,7 @@ Workflow 6: Save generated work to Drive
 
 1. Generate a file.
 2. Enable Drive connector.
-3. Ask MSME.AI to upload the file.
+3. Ask bisnes.ai to upload the file.
 4. Open the returned Drive link if available.
 
 Workflow 7: Schedule a client meeting
@@ -2499,7 +2499,7 @@ Common actions:
 70. FINAL NOTES
 ============================================================
 
-MSME.AI is most useful when treated as a practical work partner.
+bisnes.ai is most useful when treated as a practical work partner.
 
 Use it to:
 

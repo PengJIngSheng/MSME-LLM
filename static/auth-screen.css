@@ -41,8 +41,8 @@ body.auth-page .top-nav {
 
 body.auth-page .logo-container a {
     display: inline-flex;
-    width: 58px;
-    height: 58px;
+    width: 62px;
+    height: 62px;
     align-items: center;
     justify-content: center;
     border-radius: 16px;
@@ -56,7 +56,7 @@ body.auth-page .logo-container a:hover {
 }
 
 body.auth-page .logo-container img {
-    height: 54px;
+    height: 58px;
     width: auto;
     filter: none;
 }
@@ -307,5 +307,340 @@ body.auth-page .brand-footer {
 
     body.auth-page .country-select {
         width: 100%;
+    }
+}
+
+/* Unified mobile authentication shell --------------------------------------
+   Every auth step (sign in, sign up, verification, and password reset) uses
+   the same scroll-safe column. `dvh` follows the visible viewport on mobile
+   browsers, so a keyboard or browser toolbar never traps the last control. */
+@media (max-width: 760px), (pointer: coarse) and (max-height: 520px) {
+    body.auth-page {
+        min-height: 100dvh;
+        height: auto;
+        overflow-x: hidden;
+        overflow-y: auto;
+        background: #ffffff;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    body.auth-page .split-left {
+        width: 100%;
+        min-height: 100dvh;
+        height: auto;
+        overflow: visible;
+        border-right: 0;
+        background: #ffffff;
+    }
+
+    body.auth-page .split-right {
+        display: none;
+    }
+
+    body.auth-page .top-nav {
+        min-height: 68px;
+        padding: max(16px, calc(env(safe-area-inset-top) + 8px)) 20px 8px;
+    }
+
+    body.auth-page .logo-container a {
+        width: 50px;
+        height: 50px;
+        border-radius: 14px;
+    }
+
+    body.auth-page .logo-container img {
+        height: 46px;
+    }
+
+    body.auth-page .auth-container,
+    body.auth-page.email-form-active .auth-container {
+        display: block;
+        width: 100%;
+        margin: 0;
+        padding: 28px 20px max(34px, calc(env(safe-area-inset-bottom) + 22px));
+        overflow: visible;
+    }
+
+    body.auth-page .auth-box {
+        width: 100%;
+        max-width: 460px;
+        min-width: 0;
+        margin: 0 auto;
+    }
+
+    body.auth-page .auth-step {
+        width: 100%;
+    }
+
+    body.auth-page .auth-title {
+        margin: 0 0 0.9rem;
+        font-size: clamp(1.7rem, 7vw, 2.1rem);
+        line-height: 1.12;
+        text-align: left;
+        letter-spacing: -0.025em;
+    }
+
+    body.auth-page .form-helper {
+        margin: 0 0 1.5rem;
+        font-size: 0.92rem;
+        line-height: 1.5;
+        text-align: left;
+    }
+
+    body.auth-page .back-btn,
+    body.auth-page .email-otp-step .back-btn,
+    body.auth-page .password-reset-otp-step .back-btn {
+        position: static;
+        width: 44px;
+        height: 44px;
+        margin: 0 0 16px -8px;
+        padding: 0;
+        border-radius: 50%;
+    }
+
+    body.auth-page .oauth-btn,
+    body.auth-page .submit-btn {
+        min-height: 54px;
+        border-radius: 15px;
+    }
+
+    body.auth-page .oauth-btn {
+        margin-bottom: 12px;
+    }
+
+    body.auth-page .input-group {
+        margin-bottom: 1.05rem;
+    }
+
+    body.auth-page .input-field,
+    body.auth-page .country-select {
+        min-height: 54px;
+        font-size: 16px;
+        border-radius: 14px;
+    }
+
+    body.auth-page .name-row {
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
+
+    body.auth-page .phone-row {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    body.auth-page .phone-row .custom-select,
+    body.auth-page .phone-row .input-field {
+        width: 100%;
+    }
+
+    body.auth-page .password-requirements {
+        gap: 8px 12px;
+        margin-top: 11px;
+        font-size: 0.78rem;
+    }
+
+    body.auth-page .forgot-password-row {
+        margin: -0.45rem 0 0.45rem;
+    }
+
+    body.auth-page .forgot-password-link {
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+        font-size: 0.86rem;
+    }
+
+    body.auth-page .password-toggle {
+        width: 44px;
+        height: 44px;
+    }
+
+    body.auth-page .auth-links a,
+    body.auth-page .resend-links button,
+    body.auth-page .otp-resend-row button {
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    body.auth-page .auth-links,
+    body.auth-page .resend-links,
+    body.auth-page .otp-resend-row {
+        margin-top: 1.6rem;
+    }
+
+    body.auth-page .email-otp-step .auth-title,
+    body.auth-page .password-reset-otp-step .auth-title {
+        margin-bottom: 0.7rem;
+    }
+
+    body.auth-page .otp-container {
+        gap: clamp(5px, 2vw, 9px);
+    }
+
+    body.auth-page .otp-input {
+        height: clamp(46px, 13vw, 54px);
+        border-radius: 13px;
+        font-size: 1.05rem;
+    }
+
+    body.auth-page .brand-footer,
+    body.auth-page.email-form-active .brand-footer {
+        position: static;
+        width: min(460px, 100%);
+        margin: 16px auto 0;
+        padding: 0 20px max(20px, env(safe-area-inset-bottom));
+        transform: none;
+        text-align: left;
+        font-size: 0.75rem;
+    }
+
+    body.auth-page .toast {
+        top: max(12px, calc(env(safe-area-inset-top) + 8px));
+        right: max(14px, env(safe-area-inset-right));
+        left: max(14px, env(safe-area-inset-left));
+        width: auto;
+        max-width: none;
+        min-height: 52px;
+        padding: 12px 16px;
+        border-radius: 16px;
+        align-items: flex-start;
+        line-height: 1.38;
+        overflow-wrap: anywhere;
+        transform: translateY(calc(-100% - env(safe-area-inset-top) - 20px));
+    }
+
+    body.auth-page .toast.show {
+        transform: translateY(0);
+    }
+
+    body.auth-page .toast > i {
+        flex: 0 0 auto;
+        margin-top: 0.16em;
+    }
+
+    body.auth-page .toast > span {
+        min-width: 0;
+        flex: 1 1 auto;
+    }
+}
+
+@media (pointer: coarse) and (max-height: 520px) {
+    body.auth-page .top-nav {
+        min-height: 52px;
+        padding: max(8px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) 2px max(20px, env(safe-area-inset-left));
+    }
+
+    body.auth-page .logo-container a {
+        width: 44px;
+        height: 44px;
+    }
+
+    body.auth-page .logo-container img {
+        height: 40px;
+    }
+
+    body.auth-page .auth-container,
+    body.auth-page.email-form-active .auth-container {
+        padding: 10px max(24px, env(safe-area-inset-right)) max(22px, calc(env(safe-area-inset-bottom) + 14px)) max(24px, env(safe-area-inset-left));
+    }
+
+    body.auth-page .auth-title {
+        font-size: clamp(1.55rem, 5vw, 1.9rem);
+    }
+
+    body.auth-page .brand-footer,
+    body.auth-page.email-form-active .brand-footer {
+        margin-top: 14px;
+        padding-right: max(20px, env(safe-area-inset-right));
+        padding-left: max(20px, env(safe-area-inset-left));
+    }
+}
+
+@media (max-width: 360px) {
+    body.auth-page .auth-container,
+    body.auth-page.email-form-active .auth-container {
+        padding-left: 16px;
+        padding-right: 16px;
+    }
+
+    body.auth-page .otp-container {
+        gap: 4px;
+    }
+}
+
+/* A registration/reset form can be much taller than sign-in once translated
+   labels and legal copy wrap. On wide desktop layouts the footer previously
+   stayed absolutely positioned at the bottom of the panel, which let it sit
+   on top of the primary action. Keep it in the normal form flow instead and
+   allow the left panel to grow or scroll on shorter browser windows. */
+@media (min-width: 901px) {
+    body.auth-page.email-form-active {
+        height: auto;
+        min-height: 100vh;
+        overflow-x: hidden;
+        overflow-y: auto;
+    }
+
+    body.auth-page.email-form-active .split-left {
+        min-height: 100vh;
+        height: auto;
+        overflow: visible;
+    }
+
+    body.auth-page.email-form-active .brand-footer {
+        position: static;
+        flex: 0 0 auto;
+        width: min(390px, calc(100% - 48px));
+        margin: 28px auto 0;
+        padding: 0 8px 28px;
+        transform: none;
+    }
+}
+
+/* Desktop adapts by component, not whole-page zoom. The form grows on wide
+   displays while preserving a readable line length and its existing motion. */
+@media (min-width: 901px) {
+    body.auth-page .top-nav {
+        padding: clamp(32px, 3vw, 64px);
+    }
+
+    body.auth-page .logo-container a {
+        width: clamp(62px, 4vw, 78px);
+        height: clamp(62px, 4vw, 78px);
+    }
+
+    body.auth-page .logo-container img {
+        height: clamp(58px, 3.7vw, 72px);
+    }
+
+    body.auth-page .auth-container {
+        padding-right: clamp(36px, 4vw, 96px);
+        padding-left: clamp(36px, 4vw, 96px);
+        margin-top: clamp(-66px, -4vw, -54px);
+    }
+
+    body.auth-page .auth-box {
+        max-width: clamp(390px, 21vw, 520px);
+    }
+
+    body.auth-page .auth-title {
+        font-size: clamp(2rem, 1.4vw, 2.6rem);
+        margin-bottom: clamp(1.55rem, 2vw, 2.15rem);
+    }
+
+    body.auth-page .oauth-btn,
+    body.auth-page .input-field,
+    body.auth-page .country-select,
+    body.auth-page .submit-btn {
+        min-height: clamp(56px, 3.2vw, 64px);
+        font-size: clamp(0.98rem, 0.78vw, 1.08rem);
+    }
+
+    body.auth-page .input-group {
+        margin-bottom: clamp(1.18rem, 1.35vw, 1.5rem);
     }
 }
