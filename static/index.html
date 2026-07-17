@@ -18,7 +18,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/static/style.css?v=5.3.46">
+    <link rel="stylesheet" href="/static/style.css?v=5.3.54">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 
@@ -89,6 +89,15 @@
                     </button>
                     <!-- Expandable Context Menu -->
                     <div class="user-context-menu" id="userContextMenu">
+                        <button class="ctx-menu-item" id="ctxAccountBtn" type="button">
+                            <span class="ctx-menu-icon">
+                                <svg class="ctx-menu-svg" viewBox="0 0 24 24" aria-hidden="true">
+                                    <circle cx="12" cy="8" r="4"></circle>
+                                    <path d="M4.5 21a7.5 7.5 0 0 1 15 0"></path>
+                                </svg>
+                            </span>
+                            <span class="ctx-menu-label" data-i18n="ctxAccount">Account</span>
+                        </button>
                         <button class="ctx-menu-item" id="ctxSettingsMenuBtn" type="button" aria-expanded="false">
                             <span class="ctx-menu-icon">
                                 <svg class="ctx-menu-svg" viewBox="0 0 24 24" aria-hidden="true">
@@ -148,7 +157,7 @@
         <div class="main-content">
 
             <header class="mobile-header" id="mobileHeader">
-                <button class="icon-toggle-btn" id="sidebarOpenBtn" aria-label="Open sidebar">
+                <button class="icon-toggle-btn" id="sidebarOpenBtn" aria-label="Open sidebar" aria-controls="sidebar" aria-expanded="false" disabled aria-hidden="true" tabindex="-1">
                     <svg class="sidebar-action-svg" viewBox="0 0 24 24" aria-hidden="true">
                         <path d="M4 7h16"></path>
                         <path d="M4 17h16"></path>
@@ -320,7 +329,7 @@
                                 autocomplete="off" rows="1"></textarea>
                             <!-- Connectors Dropdown (Agent Mode Only) -->
                             <div class="connectors-container" id="connectorsContainer" style="display: none;">
-                                <button class="connector-trigger" id="connectorBtn" title="Google Workspace Connectors">
+                                <button class="connector-trigger" id="connectorBtn" title="Google Workspace Connectors" aria-haspopup="dialog" aria-expanded="false">
                                     <i class="fa-solid fa-plug" style="color:#fbbc05;"></i> <span>Connectors</span>
                                     <i class="fa-solid fa-chevron-up"></i>
                                 </button>
@@ -568,19 +577,6 @@
                             </div>
                             <button class="account-row-btn" id="setPasswordBtn" data-account-i18n="securitySetPasswordBtn">设置密码</button>
                         </div>
-                        <div class="account-data-row">
-                            <div class="account-data-copy">
-                                <h2 data-account-i18n="securityMfaTitle">多因素身份验证</h2>
-                                <p data-account-i18n="securityMfaDesc">使用第二个身份验证因素保护您的账户。</p>
-                            </div>
-                            <button class="account-row-btn" id="enableMfaBtn" data-account-i18n="securityEnableMfaBtn">启用 MFA</button>
-                        </div>
-                        <div class="account-data-row account-data-row--no-btn">
-                            <div class="account-data-copy">
-                                <h2 data-account-i18n="securityRecoveryTitle">恢复代码</h2>
-                                <p data-account-i18n="securityRecoveryDesc">您需要至少启用一种多因素方法才能生成恢复代码。</p>
-                            </div>
-                        </div>
                     </div>
                 </div>
                 <!-- Set Password sub-view -->
@@ -736,7 +732,7 @@
         <div class="cookie-prefs-dialog" role="dialog" aria-modal="true" aria-labelledby="cookiePrefsTitle">
             <button class="cookie-prefs-close" id="cookiePrefsCloseBtn" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
             <div class="cookie-prefs-logo">
-                <img src="/static/Main%20Logo.png" alt="bisnes.ai" style="height:28px;width:auto;object-fit:contain;">
+                <img src="/static/Main%20Logo.png" alt="bisnes.ai" style="height:30px;width:auto;object-fit:contain;">
             </div>
             <h2 class="cookie-prefs-title" id="cookiePrefsTitle" data-account-i18n="cookiePrefTitle">隐私偏好中心</h2>
             <p class="cookie-prefs-desc" data-account-i18n="cookiePrefDesc">当您访问任何网站时，该网站可能会在您的浏览器中存储或检索信息，主要以 Cookie 的形式。这些信息可能与您、您的偏好或您的设备有关，主要用于使网站按您的预期运行。这些信息通常不会直接识别您的身份，但可以为您提供更加个性化的网络体验。由于我们尊重您的隐私权，您可以选择不允许某些类型的 Cookie。点击不同类别的标题以了解更多信息并更改我们的默认设置。阻止某些类型的 Cookie 可能会影响您对网站的使用体验以及我们能够提供的服务。</p>
@@ -803,10 +799,25 @@
         </div>
     </div>
 
+    <!-- Shown when a visitor tries to send a question. The server also
+         requires a session, so this UI cannot be bypassed with a direct call. -->
+    <div class="modal-overlay guest-auth-modal-overlay" id="guestAuthRequiredModal" hidden aria-hidden="true">
+        <section class="liquid-glass-panel guest-auth-modal" role="dialog" aria-modal="true" aria-labelledby="guestAuthRequiredTitle" aria-describedby="guestAuthRequiredDescription">
+            <button class="modal-close" id="closeGuestAuthModalBtn" type="button" aria-label="Close sign-in prompt" data-i18n-aria-label="guestAuthClose"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+            <div class="guest-auth-modal__icon" aria-hidden="true"><i class="fa-regular fa-comment-dots"></i></div>
+            <h2 id="guestAuthRequiredTitle" data-i18n="guestAuthTitle">Sign in to continue</h2>
+            <p id="guestAuthRequiredDescription" data-i18n="guestAuthDescription">Create a free bisnes.ai account or sign in to ask a question.</p>
+            <div class="guest-auth-modal__actions">
+                <a class="guest-auth-modal__login" href="/static/login.html" data-i18n="loginBtn">Sign in</a>
+                <a class="guest-auth-modal__register" href="/static/login.html?mode=register" data-i18n="guestAuthRegister">Create account</a>
+            </div>
+        </section>
+    </div>
+
     <!-- Search History Modal -->
     <div class="modal-overlay" id="searchHistoryModal">
         <div class="modal-content liquid-glass-panel large-modal">
-            <button class="modal-close" id="closeSearchModalBtn"><i class="fa-solid fa-xmark"></i></button>
+            <button class="modal-close" id="closeSearchModalBtn" type="button" aria-label="Close search"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
 
             <div class="search-modal-top-bar">
                 <i class="fa-solid fa-magnifying-glass search-icon"></i>
@@ -842,29 +853,150 @@
                     <i class="fa-solid fa-file-pdf" style="color: #e2574c;"></i>
                     <span class="pdf-preview-filename" id="pdfPreviewFilename">Document.pdf</span>
                 </div>
-                <button class="pdf-preview-close" id="pdfPreviewCloseBtn" title="Close">
+                <button class="pdf-preview-close" id="pdfPreviewCloseBtn" type="button" title="Close" aria-label="Close PDF preview">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
             <div class="pdf-preview-body" id="pdfPreviewBody">
-                <iframe id="pdfPreviewFrame" class="pdf-preview-iframe" frameborder="0"></iframe>
-            </div>
-            <div class="pdf-preview-toolbar">
-                <button class="pdf-toolbar-btn" id="pdfSearchBtn" title="Search">
-                    <i class="fa-solid fa-magnifying-glass"></i>
-                </button>
-                <div class="pdf-toolbar-page-info">
-                    <span id="pdfCurrentPage">1</span> / <span id="pdfTotalPages">1</span>
-                </div>
-                <button class="pdf-toolbar-btn" id="pdfZoomOutBtn" title="Zoom Out">
-                    <span style="font-weight:700;font-size:1.2rem;">−</span>
-                </button>
-                <button class="pdf-toolbar-btn" id="pdfZoomInBtn" title="Zoom In">
-                    <span style="font-weight:700;font-size:1.2rem;">+</span>
-                </button>
+                <iframe id="pdfPreviewFrame" class="pdf-preview-iframe" frameborder="0" title="PDF preview"></iframe>
             </div>
         </div>
     </div>
+
+    <!-- One confirmation surface is shared by sidebar and search history. -->
+    <dialog class="history-delete-dialog" id="historyDeleteDialog" aria-labelledby="historyDeleteDialogTitle" aria-describedby="historyDeleteDialogDescription">
+        <form method="dialog" class="history-delete-dialog__surface">
+            <div class="history-delete-dialog__icon" aria-hidden="true">
+                <i class="fa-regular fa-trash-can"></i>
+            </div>
+            <h2 id="historyDeleteDialogTitle" data-i18n="historyDeleteTitle">Delete conversation?</h2>
+            <p id="historyDeleteDialogDescription" data-i18n="historyDeleteDescription">This conversation will be permanently deleted.</p>
+            <div class="history-delete-dialog__actions">
+                <button class="history-delete-dialog__cancel" id="historyDeleteCancelBtn" type="submit" value="cancel" data-i18n="historyDeleteCancel" data-i18n-aria-label="historyDeleteCancel">Cancel</button>
+                <button class="history-delete-dialog__confirm" id="historyDeleteConfirmBtn" type="submit" value="confirm" data-i18n="historyDeleteConfirm" data-i18n-aria-label="historyDeleteConfirm">Delete</button>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- Mobile-only connector picker. The original controls are moved here
+         while it is open, keeping their Google OAuth behaviour intact. -->
+    <dialog class="mobile-connector-sheet" id="mobileConnectorSheet" aria-labelledby="mobileConnectorSheetTitle">
+        <div class="mobile-connector-sheet__surface">
+            <div class="mobile-connector-sheet__handle" aria-hidden="true"></div>
+            <div class="mobile-connector-sheet__header">
+                <div>
+                    <h2 id="mobileConnectorSheetTitle" data-i18n="mobileConnectors">Connectors</h2>
+                    <p data-i18n="mobileConnectorDescription">Choose the Google tools to use in this chat.</p>
+                </div>
+                <button class="mobile-connector-sheet__close" id="mobileConnectorSheetCloseBtn" type="button" aria-label="Close connectors" data-i18n-aria-label="mobileCloseConnectors">
+                    <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                </button>
+            </div>
+            <div class="mobile-connector-sheet__list" id="mobileConnectorSheetList"></div>
+        </div>
+    </dialog>
+
+    <!-- Mobile-only upload picker. This uses the browser top layer rather than
+         the desktop menu, so actions remain reachable above the composer. -->
+    <dialog class="mobile-upload-sheet" id="mobileUploadSheet" aria-labelledby="mobileUploadSheetTitle">
+        <div class="mobile-upload-sheet__surface">
+            <div class="mobile-upload-sheet__handle" aria-hidden="true"></div>
+            <div class="mobile-upload-sheet__header">
+                <h2 id="mobileUploadSheetTitle" data-i18n="mobileAddToChat">Add to chat</h2>
+                <button class="mobile-upload-sheet__close" id="mobileUploadSheetCloseBtn" type="button" aria-label="Close upload options" data-i18n-aria-label="mobileCloseUpload">
+                    <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                </button>
+            </div>
+            <p class="mobile-upload-sheet__intro" data-i18n="mobileUploadDescription">Choose what you want to add.</p>
+
+            <div class="mobile-upload-sheet__view" id="mobileUploadActionsView">
+                <div class="mobile-upload-sheet__actions" role="menu" aria-label="Upload options" data-i18n-aria-label="uploadMenuLabel">
+                    <button class="mobile-upload-sheet__action" id="mobileUploadPhotoBtn" type="button" role="menuitem">
+                        <span class="mobile-upload-sheet__icon"><i class="fa-regular fa-image" aria-hidden="true"></i></span>
+                        <span class="mobile-upload-sheet__copy">
+                            <span class="mobile-upload-sheet__title" data-i18n="mobileUploadPhoto">Upload a photo</span>
+                            <span class="mobile-upload-sheet__subtitle" data-i18n="mobileUploadPhotoDescription">Choose an image from this device</span>
+                        </span>
+                    </button>
+                    <button class="mobile-upload-sheet__action" id="mobileUploadFileBtn" type="button" role="menuitem">
+                        <span class="mobile-upload-sheet__icon"><i class="fa-regular fa-file" aria-hidden="true"></i></span>
+                        <span class="mobile-upload-sheet__copy">
+                            <span class="mobile-upload-sheet__title" data-i18n="uploadFile">Upload file</span>
+                            <span class="mobile-upload-sheet__subtitle" data-i18n="mobileUploadFileDescription">Add a document or other file</span>
+                        </span>
+                    </button>
+                    <button class="mobile-upload-sheet__action" id="mobileUploadRecentBtn" type="button" role="menuitem">
+                        <span class="mobile-upload-sheet__icon"><i class="fa-regular fa-clock" aria-hidden="true"></i></span>
+                        <span class="mobile-upload-sheet__copy">
+                            <span class="mobile-upload-sheet__title" data-i18n="recentFiles">Recent files</span>
+                            <span class="mobile-upload-sheet__subtitle" data-i18n="mobileUploadRecentDescription">Reuse a file from a previous chat</span>
+                        </span>
+                        <span class="mobile-upload-sheet__chevron"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></span>
+                    </button>
+                    <button class="mobile-upload-sheet__action mobile-upload-sheet__agent-only" id="mobileUploadSkillsBtn" type="button" role="menuitem">
+                        <span class="mobile-upload-sheet__icon"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i></span>
+                        <span class="mobile-upload-sheet__copy">
+                            <span class="mobile-upload-sheet__title" data-i18n="skills">Skills</span>
+                            <span class="mobile-upload-sheet__subtitle" data-i18n="mobileUploadSkillsDescription">Choose a document to create</span>
+                        </span>
+                        <span class="mobile-upload-sheet__chevron"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="mobile-upload-sheet__view hidden" id="mobileUploadRecentView">
+                <button class="mobile-upload-sheet__back" id="mobileUploadRecentBackBtn" type="button">
+                    <i class="fa-solid fa-arrow-left" aria-hidden="true"></i><span data-i18n="mobileUploadBack">Back</span>
+                </button>
+                <div class="mobile-upload-sheet__recent-list" id="mobileUploadRecentList" role="menu" aria-label="Recent files" data-i18n-aria-label="recentFiles"></div>
+            </div>
+
+            <div class="mobile-upload-sheet__view hidden" id="mobileUploadSkillsView">
+                <button class="mobile-upload-sheet__back" id="mobileUploadSkillsBackBtn" type="button">
+                    <i class="fa-solid fa-arrow-left" aria-hidden="true"></i><span data-i18n="mobileUploadBack">Back</span>
+                </button>
+                <div class="mobile-upload-sheet__skills-grid" role="menu" aria-label="Skills" data-i18n-aria-label="skills">
+                    <button type="button" class="mobile-upload-sheet__skill" role="menuitemradio" data-mobile-skill="docx">DOCX</button>
+                    <button type="button" class="mobile-upload-sheet__skill" role="menuitemradio" data-mobile-skill="pdf">PDF</button>
+                    <button type="button" class="mobile-upload-sheet__skill" role="menuitemradio" data-mobile-skill="pptx">PPTX</button>
+                    <button type="button" class="mobile-upload-sheet__skill" role="menuitemradio" data-mobile-skill="xlsx">XLSX</button>
+                </div>
+            </div>
+        </div>
+    </dialog>
+
+    <!-- Mobile-only response mode picker. Native dialog places this above the
+         fixed composer and browser chrome instead of inside a clipped dropdown. -->
+    <dialog class="mobile-mode-sheet" id="mobileModeSheet" aria-labelledby="mobileModeSheetTitle">
+        <div class="mobile-mode-sheet__surface">
+            <div class="mobile-mode-sheet__handle" aria-hidden="true"></div>
+            <div class="mobile-mode-sheet__header">
+                <h2 id="mobileModeSheetTitle" data-i18n="responseMode">Response mode</h2>
+                <button class="mobile-mode-sheet__close" id="mobileModeSheetCloseBtn" type="button" aria-label="Close response mode picker" data-i18n-aria-label="closeResponseMode">
+                    <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                </button>
+            </div>
+            <p class="mobile-mode-sheet__intro" data-i18n="responseModeDescription">Choose how bisnes.ai should answer.</p>
+            <div class="mobile-mode-sheet__options" role="listbox" aria-label="Response mode" data-i18n-aria-label="responseMode">
+                <button class="mobile-mode-sheet__option is-selected" type="button" role="option" aria-selected="true" data-mobile-mode="normal">
+                    <span class="mobile-mode-sheet__icon"><i class="fa-solid fa-bolt" aria-hidden="true"></i></span>
+                    <span class="mobile-mode-sheet__copy">
+                        <span class="mobile-mode-sheet__title" data-i18n="modeFast">Fast</span>
+                        <span class="mobile-mode-sheet__subtitle" data-i18n="modeFastDescription">Quick responses</span>
+                    </span>
+                    <span class="mobile-mode-sheet__check" aria-hidden="true"><i class="fa-solid fa-check"></i></span>
+                </button>
+                <button class="mobile-mode-sheet__option" type="button" role="option" aria-selected="false" data-mobile-mode="web">
+                    <span class="mobile-mode-sheet__icon"><i class="fa-solid fa-globe" aria-hidden="true"></i></span>
+                    <span class="mobile-mode-sheet__copy">
+                        <span class="mobile-mode-sheet__title" data-i18n="modeWeb">Web</span>
+                        <span class="mobile-mode-sheet__subtitle" data-i18n="modeWebDescription">Search live sources</span>
+                    </span>
+                    <span class="mobile-mode-sheet__check" aria-hidden="true"><i class="fa-solid fa-check"></i></span>
+                </button>
+            </div>
+        </div>
+    </dialog>
 
     <!-- Math: KaTeX -->
 
@@ -882,7 +1014,7 @@
     <script src="https://cdn.jsdelivr.net/npm/i18next@23.15.1/dist/umd/i18next.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/i18next-http-backend@2.6.1/i18nextHttpBackend.min.js"></script>
     <!-- Application Scripts -->
-    <script src="/static/script.js?v=5.4.29"></script>
+    <script src="/static/script.js?v=5.4.35"></script>
 </body>
 
 </html>

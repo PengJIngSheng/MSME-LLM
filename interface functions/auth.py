@@ -8,6 +8,7 @@ import re
 import secrets
 import smtplib
 import ssl
+import time
 import unicodedata
 from datetime import datetime, timedelta
 from email.mime.multipart import MIMEMultipart
@@ -17,6 +18,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 from pymongo import MongoClient
+from pymongo.errors import DuplicateKeyError
 from typing import Optional
 import bcrypt
 import jwt
@@ -96,6 +98,22 @@ class VerifyOTPRequest(BaseModel):
 
 class ResendOTPRequest(BaseModel):
     user_id: str
+
+class PasswordResetRequest(BaseModel):
+    email: str
+    language: Optional[str] = "en"
+
+class VerifyPasswordResetOTPRequest(BaseModel):
+    reset_id: str
+    otp: str
+
+class ResendPasswordResetOTPRequest(BaseModel):
+    reset_id: str
+
+class CompletePasswordResetRequest(BaseModel):
+    reset_id: str
+    reset_token: str
+    new_password: str
 
 class PhoneValidationRequest(BaseModel):
     country_iso: str
@@ -214,7 +232,7 @@ def _validate_new_password(password: str) -> None:
 def create_jwt_token(data: dict) -> str:
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(hours=JWT_EXPIRATION_HOURS)
-    to_encode.update({"exp": expire})
+    to_encode.update({"iat": int(time.time()), "exp": expire})
     return jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 
@@ -428,6 +446,17 @@ def _auth_user(request: Request) -> dict:
             continue
         user = users_col.find_one({"_id": str(user_id)})
         if user:
+            # Password-reset completion advances this marker. Tokens created
+            # before it (including legacy tokens without iat) cannot keep an
+            # old browser session alive after the password has changed.
+            password_changed_at_epoch = user.get("password_changed_at_epoch")
+            token_issued_at = payload.get("iat", 0)
+            if password_changed_at_epoch is not None:
+                try:
+                    if int(token_issued_at) < int(password_changed_at_epoch):
+                        continue
+                except (TypeError, ValueError):
+                    continue
             return user
     if expired:
         raise HTTPException(status_code=401, detail="Session expired")
@@ -476,9 +505,41 @@ OTP_EMAIL_COPY = {
     },
 }
 
+PASSWORD_RESET_EMAIL_COPY = {
+    "zh": {
+        "subject": "重置您的 bisnes.ai 密码",
+        "title": "重置您的 bisnes.ai 密码",
+        "intro": "请使用以下验证码继续重置您的 bisnes.ai 密码。",
+        "validity": "此验证码将在 10 分钟后失效。若非您本人请求重置密码，可直接忽略此邮件。",
+        "footer": "© bisnes.ai",
+        "plain_code": "验证码",
+    },
+    "en": {
+        "subject": "Reset your bisnes.ai password",
+        "title": "Your bisnes.ai password reset code",
+        "intro": "Use the code below to continue resetting your bisnes.ai password.",
+        "validity": "This code will expire in 10 minutes. If you didn’t request a password reset, you can safely ignore this email.",
+        "footer": "© bisnes.ai",
+        "plain_code": "Reset code",
+    },
+    "ms": {
+        "subject": "Tetapkan semula kata laluan bisnes.ai anda",
+        "title": "Kod tetapan semula kata laluan bisnes.ai anda",
+        "intro": "Gunakan kod di bawah untuk meneruskan tetapan semula kata laluan bisnes.ai anda.",
+        "validity": "Kod ini akan tamat tempoh dalam 10 minit. Jika anda tidak meminta tetapan semula kata laluan, anda boleh mengabaikan e-mel ini dengan selamat.",
+        "footer": "© bisnes.ai",
+        "plain_code": "Kod tetapan semula",
+    },
+}
+
 def _normalize_language(language: Optional[str]) -> str:
     lang = (language or "en").strip().lower()
     return lang if lang in OTP_EMAIL_COPY else "en"
+
+
+def _otp_email_copy(language: Optional[str], purpose: str = "verification") -> dict:
+    lang = _normalize_language(language)
+    return (PASSWORD_RESET_EMAIL_COPY if purpose == "password_reset" else OTP_EMAIL_COPY)[lang]
 
 def build_otp_email_html(
     otp_code: str,
@@ -486,9 +547,10 @@ def build_otp_email_html(
     device_info: str,
     ip_address: str,
     language: Optional[str],
+    purpose: str = "verification",
 ) -> str:
     lang = _normalize_language(language)
-    copy = OTP_EMAIL_COPY[lang]
+    copy = _otp_email_copy(lang, purpose)
     safe_otp = html.escape(otp_code)
     safe_intro = html.escape(copy["intro"])
     safe_validity = html.escape(copy["validity"])
@@ -556,12 +618,13 @@ def send_otp_email(
     device_info: str,
     ip_address: str,
     language: Optional[str] = "en",
+    purpose: str = "verification",
 ) -> None:
     if not SMTP_APP_PASSWORD:
         raise RuntimeError("SMTP_APP_PASSWORD is not configured")
 
     lang = _normalize_language(language)
-    copy = OTP_EMAIL_COPY[lang]
+    copy = _otp_email_copy(lang, purpose)
     msg = MIMEMultipart("related")
     msg["Subject"] = copy["subject"]
     msg["From"] = formataddr((SMTP_FROM_NAME, SMTP_USERNAME))
@@ -577,7 +640,7 @@ def send_otp_email(
     )
     alternative.attach(MIMEText(text_body, "plain", "utf-8"))
     alternative.attach(MIMEText(
-        build_otp_email_html(otp_code, current_time, device_info, ip_address, lang),
+        build_otp_email_html(otp_code, current_time, device_info, ip_address, lang, purpose),
         "html",
         "utf-8",
     ))
@@ -652,6 +715,14 @@ def _ensure_pending_otp_indexes() -> None:
         return
     pending_otps_col.create_index("expires_at", expireAfterSeconds=0)
     pending_otps_col.create_index("username")
+    # Password-reset codes are isolated from registration OTPs. One active
+    # reset record per email makes request/resend rate limiting deterministic.
+    pending_otps_col.create_index(
+        [("type", 1), ("username", 1)],
+        unique=True,
+        partialFilterExpression={"type": "password_reset"},
+        name="unique_password_reset_per_email",
+    )
     _pending_otp_indexes_ready = True
 
 
@@ -941,6 +1012,249 @@ async def resend_otp(req: ResendOTPRequest, request: Request):
         "user_id": req.user_id,
         "resend_available_in": OTP_RESEND_COOLDOWN_SECONDS,
     }
+
+
+def _password_reset_pending_response(reset_id: str, resend_available_in: int) -> dict:
+    """Use one response shape so reset requests do not reveal account existence."""
+    return {
+        "status": "pending",
+        "reset_id": reset_id,
+        "resend_available_in": max(0, int(resend_available_in)),
+    }
+
+
+def _resend_password_reset_otp(
+    reset_id: str,
+    request: Request,
+    language_override: Optional[str] = None,
+) -> Optional[int]:
+    """Atomically rotate and deliver an existing password-reset OTP.
+
+    Returns the cooldown in seconds, or ``None`` when the supplied opaque ID
+    does not map to a reset request. The latter lets the public endpoint avoid
+    becoming an account-enumeration oracle.
+    """
+    pending = pending_otps_col.find_one({"_id": reset_id, "type": "password_reset"})
+    if not pending:
+        return None
+
+    now = datetime.utcnow()
+    if now > pending.get("expires_at", datetime.min):
+        pending_otps_col.delete_one({"_id": reset_id, "type": "password_reset"})
+        raise HTTPException(status_code=400, detail="This password reset code has expired. Start a new reset request.")
+
+    retry_after = _otp_resend_retry_after_seconds(pending, now)
+    if retry_after:
+        raise _otp_resend_rate_limited_error(retry_after)
+
+    otp_code = generate_otp()
+    current_time = _current_time_for_email()
+    device_info = _device_info(request)
+    ip_address = _client_ip(request)
+    language = _normalize_language(language_override or pending.get("language"))
+    resend_available_at = now + timedelta(seconds=OTP_RESEND_COOLDOWN_SECONDS)
+
+    # Claim this send before contacting SMTP. This protects against concurrent
+    # tabs and direct API calls in exactly the same way as registration OTP.
+    claimed = pending_otps_col.update_one(
+        {
+            "_id": reset_id,
+            "type": "password_reset",
+            "$or": [
+                {"resend_available_at": {"$exists": False}},
+                {"resend_available_at": {"$lte": now}},
+            ],
+        },
+        {"$set": {
+            "otp": get_password_hash(otp_code),
+            "created_at": now,
+            "last_otp_sent_at": now,
+            "resend_available_at": resend_available_at,
+            "expires_at": now + timedelta(minutes=OTP_TTL_MINUTES),
+            "current_time": current_time,
+            "device_info": device_info,
+            "ip_address": ip_address,
+            "language": language,
+        }, "$unset": {
+            "reset_token_hash": "",
+            "reset_token_expires_at": "",
+            "verified_at": "",
+        }},
+    )
+    if claimed.matched_count != 1:
+        refreshed = pending_otps_col.find_one({"_id": reset_id, "type": "password_reset"})
+        if not refreshed:
+            return None
+        raise _otp_resend_rate_limited_error(
+            _otp_resend_retry_after_seconds(refreshed, now) or OTP_RESEND_COOLDOWN_SECONDS
+        )
+
+    try:
+        send_otp_email(
+            pending["username"], otp_code, current_time, device_info, ip_address,
+            language, purpose="password_reset",
+        )
+    except Exception as exc:
+        # The code was never delivered, so do not trap the person in a local
+        # cooldown caused by the mail provider.
+        pending_otps_col.update_one(
+            {"_id": reset_id, "type": "password_reset", "resend_available_at": resend_available_at},
+            {"$set": {"resend_available_at": now}},
+        )
+        _raise_otp_email_delivery_error(exc)
+
+    return OTP_RESEND_COOLDOWN_SECONDS
+
+
+@auth_router.post("/api/password-reset/request")
+async def request_password_reset(req: PasswordResetRequest, request: Request):
+    """Send an email OTP for a password reset without exposing account lookup."""
+    _ensure_pending_otp_indexes()
+    email = _normalize_email(req.email)
+    if not email or "@" not in email or "." not in email.rsplit("@", 1)[-1]:
+        raise HTTPException(status_code=400, detail="Enter a valid email address")
+
+    user = users_col.find_one({"username": email, "status": "active"})
+    if not user:
+        # Keep the response indistinguishable from an existing account. The ID
+        # is opaque and has no backing record, so it cannot reset anything.
+        return _password_reset_pending_response(str(uuid.uuid4()), OTP_RESEND_COOLDOWN_SECONDS)
+
+    now = datetime.utcnow()
+    pending = pending_otps_col.find_one({"type": "password_reset", "username": email})
+    if pending and now > pending.get("expires_at", datetime.min):
+        pending_otps_col.delete_one({"_id": pending["_id"], "type": "password_reset"})
+        pending = None
+
+    if pending and pending.get("reset_token_hash"):
+        # A verified reset is intentionally short lived. Starting again should
+        # invalidate it rather than leaving two usable reset paths.
+        pending_otps_col.delete_one({"_id": pending["_id"], "type": "password_reset"})
+        pending = None
+
+    if pending:
+        retry_after = _otp_resend_retry_after_seconds(pending, now)
+        if retry_after:
+            return _password_reset_pending_response(pending["_id"], retry_after)
+        cooldown = _resend_password_reset_otp(pending["_id"], request, req.language)
+        return _password_reset_pending_response(pending["_id"], cooldown or OTP_RESEND_COOLDOWN_SECONDS)
+
+    reset_id = str(uuid.uuid4())
+    otp_code = generate_otp()
+    current_time = _current_time_for_email()
+    device_info = _device_info(request)
+    ip_address = _client_ip(request)
+    language = _normalize_language(req.language)
+    reset_doc = {
+        "_id": reset_id,
+        "type": "password_reset",
+        "username": email,
+        "user_id": str(user["_id"]),
+        "otp": get_password_hash(otp_code),
+        "created_at": now,
+        "last_otp_sent_at": now,
+        "resend_available_at": now + timedelta(seconds=OTP_RESEND_COOLDOWN_SECONDS),
+        "expires_at": now + timedelta(minutes=OTP_TTL_MINUTES),
+        "language": language,
+        "current_time": current_time,
+        "device_info": device_info,
+        "ip_address": ip_address,
+    }
+    try:
+        pending_otps_col.insert_one(reset_doc)
+    except DuplicateKeyError:
+        # Another tab claimed this email first. Reuse its cooldown and avoid a
+        # duplicate delivery rather than racing to replace the code.
+        existing = pending_otps_col.find_one({"type": "password_reset", "username": email})
+        if existing:
+            return _password_reset_pending_response(
+                existing["_id"], _otp_resend_retry_after_seconds(existing, now)
+            )
+        raise
+
+    try:
+        send_otp_email(
+            email, otp_code, current_time, device_info, ip_address,
+            language, purpose="password_reset",
+        )
+    except Exception as exc:
+        pending_otps_col.delete_one({"_id": reset_id, "type": "password_reset"})
+        _raise_otp_email_delivery_error(exc)
+
+    return _password_reset_pending_response(reset_id, OTP_RESEND_COOLDOWN_SECONDS)
+
+
+@auth_router.post("/api/password-reset/resend")
+async def resend_password_reset_otp(req: ResendPasswordResetOTPRequest, request: Request):
+    cooldown = _resend_password_reset_otp(req.reset_id, request)
+    if cooldown is None:
+        return {"status": "resent", "resend_available_in": OTP_RESEND_COOLDOWN_SECONDS}
+    return {"status": "resent", "resend_available_in": cooldown}
+
+
+@auth_router.post("/api/password-reset/verify")
+async def verify_password_reset_otp(req: VerifyPasswordResetOTPRequest):
+    pending = pending_otps_col.find_one({"_id": req.reset_id, "type": "password_reset"})
+    if not pending:
+        raise HTTPException(status_code=400, detail="Invalid or expired verification code")
+    if datetime.utcnow() > pending.get("expires_at", datetime.min):
+        pending_otps_col.delete_one({"_id": req.reset_id, "type": "password_reset"})
+        raise HTTPException(status_code=400, detail="This password reset code has expired. Start a new reset request.")
+    if not verify_password(req.otp, pending.get("otp", "")):
+        raise HTTPException(status_code=400, detail="Invalid or expired verification code")
+
+    reset_token = secrets.token_urlsafe(32)
+    now = datetime.utcnow()
+    reset_token_expires_at = now + timedelta(minutes=OTP_TTL_MINUTES)
+    claimed = pending_otps_col.update_one(
+        {"_id": req.reset_id, "type": "password_reset", "otp": pending.get("otp", "")},
+        {"$set": {
+            "verified_at": now,
+            "reset_token_hash": hashlib.sha256(reset_token.encode("utf-8")).hexdigest(),
+            "reset_token_expires_at": reset_token_expires_at,
+            # The TTL index uses expires_at. Extend it to match the short
+            # post-verification password-entry window.
+            "expires_at": reset_token_expires_at,
+        }, "$unset": {"otp": ""}},
+    )
+    if claimed.matched_count != 1:
+        raise HTTPException(status_code=400, detail="Invalid or expired verification code")
+    return {"status": "verified", "reset_token": reset_token}
+
+
+@auth_router.post("/api/password-reset/complete")
+async def complete_password_reset(req: CompletePasswordResetRequest):
+    _validate_new_password(req.new_password)
+    pending = pending_otps_col.find_one({"_id": req.reset_id, "type": "password_reset"})
+    expected_token_hash = hashlib.sha256(req.reset_token.encode("utf-8")).hexdigest()
+    if (
+        not pending
+        or not pending.get("reset_token_hash")
+        or not secrets.compare_digest(pending["reset_token_hash"], expected_token_hash)
+        or datetime.utcnow() > pending.get("reset_token_expires_at", datetime.min)
+    ):
+        raise HTTPException(status_code=400, detail="Your password reset session has expired. Start again to receive a new code.")
+
+    password_changed_at = datetime.utcnow()
+    result = users_col.update_one(
+        {"_id": pending.get("user_id"), "username": pending.get("username"), "status": "active"},
+        {"$set": {
+            "password": get_password_hash(req.new_password),
+            "password_changed_at": password_changed_at,
+            "password_changed_at_epoch": int(time.time()),
+            "updated_at": password_changed_at,
+        }},
+    )
+    if result.matched_count != 1:
+        pending_otps_col.delete_one({"_id": req.reset_id, "type": "password_reset"})
+        raise HTTPException(status_code=400, detail="Your password reset session has expired. Start again to receive a new code.")
+
+    pending_otps_col.delete_one({
+        "_id": req.reset_id,
+        "type": "password_reset",
+        "reset_token_hash": expected_token_hash,
+    })
+    return {"status": "success"}
 
 @auth_router.post("/api/login")
 async def login(req: AuthRequest, response: Response):

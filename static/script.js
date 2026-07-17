@@ -37,16 +37,18 @@ let lastGuestPromptPulseAt = 0;
 let supportsThinkMode = false;
 let selectedSkillType = '';
 
-const GUEST_QUESTION_LIMIT = 2;
 const agentModeBtn = document.getElementById('agentModeBtn');
 const guestLimitBanner = document.getElementById('guestLimitBanner');
 const guestLimitBannerText = document.getElementById('guestLimitBannerText');
 const guestLimitLoginBtn = document.getElementById('guestLimitLoginBtn');
 const guestLimitRegisterBtn = document.getElementById('guestLimitRegisterBtn');
+const guestAuthRequiredModal = document.getElementById('guestAuthRequiredModal');
+const closeGuestAuthModalBtn = document.getElementById('closeGuestAuthModalBtn');
 const appContainer = document.querySelector('.app-container');
 const inputWrapper = document.querySelector('.input-wrapper');
 const composerInput = document.querySelector('.composer-input');
 const COMPOSER_MAX_HEIGHT = 168;
+let guestAuthReturnFocus = null;
 let googleOAuthClientId = '685645444928-ivt7lgsjiatv0ff0r68ckmbln1rdrrm4.apps.googleusercontent.com';
 let googleConnectorOAuthClientId = googleOAuthClientId;
 let googleLoginRedirectUriValue = '';
@@ -56,7 +58,18 @@ function googleLoginRedirectUri() {
 }
 
 function isMobileLayout() {
-    return window.innerWidth <= 760;
+    return window.innerWidth <= 760 || (
+        window.innerHeight <= 500
+        && window.matchMedia?.('(hover: none) and (pointer: coarse)').matches
+    );
+}
+
+// A phone in landscape can be wider than the desktop breakpoint but still has
+// too little vertical room for an anchored, down-facing menu. Keep this
+// narrowly scoped to the response-mode picker so the rest of the layout keeps
+// its established landscape behavior.
+function isMobileModePickerLayout() {
+    return isMobileLayout();
 }
 
 function syncMobileViewportMetrics() {
@@ -74,6 +87,17 @@ function syncComposerHeightVar() {
     document.documentElement.style.setProperty('--composer-height', `${height}px`);
 }
 
+// The composer grows when text wraps or attachments are added. Keep the
+// layout variable tied to its real rendered height so the last message is
+// never hidden behind the fixed composer.
+if (composerInput && typeof ResizeObserver !== 'undefined') {
+    const composerResizeObserver = new ResizeObserver(() => {
+        window.requestAnimationFrame(syncComposerHeightVar);
+    });
+    composerResizeObserver.observe(composerInput);
+}
+window.requestAnimationFrame(syncComposerHeightVar);
+
 syncMobileViewportMetrics();
 if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', syncMobileViewportMetrics);
@@ -83,6 +107,62 @@ window.addEventListener('resize', syncMobileViewportMetrics);
 window.addEventListener('orientationchange', () => {
     setTimeout(syncMobileViewportMetrics, 80);
     setTimeout(syncMobileViewportMetrics, 280);
+});
+
+// Non-dialog mobile surfaces participate in browser history. Native dialogs
+// already handle Escape/back themselves, so only the drawer and full-screen
+// overlays are registered here.
+const MOBILE_OVERLAY_HISTORY_KEY = '__bisnesMobileOverlay';
+const mobileOverlayClosers = new Map();
+let activeMobileHistoryOverlay = '';
+
+function registerMobileHistoryOverlay(name, closeWithoutHistory) {
+    if (name && typeof closeWithoutHistory === 'function') {
+        mobileOverlayClosers.set(name, closeWithoutHistory);
+    }
+}
+
+function mobileOverlayState(name) {
+    return { ...(window.history.state || {}), [MOBILE_OVERLAY_HISTORY_KEY]: name };
+}
+
+function markMobileHistoryOverlayOpen(name) {
+    if (!name || !isMobileLayout()) return;
+    const stateName = window.history.state?.[MOBILE_OVERLAY_HISTORY_KEY] || '';
+    const previousName = activeMobileHistoryOverlay || stateName;
+
+    if (previousName && previousName !== name) {
+        mobileOverlayClosers.get(previousName)?.();
+        window.history.replaceState(mobileOverlayState(name), '', window.location.href);
+    } else if (stateName !== name) {
+        window.history.pushState(mobileOverlayState(name), '', window.location.href);
+    }
+    activeMobileHistoryOverlay = name;
+}
+
+function markMobileHistoryOverlayClosed(name, { fromHistory = false } = {}) {
+    if (!name) return;
+    if (activeMobileHistoryOverlay === name) activeMobileHistoryOverlay = '';
+    if (!fromHistory && window.history.state?.[MOBILE_OVERLAY_HISTORY_KEY] === name) {
+        window.history.back();
+    }
+}
+
+window.addEventListener('popstate', (event) => {
+    const stateName = event.state?.[MOBILE_OVERLAY_HISTORY_KEY] || '';
+    if (activeMobileHistoryOverlay && stateName !== activeMobileHistoryOverlay) {
+        const closingName = activeMobileHistoryOverlay;
+        activeMobileHistoryOverlay = '';
+        mobileOverlayClosers.get(closingName)?.();
+    }
+
+    // A forward navigation must not resurrect an already dismissed overlay.
+    // Remove only our marker while retaining any state owned by other code.
+    if (stateName && !activeMobileHistoryOverlay) {
+        const cleanState = { ...(event.state || {}) };
+        delete cleanState[MOBILE_OVERLAY_HISTORY_KEY];
+        window.history.replaceState(cleanState, '', window.location.href);
+    }
 });
 
 function getBrowserLanguagePreference() {
@@ -197,6 +277,7 @@ function syncComposerModeControls() {
     const uploadMenu = document.getElementById('uploadMenuShell');
 
     if (hiddenUploadBtn) hiddenUploadBtn.style.display = 'none';
+    document.body.classList.toggle('agent-mode', Boolean(isAgentMode));
     if (toggles) toggles.style.display = '';
     if (cc) cc.style.display = isAgentMode ? 'flex' : 'none';
     if (uploadMenu) {
@@ -210,32 +291,20 @@ function syncComposerModeControls() {
         imgBtn.setAttribute('aria-label', uploadMenuTitle);
     }
     applyThinkModeAvailability();
+    window.requestAnimationFrame(syncComposerHeightVar);
 }
 
 function resizeComposer() {
     if (!userInput) return;
     userInput.style.height = 'auto';
     const nextHeight = Math.min(userInput.scrollHeight, COMPOSER_MAX_HEIGHT);
+    userInput.style.setProperty('--composer-textarea-height', `${nextHeight}px`);
     userInput.style.height = `${nextHeight}px`;
     userInput.style.overflowY = userInput.scrollHeight > COMPOSER_MAX_HEIGHT ? 'auto' : 'hidden';
     if (composerInput) {
         composerInput.classList.toggle('composer-expanded', nextHeight > 34);
     }
     requestAnimationFrame(syncComposerHeightVar);
-}
-
-function getGuestQuestionCount() {
-    return Number(localStorage.getItem('pepperGuestQuestionCount') || '0');
-}
-
-function setGuestQuestionCount(count) {
-    localStorage.setItem('pepperGuestQuestionCount', String(Math.max(0, count)));
-}
-
-function incrementGuestQuestionCount() {
-    const next = getGuestQuestionCount() + 1;
-    setGuestQuestionCount(next);
-    return next;
 }
 
 function getUiCopy() {
@@ -736,16 +805,16 @@ handleGoogleFullscreenReturn().catch(err => {
 });
 
 function updateGuestInputUi() {
-    const shouldHideNormalInput = !currentUserId && !isAgentMode && getGuestQuestionCount() >= GUEST_QUESTION_LIMIT;
     const shouldLockGuestAgent = !currentUserId && isAgentMode;
     document.body.classList.toggle('is-guest', !currentUserId);
     document.body.classList.toggle('is-logged-in', !!currentUserId);
+    syncSidebarOpenAvailability();
 
     if (inputWrapper) {
-        inputWrapper.classList.toggle('guest-input-hidden', shouldHideNormalInput);
+        inputWrapper.classList.remove('guest-input-hidden');
     }
     if (appContainer) {
-        appContainer.classList.toggle('guest-input-hidden', shouldHideNormalInput);
+        appContainer.classList.remove('guest-input-hidden');
     }
     if (composerInput) {
         composerInput.classList.toggle('guest-agent-locked', shouldLockGuestAgent);
@@ -801,6 +870,34 @@ function hideGuestLoginPrompt(resetForce = false) {
     updateGuestInputUi();
 }
 
+function showGuestQuestionAuthModal() {
+    if (currentUserId) return;
+    if (!guestAuthRequiredModal) {
+        showGuestLoginPrompt(true);
+        return;
+    }
+    guestAuthReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    guestAuthRequiredModal.hidden = false;
+    guestAuthRequiredModal.setAttribute('aria-hidden', 'false');
+    requestAnimationFrame(() => {
+        guestAuthRequiredModal.classList.add('show');
+        closeGuestAuthModalBtn?.focus();
+    });
+}
+
+function closeGuestQuestionAuthModal({ restoreFocus = true } = {}) {
+    if (!guestAuthRequiredModal || guestAuthRequiredModal.hidden) return;
+    guestAuthRequiredModal.classList.remove('show');
+    guestAuthRequiredModal.setAttribute('aria-hidden', 'true');
+    window.setTimeout(() => {
+        if (!guestAuthRequiredModal.classList.contains('show')) {
+            guestAuthRequiredModal.hidden = true;
+            if (restoreFocus) guestAuthReturnFocus?.focus?.();
+            guestAuthReturnFocus = null;
+        }
+    }, 220);
+}
+
 function syncGuestAccessState() {
     currentUserId = localStorage.getItem('pepperUserId') || null;
     currentUsername = localStorage.getItem('pepperUsername') || null;
@@ -808,16 +905,14 @@ function syncGuestAccessState() {
     if (agentModeBtn) agentModeBtn.classList.toggle('requires-login', !currentUserId);
 
     if (currentUserId) {
-        setGuestQuestionCount(0);
         hideGuestLoginPrompt(true);
         return;
     }
 
-    if (guestLoginPromptForced || getGuestQuestionCount() >= GUEST_QUESTION_LIMIT) {
-        showGuestLoginPrompt(false);
-    } else {
-        hideGuestLoginPrompt(false);
-    }
+    // The old two-question visitor allowance is retired. Visitors may type so
+    // they can see the sign-in prompt on send, but cannot start a chat.
+    localStorage.removeItem('pepperGuestQuestionCount');
+    hideGuestLoginPrompt(true);
     updateGuestInputUi();
 }
 
@@ -832,6 +927,23 @@ if (guestLimitRegisterBtn) {
         window.location.href = '/static/login.html?mode=register';
     });
 }
+
+if (closeGuestAuthModalBtn) {
+    closeGuestAuthModalBtn.addEventListener('click', () => closeGuestQuestionAuthModal());
+}
+
+if (guestAuthRequiredModal) {
+    guestAuthRequiredModal.addEventListener('click', event => {
+        if (event.target === guestAuthRequiredModal) closeGuestQuestionAuthModal();
+    });
+}
+
+document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && guestAuthRequiredModal && !guestAuthRequiredModal.hidden) {
+        event.preventDefault();
+        closeGuestQuestionAuthModal();
+    }
+});
 
 if (currentUsername) {
     const ud = document.getElementById('userDisplay');
@@ -873,26 +985,76 @@ function syncMobileSidebarBodyState() {
         && !document.body.classList.contains('is-guest')
         && !pageWrapper.classList.contains('sidebar-collapsed');
     document.body.classList.toggle('mobile-sidebar-open', isOpen);
+    sidebarOpenBtn?.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
 }
 
-function setSidebarCollapsed(collapsed) {
+function syncSidebarOpenAvailability() {
+    if (!sidebarOpenBtn) return;
+    const isGuest = !currentUserId || document.body.classList.contains('is-guest');
+    sidebarOpenBtn.disabled = isGuest;
+    sidebarOpenBtn.setAttribute('aria-hidden', isGuest ? 'true' : 'false');
+    sidebarOpenBtn.tabIndex = isGuest ? -1 : 0;
+}
+
+function setSidebarCollapsed(collapsed, { skipHistory = false } = {}) {
     if (!pageWrapper) return;
+    const wasCollapsed = pageWrapper.classList.contains('sidebar-collapsed');
     if (!collapsed && isGuestSidebarDisabled()) {
         pageWrapper.classList.add('sidebar-collapsed');
         document.body.classList.remove('mobile-sidebar-open');
+        sidebarOpenBtn?.setAttribute('aria-expanded', 'false');
         return;
     }
     pageWrapper.classList.toggle('sidebar-collapsed', collapsed);
     syncMobileSidebarBodyState();
+
+    // On phones, opening the drawer should immediately reveal a fresh,
+    // expanded history list. This avoids a hidden/collapsed list being mistaken
+    // for an empty history while an earlier request is still in flight.
+    if (!collapsed && wasCollapsed && isMobileLayout()) {
+        document.body.classList.remove('mobile-header-hidden');
+        const mobileHistoryList = document.getElementById('historyList');
+        const mobileHistoryToggle = document.getElementById('historyToggleBtn');
+        const mobileSidebarContent = document.querySelector('.sidebar-content');
+        mobileHistoryList?.classList.remove('collapsed');
+        mobileHistoryToggle?.classList.remove('collapsed');
+        mobileSidebarContent?.classList.remove('history-collapsed');
+        window.requestAnimationFrame(() => {
+            loadHistory();
+        });
+    }
+
+    if (isMobileLayout() && wasCollapsed !== collapsed) {
+        if (collapsed) {
+            if (!skipHistory) markMobileHistoryOverlayClosed('sidebar');
+        } else {
+            markMobileHistoryOverlayOpen('sidebar');
+        }
+    }
 }
 
+registerMobileHistoryOverlay('sidebar', () => setSidebarCollapsed(true, { skipHistory: true }));
+
+let previousMobileSidebarLayout = null;
 function syncMobileSidebarState() {
     if (!pageWrapper) return;
-    if (isMobileLayout()) {
-        setSidebarCollapsed(true);
+    const mobile = isMobileLayout();
+    if (previousMobileSidebarLayout === mobile) {
+        syncMobileSidebarBodyState();
+        syncSidebarOpenAvailability();
+        return;
+    }
+
+    if (mobile) {
+        setSidebarCollapsed(true, { skipHistory: true });
     } else {
+        if (previousMobileSidebarLayout === true) {
+            markMobileHistoryOverlayClosed('sidebar');
+        }
         syncMobileSidebarBodyState();
     }
+    previousMobileSidebarLayout = mobile;
+    syncSidebarOpenAvailability();
 }
 
 syncMobileSidebarState();
@@ -912,9 +1074,56 @@ document.querySelectorAll('#newChatBtn, #openSearchModalBtn, #agentModeBtn').for
 
 document.addEventListener('click', (event) => {
     if (!isMobileLayout() || !pageWrapper || pageWrapper.classList.contains('sidebar-collapsed')) return;
+    // Native dialogs render in the browser top layer, outside the sidebar's
+    // DOM subtree. Interacting with a confirmation or mobile picker must not
+    // be mistaken for tapping the page backdrop and collapse the drawer.
+    if (event.target.closest('dialog[open], .modal-overlay.show, .account-page-overlay.show, .pdf-preview-overlay.show')) return;
     const sidebar = document.getElementById('sidebar');
     if (sidebar?.contains(event.target) || sidebarOpenBtn?.contains(event.target)) return;
     setSidebarCollapsed(true);
+});
+
+// The fixed mobile header should never cover the conversation being read.
+// Hide it only after a deliberate downward scroll; reveal it as soon as the
+// reader scrolls upward, reaches the top, opens the drawer, or focuses input.
+const mobileHeaderElement = document.getElementById('mobileHeader');
+const mobileChatArea = document.getElementById('chatArea');
+let mobileHeaderLastScrollTop = 0;
+let mobileHeaderScrollFrame = 0;
+
+function setMobileHeaderHidden(hidden) {
+    if (!isMobileLayout() || document.body.classList.contains('mobile-sidebar-open')) {
+        document.body.classList.remove('mobile-header-hidden');
+        return;
+    }
+    document.body.classList.toggle('mobile-header-hidden', Boolean(hidden));
+}
+
+function syncMobileHeaderOnChatScroll() {
+    mobileHeaderScrollFrame = 0;
+    if (!mobileChatArea || !isMobileLayout() || document.body.classList.contains('is-guest')) return;
+    const nextScrollTop = Math.max(0, mobileChatArea.scrollTop);
+    const delta = nextScrollTop - mobileHeaderLastScrollTop;
+    if (nextScrollTop < 10) {
+        setMobileHeaderHidden(false);
+    } else if (delta > 8) {
+        setMobileHeaderHidden(true);
+    } else if (delta < -6) {
+        setMobileHeaderHidden(false);
+    }
+    mobileHeaderLastScrollTop = nextScrollTop;
+}
+
+if (mobileChatArea && mobileHeaderElement) {
+    mobileChatArea.addEventListener('scroll', () => {
+        if (!mobileHeaderScrollFrame) {
+            mobileHeaderScrollFrame = window.requestAnimationFrame(syncMobileHeaderOnChatScroll);
+        }
+    }, { passive: true });
+}
+document.getElementById('userInput')?.addEventListener('focus', () => setMobileHeaderHidden(false));
+window.addEventListener('resize', () => {
+    if (!isMobileLayout()) document.body.classList.remove('mobile-header-hidden');
 });
 
 // ============ History ============
@@ -955,7 +1164,7 @@ function openHistoryChat(chatId, options = {}) {
         setSidebarCollapsed(true);
     }
     if (options.closeModal) {
-        document.getElementById('searchHistoryModal')?.classList.remove('show');
+        closeSearchHistoryModal();
     }
     loadChat(chatId);
 }
@@ -980,9 +1189,57 @@ function animateHistoryItemRemoval(item) {
     });
 }
 
+const historyDeleteDialog = document.getElementById('historyDeleteDialog');
+const historyDeleteCancelBtn = document.getElementById('historyDeleteCancelBtn');
+const historyDeleteConfirmBtn = document.getElementById('historyDeleteConfirmBtn');
+let historyDeleteDialogResolver = null;
+
+function refreshHistoryDeleteDialogCopy() {
+    const title = tUi('historyDeleteTitle', 'Delete conversation?');
+    const description = tUi('historyDeleteDescription', 'This conversation will be permanently deleted.');
+    const cancel = tUi('historyDeleteCancel', 'Cancel');
+    const confirm = tUi('historyDeleteConfirm', 'Delete');
+    const titleEl = document.getElementById('historyDeleteDialogTitle');
+    const descriptionEl = document.getElementById('historyDeleteDialogDescription');
+    if (titleEl) titleEl.textContent = title;
+    if (descriptionEl) descriptionEl.textContent = description;
+    if (historyDeleteCancelBtn) {
+        historyDeleteCancelBtn.textContent = cancel;
+        historyDeleteCancelBtn.setAttribute('aria-label', cancel);
+    }
+    if (historyDeleteConfirmBtn) {
+        historyDeleteConfirmBtn.textContent = confirm;
+        historyDeleteConfirmBtn.setAttribute('aria-label', confirm);
+    }
+}
+
+function confirmHistoryDeletion() {
+    if (!historyDeleteDialog || typeof historyDeleteDialog.showModal !== 'function' || historyDeleteDialog.open) {
+        return Promise.resolve(false);
+    }
+    refreshHistoryDeleteDialogCopy();
+    historyDeleteDialog.returnValue = '';
+    historyDeleteDialog.showModal();
+    window.setTimeout(() => historyDeleteCancelBtn?.focus({ preventScroll: true }), 0);
+    return new Promise(resolve => {
+        historyDeleteDialogResolver = resolve;
+    });
+}
+
+if (historyDeleteDialog) {
+    historyDeleteDialog.addEventListener('close', () => {
+        const resolver = historyDeleteDialogResolver;
+        historyDeleteDialogResolver = null;
+        resolver?.(historyDeleteDialog.returnValue === 'confirm');
+    });
+    historyDeleteDialog.addEventListener('click', event => {
+        if (event.target === historyDeleteDialog) historyDeleteDialog.close('cancel');
+    });
+}
+
 async function deleteHistoryChat(chatId, sourceElement, options = {}) {
     if (!chatId) return false;
-    if (options.confirmMessage && !window.confirm(options.confirmMessage)) return false;
+    if (!(await confirmHistoryDeletion())) return false;
 
     const item = sourceElement?.closest?.('.history-item') || sourceElement;
     if (item?.classList.contains('is-pending-delete') || item?.classList.contains('is-deleting')) return false;
@@ -1076,8 +1333,13 @@ async function loadHistory() {
 
                     const delBtn = document.createElement('button');
                     delBtn.className = 'history-del-btn';
+                    delBtn.type = 'button';
                     delBtn.innerHTML = '<i class="fa-regular fa-trash-can"></i>';
-                    delBtn.title = "Delete Chat";
+                    const deleteLabel = tUi('historyDeleteAction', 'Delete conversation');
+                    delBtn.title = deleteLabel;
+                    delBtn.setAttribute('aria-label', deleteLabel);
+                    delBtn.dataset.i18nTitle = 'historyDeleteAction';
+                    delBtn.dataset.i18nAriaLabel = 'historyDeleteAction';
                     delBtn.onclick = async (e) => {
                         e.stopPropagation();
                         deleteHistoryChat(chat._id, li);
@@ -1097,11 +1359,41 @@ async function loadHistory() {
     } catch(e) { console.error("Failed to load history", e); }
 }
 
+let activeHistoryLoadId = 0;
+
+function renderHistoryChatLoading() {
+    const appContainer = document.querySelector('.app-container');
+    if (!messagesContainer || !appContainer) return;
+    logoContainer.style.display = 'none';
+    appContainer.classList.remove('centered-landing');
+    isFirstMessage = false;
+    messagesContainer.innerHTML = `
+        <div class="history-chat-loading" role="status" aria-live="polite">
+            <span class="history-chat-loading__dot"></span>
+            <span class="history-chat-loading__dot"></span>
+            <span class="history-chat-loading__dot"></span>
+            <span class="history-chat-loading__label">${escapeHtml(tUi('historyOpening', 'Opening conversation…'))}</span>
+        </div>
+    `;
+    scrollChatToTop({ smooth: false });
+}
+
+function renderHistoryChatLoadError() {
+    if (!messagesContainer) return;
+    messagesContainer.innerHTML = `
+        <div class="history-chat-load-error" role="alert">${escapeHtml(tUi('historyOpenFailed', 'We could not open this conversation. Please try again.'))}</div>
+    `;
+}
+
 async function loadChat(chatId) {
     if (isGenerating) return;
+    const requestId = ++activeHistoryLoadId;
+    renderHistoryChatLoading();
     try {
         const res = await fetch(historyChatUrl(chatId), { headers: authenticatedHeaders() });
+        if (!res.ok) throw new Error(`History request failed with status ${res.status}`);
         const data = await res.json();
+        if (requestId !== activeHistoryLoadId) return;
         if(data.chat) {
             currentChatId = chatId;
             messagesContainer.innerHTML = '';
@@ -1129,14 +1421,21 @@ async function loadChat(chatId) {
                 appendMessage(msg.content, msg.role, msg, idx, feedbacks[idx.toString()] || 0, true);
             });
             setTimeout(() => scrollChatToTop({ smooth: true }), 50);
+        } else {
+            throw new Error('History response did not include a chat');
         }
-    } catch (e) { console.error("Failed to load chat", e); }
+    } catch (e) {
+        if (requestId !== activeHistoryLoadId) return;
+        console.error("Failed to load chat", e);
+        renderHistoryChatLoadError();
+    }
 }
 
 function openFreshNormalChat() {
     isAgentMode = false;
     clearSelectedSkillType();
     syncComposerModeControls();
+    resizeComposer();
     currentChatId = null;
     chatMessages = [];
     messagesContainer.innerHTML = '';
@@ -1147,7 +1446,7 @@ function openFreshNormalChat() {
     logoContainer.innerHTML = getNormalLandingMarkup();
     document.querySelectorAll('.nav-menu-btn').forEach(btn => btn.classList.remove('active'));
     document.getElementById('newChatBtn').classList.add('active');
-    if (!currentUserId && getGuestQuestionCount() < GUEST_QUESTION_LIMIT) {
+    if (!currentUserId) {
         guestLoginPromptForced = false;
     }
     syncGuestAccessState();
@@ -1157,6 +1456,7 @@ function openFreshAgentChat(showLoginPrompt = false) {
     isAgentMode = true;
     clearSelectedSkillType();
     syncComposerModeControls();
+    resizeComposer();
     currentChatId = null;
     chatMessages = [];
     messagesContainer.innerHTML = '';
@@ -1218,18 +1518,63 @@ const modeSelectShell = document.getElementById('modeSelectShell');
 const modeSelectTrigger = document.getElementById('modeSelectTrigger');
 const modeSelectLabel = document.getElementById('modeSelectLabel');
 const modeDropdown = document.getElementById('modeDropdown');
+const mobileModeSheet = document.getElementById('mobileModeSheet');
+const mobileModeSheetCloseBtn = document.getElementById('mobileModeSheetCloseBtn');
+let mobileModeSheetReturnFocus = null;
+
+function isMobileModeSheetOpen() {
+    return Boolean(mobileModeSheet?.open);
+}
+
+function closeMobileModeSheet({ restoreFocus = false } = {}) {
+    if (!isMobileModeSheetOpen()) return;
+    mobileModeSheet.close();
+    if (restoreFocus) {
+        window.setTimeout(() => {
+            (mobileModeSheetReturnFocus || modeSelectTrigger)?.focus?.({ preventScroll: true });
+        }, 0);
+    }
+}
+
+function openMobileModeSheet() {
+    if (!mobileModeSheet || !isMobileModePickerLayout() || isMobileModeSheetOpen()) return;
+    mobileModeSheetReturnFocus = document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : modeSelectTrigger;
+    // Opening a picker should first dismiss the virtual keyboard. This gives
+    // the sheet its full dynamic viewport instead of hiding options behind it.
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    modeSelectShell?.classList.remove('open');
+    modeSelectTrigger?.setAttribute('aria-expanded', 'true');
+    document.body.classList.add('mobile-mode-sheet-open');
+    mobileModeSheet.showModal();
+    window.setTimeout(() => {
+        mobileModeSheetCloseBtn?.focus({ preventScroll: true });
+    }, 0);
+}
 
 function setModeDropdownOpen(open) {
+    if (!open) closeMobileModeSheet();
     if (!modeSelectShell || !modeSelectTrigger) return;
     modeSelectShell.classList.toggle('open', open);
     modeSelectTrigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+function selectSearchMode(mode) {
+    if (!searchModeSelect) return;
+    searchModeSelect.value = mode;
+    searchModeSelect.dispatchEvent(new Event('change'));
 }
 
 function syncSearchModeUi() {
     if (!searchModeSelect) return;
     const value = searchModeSelect.value || 'normal';
     isWebMode = value === 'web';
-    if (modeSelectLabel) modeSelectLabel.textContent = isWebMode ? 'Web' : 'Fast';
+    if (modeSelectLabel) {
+        modeSelectLabel.textContent = isWebMode
+            ? tUi('modeWeb', 'Web')
+            : tUi('modeFast', 'Fast');
+    }
     if (modeDropdown) {
         modeDropdown.querySelectorAll('[data-mode]').forEach(option => {
             const selected = option.dataset.mode === value;
@@ -1244,6 +1589,13 @@ function syncSearchModeUi() {
             }
         });
     }
+    if (mobileModeSheet) {
+        mobileModeSheet.querySelectorAll('[data-mobile-mode]').forEach(option => {
+            const selected = option.dataset.mobileMode === value;
+            option.classList.toggle('is-selected', selected);
+            option.setAttribute('aria-selected', selected ? 'true' : 'false');
+        });
+    }
 }
 
 if (searchModeSelect) {
@@ -1256,6 +1608,11 @@ if (modeSelectShell && modeSelectTrigger && modeDropdown) {
         e.stopPropagation();
         if (connectorsContainer) connectorsContainer.classList.remove('open');
         setUploadMenuOpen(false);
+        if (isMobileModePickerLayout()) {
+            if (isMobileModeSheetOpen()) closeMobileModeSheet({ restoreFocus: true });
+            else openMobileModeSheet();
+            return;
+        }
         setModeDropdownOpen(!modeSelectShell.classList.contains('open'));
     });
 
@@ -1263,8 +1620,7 @@ if (modeSelectShell && modeSelectTrigger && modeDropdown) {
         option.addEventListener('click', (e) => {
             e.stopPropagation();
             if (option.disabled || !searchModeSelect) return;
-            searchModeSelect.value = option.dataset.mode;
-            searchModeSelect.dispatchEvent(new Event('change'));
+            selectSearchMode(option.dataset.mode);
             setModeDropdownOpen(false);
         });
     });
@@ -1274,27 +1630,138 @@ if (modeSelectShell && modeSelectTrigger && modeDropdown) {
     });
 
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') setModeDropdownOpen(false);
+        if (e.key !== 'Escape') return;
+        if (isMobileModeSheetOpen()) {
+            e.preventDefault();
+            closeMobileModeSheet({ restoreFocus: true });
+            return;
+        }
+        setModeDropdownOpen(false);
     });
 }
+
+if (mobileModeSheet) {
+    mobileModeSheet.querySelectorAll('[data-mobile-mode]').forEach(option => {
+        option.addEventListener('click', () => {
+            selectSearchMode(option.dataset.mobileMode);
+            closeMobileModeSheet({ restoreFocus: true });
+        });
+    });
+    mobileModeSheetCloseBtn?.addEventListener('click', () => closeMobileModeSheet({ restoreFocus: true }));
+    mobileModeSheet.addEventListener('click', event => {
+        if (event.target === mobileModeSheet) closeMobileModeSheet({ restoreFocus: true });
+    });
+    // Native dialogs close themselves for Escape. Restore the trigger focus as
+    // well, so keyboard users return to the same control they opened.
+    mobileModeSheet.addEventListener('cancel', () => {
+        window.setTimeout(() => {
+            (mobileModeSheetReturnFocus || modeSelectTrigger)?.focus?.({ preventScroll: true });
+        }, 0);
+    });
+    mobileModeSheet.addEventListener('close', () => {
+        document.body.classList.remove('mobile-mode-sheet-open');
+        modeSelectTrigger?.setAttribute('aria-expanded', 'false');
+    });
+}
+
+window.addEventListener('resize', () => {
+    if (!isMobileModePickerLayout()) closeMobileModeSheet();
+});
+window.addEventListener('mof-preferences-changed', syncSearchModeUi);
 
 // ============ Connectors ============
 const connectorBtn = document.getElementById('connectorBtn');
 const connectorsContainer = document.getElementById('connectorsContainer');
+const connectorDropdown = document.getElementById('connectorDropdown');
+const mobileConnectorSheet = document.getElementById('mobileConnectorSheet');
+const mobileConnectorSheetList = document.getElementById('mobileConnectorSheetList');
+const mobileConnectorSheetCloseBtn = document.getElementById('mobileConnectorSheetCloseBtn');
+let mobileConnectorSheetReturnFocus = null;
+
+function isMobileConnectorSheetOpen() {
+    return Boolean(mobileConnectorSheet?.open);
+}
+
+function moveConnectorControlsToMobileSheet() {
+    if (!connectorDropdown || !mobileConnectorSheetList) return;
+    while (connectorDropdown.firstChild) {
+        mobileConnectorSheetList.appendChild(connectorDropdown.firstChild);
+    }
+}
+
+function restoreConnectorControlsFromMobileSheet() {
+    if (!connectorDropdown || !mobileConnectorSheetList) return;
+    while (mobileConnectorSheetList.firstChild) {
+        connectorDropdown.appendChild(mobileConnectorSheetList.firstChild);
+    }
+}
+
+function closeMobileConnectorSheet({ restoreFocus = false } = {}) {
+    if (!isMobileConnectorSheetOpen()) return;
+    mobileConnectorSheet.close();
+    if (restoreFocus) {
+        window.setTimeout(() => {
+            (mobileConnectorSheetReturnFocus || connectorBtn)?.focus?.({ preventScroll: true });
+        }, 0);
+    }
+}
+
+function openMobileConnectorSheet() {
+    if (!mobileConnectorSheet || !isMobileModePickerLayout() || isMobileConnectorSheetOpen()) return;
+    mobileConnectorSheetReturnFocus = document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : connectorBtn;
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    setModeDropdownOpen(false);
+    setUploadMenuOpen(false);
+    connectorsContainer?.classList.remove('open');
+    moveConnectorControlsToMobileSheet();
+    connectorBtn?.setAttribute('aria-expanded', 'true');
+    document.body.classList.add('mobile-connector-sheet-open');
+    mobileConnectorSheet.showModal();
+    fetchConnectorsStatus();
+    window.setTimeout(() => mobileConnectorSheetCloseBtn?.focus({ preventScroll: true }), 0);
+}
+
 if (connectorBtn && connectorsContainer) {
     connectorBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         setModeDropdownOpen(false);
         setUploadMenuOpen(false);
+        if (isMobileModePickerLayout()) {
+            if (isMobileConnectorSheetOpen()) closeMobileConnectorSheet({ restoreFocus: true });
+            else openMobileConnectorSheet();
+            return;
+        }
         connectorsContainer.classList.toggle('open');
     });
 
     document.addEventListener('click', (e) => {
+        if (mobileConnectorSheet?.contains(e.target)) return;
         if (!connectorsContainer.contains(e.target)) {
             connectorsContainer.classList.remove('open');
         }
     });
 }
+
+if (mobileConnectorSheet) {
+    mobileConnectorSheetCloseBtn?.addEventListener('click', () => closeMobileConnectorSheet({ restoreFocus: true }));
+    mobileConnectorSheet.addEventListener('click', event => {
+        if (event.target === mobileConnectorSheet) closeMobileConnectorSheet({ restoreFocus: true });
+    });
+    mobileConnectorSheet.addEventListener('cancel', () => {
+        window.setTimeout(() => (mobileConnectorSheetReturnFocus || connectorBtn)?.focus?.({ preventScroll: true }), 0);
+    });
+    mobileConnectorSheet.addEventListener('close', () => {
+        restoreConnectorControlsFromMobileSheet();
+        document.body.classList.remove('mobile-connector-sheet-open');
+        connectorBtn?.setAttribute('aria-expanded', 'false');
+    });
+}
+
+window.addEventListener('resize', () => {
+    if (!isMobileModePickerLayout()) closeMobileConnectorSheet();
+});
 
 function updateConnectorStatus(service, data) {
     const switchLabel = document.getElementById(`switch-${service}`);
@@ -2483,13 +2950,8 @@ async function handleSend(isResume = false, resumeIndex = null) {
 
     if (!isResume && !text && pendingFiles.length === 0) return;
 
-    if (!isResume && !currentUserId && isAgentMode) {
-        showGuestLoginPrompt(true);
-        return;
-    }
-
-    if (!isResume && !currentUserId && !isAgentMode && getGuestQuestionCount() >= GUEST_QUESTION_LIMIT) {
-        showGuestLoginPrompt(true);
+    if (!isResume && !currentUserId) {
+        showGuestQuestionAuthModal();
         return;
     }
 
@@ -2591,16 +3053,6 @@ async function handleSend(isResume = false, resumeIndex = null) {
         appendMessage(text, 'user', newMsg, chatMessages.length - 1);
         userInput.value = '';
         resizeComposer();
-
-        if (!currentUserId && !isAgentMode) {
-            const guestCount = incrementGuestQuestionCount();
-            if (guestCount >= GUEST_QUESTION_LIMIT) {
-                showGuestLoginPrompt(true);
-            } else {
-                syncGuestAccessState();
-            }
-            updateGuestInputUi();
-        }
 
         assistantWrapper = document.createElement('div');
         assistantWrapper.className = 'assistant-msg-wrapper';
@@ -3408,8 +3860,100 @@ const skillsDropdown = document.getElementById('skillsDropdown');
 const uploadFileMenuItem = document.getElementById('uploadFileMenuItem');
 const recentFilesMenuItem = document.getElementById('recentFilesMenuItem');
 const skillsMenuItem = document.getElementById('skillsMenuItem');
+const mobileUploadSheet = document.getElementById('mobileUploadSheet');
+const mobileUploadSheetCloseBtn = document.getElementById('mobileUploadSheetCloseBtn');
+const mobileUploadActionsView = document.getElementById('mobileUploadActionsView');
+const mobileUploadRecentView = document.getElementById('mobileUploadRecentView');
+const mobileUploadSkillsView = document.getElementById('mobileUploadSkillsView');
+const mobileUploadRecentList = document.getElementById('mobileUploadRecentList');
+let mobileUploadSheetReturnFocus = null;
 let recentFileItemsCache = null;
 let recentFileItemsPromise = null;
+
+function isMobileUploadSheetOpen() {
+    return Boolean(mobileUploadSheet?.open);
+}
+
+function setMobileUploadView(view = 'actions') {
+    if (!mobileUploadSheet) return;
+    mobileUploadActionsView?.classList.toggle('hidden', view !== 'actions');
+    mobileUploadRecentView?.classList.toggle('hidden', view !== 'recent');
+    mobileUploadSkillsView?.classList.toggle('hidden', view !== 'skills');
+}
+
+function closeMobileUploadSheet({ restoreFocus = false } = {}) {
+    if (!isMobileUploadSheetOpen()) return;
+    mobileUploadSheet.close();
+    if (restoreFocus) {
+        window.setTimeout(() => {
+            (mobileUploadSheetReturnFocus || imgUploadBtn)?.focus?.({ preventScroll: true });
+        }, 0);
+    }
+}
+
+function openMobileUploadSheet() {
+    if (!mobileUploadSheet || !isMobileModePickerLayout() || isMobileUploadSheetOpen()) return;
+    mobileUploadSheetReturnFocus = document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : imgUploadBtn;
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    uploadMenuShell?.classList.remove('open');
+    setRecentFilesOpen(false);
+    setSkillsMenuOpen(false);
+    setMobileUploadView('actions');
+    mobileUploadSheet.classList.toggle('is-agent-mode', Boolean(isAgentMode));
+    imgUploadBtn?.setAttribute('aria-expanded', 'true');
+    document.body.classList.add('mobile-upload-sheet-open');
+    mobileUploadSheet.showModal();
+    window.setTimeout(() => mobileUploadSheetCloseBtn?.focus({ preventScroll: true }), 0);
+}
+
+async function addMobileRecentFile(item) {
+    if (!item?.url) return;
+    try {
+        const res = await fetch(item.url, { cache: 'no-store' });
+        if (!res.ok) throw new Error(`RECENT_FILE_HTTP_${res.status}`);
+        const blob = await res.blob();
+        const filename = item.sourceName || item.name || (item.kind === 'pdf' ? 'document.pdf' : 'image.png');
+        const type = getMimeTypeForFilename(filename, blob.type || item.contentType || '');
+        pendingFiles.push(new File([blob], filename, { type }));
+        renderAttachmentsPreview();
+        closeMobileUploadSheet();
+    } catch (err) {
+        console.error('Failed to add recent file', err);
+        showToast(tUi('recentFilesLoadError', 'Unable to load recent files'), true);
+    }
+}
+
+async function renderMobileRecentFiles() {
+    if (!mobileUploadRecentList) return;
+    mobileUploadRecentList.innerHTML = `<div class="mobile-upload-sheet__state">${escapeHtml(tUi('recentFilesLoading', 'Loading...'))}</div>`;
+    try {
+        const allItems = await fetchRecentFileItems();
+        const items = (isAgentMode ? allItems : allItems.filter(item => item.kind === 'image')).slice(0, 16);
+        if (!items.length) {
+            mobileUploadRecentList.innerHTML = `<div class="mobile-upload-sheet__state">${escapeHtml(tUi('recentFilesEmpty', 'No recent files'))}</div>`;
+            return;
+        }
+        mobileUploadRecentList.innerHTML = '';
+        items.forEach(item => {
+            const icon = getAttachmentIcon(item.name, item.contentType || '');
+            const button = document.createElement('button');
+            button.className = 'mobile-upload-sheet__recent-item';
+            button.type = 'button';
+            button.setAttribute('role', 'menuitem');
+            button.innerHTML = `
+                <span class="mobile-upload-sheet__recent-icon" style="color:${escapeAttr(icon.iconColor)}"><i class="fa-solid ${escapeAttr(icon.iconClass)}" aria-hidden="true"></i></span>
+                <span class="mobile-upload-sheet__recent-name">${escapeHtml(item.name)}</span>
+            `;
+            button.addEventListener('click', () => addMobileRecentFile(item));
+            mobileUploadRecentList.appendChild(button);
+        });
+    } catch (err) {
+        console.error('Failed to render mobile recent files', err);
+        mobileUploadRecentList.innerHTML = `<div class="mobile-upload-sheet__state">${escapeHtml(tUi('recentFilesLoadError', 'Unable to load recent files'))}</div>`;
+    }
+}
 
 function invalidateRecentFilesCache() {
     recentFileItemsCache = null;
@@ -3421,6 +3965,11 @@ function invalidateRecentFilesCache() {
 
 function setUploadMenuOpen(open) {
     if (!uploadMenuShell || !imgUploadBtn) return;
+    if (isMobileModePickerLayout()) {
+        if (open) openMobileUploadSheet();
+        else closeMobileUploadSheet();
+        return;
+    }
     uploadMenuShell.classList.toggle('open', open);
     if (!open) {
         setRecentFilesOpen(false);
@@ -3532,70 +4081,86 @@ async function fetchRecentFileItems() {
             items.push({ ...item, url: key });
         };
 
-        for (const chat of chats) {
-            if (items.length >= maxCollectedItems) break;
-            try {
-                const chatId = chat._id;
-                if (!chatId) continue;
-                const res = await fetch(`/api/history/${chatId}`, {
-                    cache: 'no-store',
-                    headers: authenticatedHeaders(),
-                });
-                const data = await res.json();
-                const messages = Array.isArray(data.chat?.messages) ? data.chat.messages : [];
-                [...messages].reverse().forEach(msg => {
-                    if (items.length >= maxCollectedItems) return;
-                    if (msg.generated_image_url) {
-                        addItem({
-                            url: msg.generated_image_url,
-                            name: getFriendlyRecentFileName(msg.generated_image_name, 'image.png'),
-                            sourceName: msg.generated_image_name || 'generated-image.png',
-                            contentType: 'image/png',
-                            kind: 'image',
-                            generated: true,
-                        });
-                    }
-                    if (msg.pdf_url) {
-                        addItem({
-                            url: msg.pdf_url,
-                            name: getFriendlyRecentFileName(msg.pdf_name, 'document.pdf'),
-                            sourceName: msg.pdf_name || 'document.pdf',
-                            contentType: 'application/pdf',
-                            kind: 'pdf',
-                            generated: true,
-                        });
-                    }
-                    if (msg.generated_file_url && msg.generated_file_type !== 'pdf') {
-                        const generatedFileName = msg.generated_file_name || 'generated-file';
-                        const generatedKind = getRecentFileKind(generatedFileName, msg.generated_file_content_type || '');
-                        addItem({
-                            url: msg.generated_file_url,
-                            name: getFriendlyRecentFileName(generatedFileName, 'generated-file'),
-                            sourceName: generatedFileName,
-                            contentType: msg.generated_file_content_type || getMimeTypeForFilename(generatedFileName),
-                            kind: generatedKind,
-                            generated: true,
-                        });
-                    }
-                    (msg.attachments || []).forEach(att => {
-                        if (items.length >= maxCollectedItems || !isRecentFileAttachment(att)) return;
-                        const url = getAttachmentAssetUrl(att);
-                        const kind = getRecentFileKind(att.original_name || att.saved_path, att.content_type || '');
-                        const fallbackName = kind === 'pdf'
-                            ? 'document.pdf'
-                            : (kind === 'image' ? 'image.png' : `document.${kind === 'file' ? 'bin' : kind}`);
-                        addItem({
-                            url,
-                            name: getFriendlyRecentFileName(att.original_name, fallbackName),
-                            sourceName: att.original_name || fallbackName,
-                            contentType: getMimeTypeForFilename(att.original_name || att.saved_path, att.content_type || ''),
-                            kind,
-                            generated: false,
-                        });
+        const collectMessages = (messages) => {
+            for (const msg of [...messages].reverse()) {
+                if (items.length >= maxCollectedItems) break;
+                if (msg.generated_image_url) {
+                    addItem({
+                        url: msg.generated_image_url,
+                        name: getFriendlyRecentFileName(msg.generated_image_name, 'image.png'),
+                        sourceName: msg.generated_image_name || 'generated-image.png',
+                        contentType: 'image/png',
+                        kind: 'image',
+                        generated: true,
                     });
-                });
-            } catch (err) {
-                console.warn('Failed to load recent files from chat', chat?._id, err);
+                }
+                if (msg.pdf_url) {
+                    addItem({
+                        url: msg.pdf_url,
+                        name: getFriendlyRecentFileName(msg.pdf_name, 'document.pdf'),
+                        sourceName: msg.pdf_name || 'document.pdf',
+                        contentType: 'application/pdf',
+                        kind: 'pdf',
+                        generated: true,
+                    });
+                }
+                if (msg.generated_file_url && msg.generated_file_type !== 'pdf') {
+                    const generatedFileName = msg.generated_file_name || 'generated-file';
+                    const generatedKind = getRecentFileKind(generatedFileName, msg.generated_file_content_type || '');
+                    addItem({
+                        url: msg.generated_file_url,
+                        name: getFriendlyRecentFileName(generatedFileName, 'generated-file'),
+                        sourceName: generatedFileName,
+                        contentType: msg.generated_file_content_type || getMimeTypeForFilename(generatedFileName),
+                        kind: generatedKind,
+                        generated: true,
+                    });
+                }
+                for (const att of (msg.attachments || [])) {
+                    if (items.length >= maxCollectedItems) break;
+                    if (!isRecentFileAttachment(att)) continue;
+                    const url = getAttachmentAssetUrl(att);
+                    const kind = getRecentFileKind(att.original_name || att.saved_path, att.content_type || '');
+                    const fallbackName = kind === 'pdf'
+                        ? 'document.pdf'
+                        : (kind === 'image' ? 'image.png' : `document.${kind === 'file' ? 'bin' : kind}`);
+                    addItem({
+                        url,
+                        name: getFriendlyRecentFileName(att.original_name, fallbackName),
+                        sourceName: att.original_name || fallbackName,
+                        contentType: getMimeTypeForFilename(att.original_name || att.saved_path, att.content_type || ''),
+                        kind,
+                        generated: false,
+                    });
+                }
+            }
+        };
+
+        // Fetch a small batch in parallel, then process each response in the
+        // original history order. This removes the long 24-request waterfall
+        // without changing ordering or de-duplication semantics.
+        const recentFileConcurrency = 5;
+        for (let offset = 0; offset < chats.length && items.length < maxCollectedItems; offset += recentFileConcurrency) {
+            const batch = chats.slice(offset, offset + recentFileConcurrency);
+            const batchMessages = await Promise.all(batch.map(async chat => {
+                const chatId = chat?._id;
+                if (!chatId) return [];
+                try {
+                    const res = await fetch(`/api/history/${chatId}`, {
+                        cache: 'no-store',
+                        headers: authenticatedHeaders(),
+                    });
+                    if (!res.ok) throw new Error(`History request failed with status ${res.status}`);
+                    const data = await res.json();
+                    return Array.isArray(data.chat?.messages) ? data.chat.messages : [];
+                } catch (err) {
+                    console.warn('Failed to load recent files from chat', chatId, err);
+                    return [];
+                }
+            }));
+            for (const messages of batchMessages) {
+                collectMessages(messages);
+                if (items.length >= maxCollectedItems) break;
             }
         }
         recentFileItemsCache = items;
@@ -3668,6 +4233,11 @@ if (imgUploadBtn && imageInput) {
         }
         setModeDropdownOpen(false);
         if (connectorsContainer) connectorsContainer.classList.remove('open');
+        if (isMobileModePickerLayout()) {
+            if (isMobileUploadSheetOpen()) closeMobileUploadSheet({ restoreFocus: true });
+            else openMobileUploadSheet();
+            return;
+        }
         const nextOpen = !uploadMenuShell?.classList.contains('open');
         setUploadMenuOpen(nextOpen);
         if (nextOpen) fetchRecentFileItems().catch(err => console.warn('Recent file preload failed', err));
@@ -3726,11 +4296,18 @@ if (imgUploadBtn && imageInput) {
     }
 
     document.addEventListener('click', (e) => {
+        if (mobileUploadSheet?.contains(e.target)) return;
         if (uploadMenuShell && !uploadMenuShell.contains(e.target)) setUploadMenuOpen(false);
     });
 
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') setUploadMenuOpen(false);
+        if (e.key !== 'Escape') return;
+        if (isMobileUploadSheetOpen()) {
+            e.preventDefault();
+            closeMobileUploadSheet({ restoreFocus: true });
+            return;
+        }
+        setUploadMenuOpen(false);
     });
 
     imageInput.addEventListener('change', (e) => {
@@ -3746,6 +4323,52 @@ if (imgUploadBtn && imageInput) {
         imageInput.value = '';
     });
 }
+
+if (mobileUploadSheet) {
+    document.getElementById('mobileUploadPhotoBtn')?.addEventListener('click', () => {
+        // Keep this native picker call inside the original tap's activation
+        // window. Mobile Safari otherwise may require a second tap after a
+        // dialog closes before it permits the file chooser to open.
+        imageInput?.click();
+        closeMobileUploadSheet();
+    });
+    document.getElementById('mobileUploadFileBtn')?.addEventListener('click', () => {
+        fileInput?.click();
+        closeMobileUploadSheet();
+    });
+    document.getElementById('mobileUploadRecentBtn')?.addEventListener('click', () => {
+        setMobileUploadView('recent');
+        renderMobileRecentFiles();
+    });
+    document.getElementById('mobileUploadSkillsBtn')?.addEventListener('click', () => {
+        setMobileUploadView('skills');
+    });
+    document.getElementById('mobileUploadRecentBackBtn')?.addEventListener('click', () => setMobileUploadView('actions'));
+    document.getElementById('mobileUploadSkillsBackBtn')?.addEventListener('click', () => setMobileUploadView('actions'));
+    mobileUploadSheet.querySelectorAll('[data-mobile-skill]').forEach(button => {
+        button.addEventListener('click', () => {
+            setSelectedSkillType(button.dataset.mobileSkill || '');
+            closeMobileUploadSheet();
+            userInput?.focus();
+        });
+    });
+    mobileUploadSheetCloseBtn?.addEventListener('click', () => closeMobileUploadSheet({ restoreFocus: true }));
+    mobileUploadSheet.addEventListener('click', event => {
+        if (event.target === mobileUploadSheet) closeMobileUploadSheet({ restoreFocus: true });
+    });
+    mobileUploadSheet.addEventListener('cancel', () => {
+        window.setTimeout(() => (mobileUploadSheetReturnFocus || imgUploadBtn)?.focus?.({ preventScroll: true }), 0);
+    });
+    mobileUploadSheet.addEventListener('close', () => {
+        document.body.classList.remove('mobile-upload-sheet-open');
+        imgUploadBtn?.setAttribute('aria-expanded', 'false');
+        setMobileUploadView('actions');
+    });
+}
+
+window.addEventListener('resize', () => {
+    if (!isMobileModePickerLayout()) closeMobileUploadSheet();
+});
 
 fileInput.addEventListener('change', (e) => {
     const newFiles = Array.from(e.target.files);
@@ -3799,6 +4422,7 @@ function renderAttachmentsPreview() {
         }
         attachmentsPreview.appendChild(pill);
     });
+    window.requestAnimationFrame(syncComposerHeightVar);
 }
 
 function renderMessageAttachments(attachmentsArr) {
@@ -3868,9 +4492,10 @@ function openPdfPreview(url, filename) {
     frame.src = url;
     overlay.classList.add('show');
     document.body.style.overflow = 'hidden';
+    markMobileHistoryOverlayOpen('pdf');
 }
 
-function closePdfPreview() {
+function closePdfPreviewRaw() {
     const overlay = document.getElementById('pdfPreviewOverlay');
     const frame = document.getElementById('pdfPreviewFrame');
 
@@ -3878,6 +4503,15 @@ function closePdfPreview() {
     if (frame) frame.src = '';
     document.body.style.overflow = '';
 }
+
+function closePdfPreview() {
+    const overlay = document.getElementById('pdfPreviewOverlay');
+    if (!overlay?.classList.contains('show')) return;
+    closePdfPreviewRaw();
+    markMobileHistoryOverlayClosed('pdf');
+}
+
+registerMobileHistoryOverlay('pdf', closePdfPreviewRaw);
 
 // PDF Preview event listeners
 (function initPdfPreview() {
@@ -3963,6 +4597,19 @@ const previewMessages = document.getElementById('previewMessages');
 let previewHoverTimer = null;
 let currentPreviewChatId = null;
 
+function closeSearchHistoryModalRaw() {
+    searchHistoryModal?.classList.remove('show');
+    clearTimeout(previewHoverTimer);
+}
+
+function closeSearchHistoryModal() {
+    if (!searchHistoryModal?.classList.contains('show')) return;
+    closeSearchHistoryModalRaw();
+    markMobileHistoryOverlayClosed('search');
+}
+
+registerMobileHistoryOverlay('search', closeSearchHistoryModalRaw);
+
 function resetSearchPreview(message = 'Select a conversation to preview') {
     clearTimeout(previewHoverTimer);
     currentPreviewChatId = null;
@@ -3998,7 +4645,9 @@ function getHistoryGroupName(date) {
 // Open Search Modal
 openSearchModalBtn.addEventListener('click', async () => {
     currentUserId = localStorage.getItem('pepperUserId') || null;
+    if (isMobileLayout()) setSidebarCollapsed(true, { skipHistory: true });
     searchHistoryModal.classList.add('show');
+    markMobileHistoryOverlayOpen('search');
     historySearchInput.value = '';
     resetSearchPreview();
 
@@ -4045,15 +4694,13 @@ openSearchModalBtn.addEventListener('click', async () => {
 
 // Close Mode
 closeSearchModalBtn.addEventListener('click', () => {
-    searchHistoryModal.classList.remove('show');
-    clearTimeout(previewHoverTimer);
+    closeSearchHistoryModal();
 });
 
 // Close modal when clicking outside
 searchHistoryModal.addEventListener('click', (e) => {
     if (e.target === searchHistoryModal) {
-        searchHistoryModal.classList.remove('show');
-        clearTimeout(previewHoverTimer);
+        closeSearchHistoryModal();
     }
 });
 
@@ -4106,6 +4753,9 @@ function renderSearchModalHistory(groups) {
                 hour: '2-digit',
                 minute: '2-digit'
             });
+            const openLabel = tUi('historyOpenAction', 'Open conversation');
+            const renameLabel = tUi('historyRenameAction', 'Rename conversation');
+            const deleteLabel = tUi('historyDeleteAction', 'Delete conversation');
 
             li.innerHTML = `
                 <div class="history-item-main">
@@ -4113,9 +4763,9 @@ function renderSearchModalHistory(groups) {
                     <div class="history-item-meta">${entry.agentMode ? 'Agent' : 'Chat'} · ${timeLabel}</div>
                 </div>
                 <div class="history-item-actions">
-                    <button class="modal-action-btn open-btn" title="Open"><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
-                    <button class="modal-action-btn edit-btn" title="Edit"><i class="fa-solid fa-pencil"></i></button>
-                    <button class="modal-action-btn delete-btn" title="Delete"><i class="fa-regular fa-trash-can"></i></button>
+                    <button class="modal-action-btn open-btn" type="button" title="${escapeAttr(openLabel)}" aria-label="${escapeAttr(openLabel)}" data-i18n-title="historyOpenAction" data-i18n-aria-label="historyOpenAction"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></button>
+                    <button class="modal-action-btn edit-btn" type="button" title="${escapeAttr(renameLabel)}" aria-label="${escapeAttr(renameLabel)}" data-i18n-title="historyRenameAction" data-i18n-aria-label="historyRenameAction"><i class="fa-solid fa-pencil" aria-hidden="true"></i></button>
+                    <button class="modal-action-btn delete-btn" type="button" title="${escapeAttr(deleteLabel)}" aria-label="${escapeAttr(deleteLabel)}" data-i18n-title="historyDeleteAction" data-i18n-aria-label="historyDeleteAction"><i class="fa-regular fa-trash-can" aria-hidden="true"></i></button>
                 </div>
             `;
 
@@ -4173,7 +4823,6 @@ function renderSearchModalHistory(groups) {
             deleteBtn.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 deleteHistoryChat(entry.id, li, {
-                    confirmMessage: "Delete this chat?",
                     clearPreview: true
                 });
             });
@@ -4333,6 +4982,9 @@ async function loadChatPreview(chatId, title, liElement) {
             window._pepperLang = i18next.getResourceBundle(i18next.language, 'translation') || {};
             window.applyPepperLang = applyLang;
             document.documentElement.setAttribute('lang', i18next.language);
+            // The compact trigger is text-only (rather than a data-i18n node),
+            // so explicitly refresh it after the async language bundle lands.
+            syncSearchModeUi();
             if (logoContainer && isFirstMessage && !isAgentMode) {
                 logoContainer.innerHTML = getNormalLandingMarkup();
             }
@@ -4505,15 +5157,10 @@ loadUserPreferences();
     if(settingsBtn && settingsBlock) {
         settingsBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            const isOpen = settingsBlock.classList.contains('show');
-            if (isOpen) {
-                closeContextMenu();
-                window.dispatchEvent(new CustomEvent('open-mof-account-page'));
-                return;
-            }
-            settingsBlock.classList.add('show');
-            settingsBtn.classList.add('is-open');
-            settingsBtn.setAttribute('aria-expanded', 'true');
+            const nextOpen = !settingsBlock.classList.contains('show');
+            settingsBlock.classList.toggle('show', nextOpen);
+            settingsBtn.classList.toggle('is-open', nextOpen);
+            settingsBtn.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
         });
     }
 
@@ -4643,11 +5290,6 @@ loadUserPreferences();
             securityPasswordTitle: '使用密码登录',
             securityPasswordDesc: '管理您账户的密码。',
             securitySetPasswordBtn: '设置密码',
-            securityMfaTitle: '多因素身份验证',
-            securityMfaDesc: '使用第二个身份验证因素保护您的账户。',
-            securityEnableMfaBtn: '启用 MFA',
-            securityRecoveryTitle: '恢复代码',
-            securityRecoveryDesc: '您需要至少启用一种多因素方法才能生成恢复代码。',
             securityNewPasswordLabel: '新密码',
             securitySavePasswordBtn: '保存密码',
             securitySetPasswordSubtitle: '填写下方表单以更改您的登录密码。',
@@ -4729,11 +5371,6 @@ loadUserPreferences();
             securityPasswordTitle: 'Password login',
             securityPasswordDesc: 'Manage your account password.',
             securitySetPasswordBtn: 'Set password',
-            securityMfaTitle: 'Multi-factor authentication',
-            securityMfaDesc: 'Protect your account with a second authentication factor.',
-            securityEnableMfaBtn: 'Enable MFA',
-            securityRecoveryTitle: 'Recovery codes',
-            securityRecoveryDesc: 'You need to enable at least one multi-factor method to generate recovery codes.',
             securityNewPasswordLabel: 'New password',
             securitySavePasswordBtn: 'Save password',
             securitySetPasswordSubtitle: 'Fill in the form below to change your login password.',
@@ -4815,11 +5452,6 @@ loadUserPreferences();
             securityPasswordTitle: 'Log masuk dengan kata laluan',
             securityPasswordDesc: 'Urus kata laluan akaun anda.',
             securitySetPasswordBtn: 'Tetapkan kata laluan',
-            securityMfaTitle: 'Pengesahan pelbagai faktor',
-            securityMfaDesc: 'Lindungi akaun anda dengan faktor pengesahan kedua.',
-            securityEnableMfaBtn: 'Aktifkan MFA',
-            securityRecoveryTitle: 'Kod pemulihan',
-            securityRecoveryDesc: 'Anda perlu mengaktifkan sekurang-kurangnya satu kaedah berbilang faktor untuk menjana kod pemulihan.',
             securityNewPasswordLabel: 'Kata laluan baharu',
             securitySavePasswordBtn: 'Simpan kata laluan',
             securitySetPasswordSubtitle: 'Isi borang di bawah untuk menukar kata laluan log masuk anda.',
@@ -5041,16 +5673,26 @@ loadUserPreferences();
         renderAvatar(topAvatar);
         renderAccountLanguage();
         switchAccountSection('profile');
+        if (isMobileLayout()) setSidebarCollapsed(true, { skipHistory: true });
         overlay.classList.add('show');
         overlay.setAttribute('aria-hidden', 'false');
         document.body.classList.add('account-page-open');
+        markMobileHistoryOverlayOpen('account');
     }
 
-    function closeAccountPage() {
+    function closeAccountPageRaw() {
         overlay.classList.remove('show');
         overlay.setAttribute('aria-hidden', 'true');
         document.body.classList.remove('account-page-open');
     }
+
+    function closeAccountPage() {
+        if (!overlay.classList.contains('show')) return;
+        closeAccountPageRaw();
+        markMobileHistoryOverlayClosed('account');
+    }
+
+    registerMobileHistoryOverlay('account', closeAccountPageRaw);
 
     window.addEventListener('open-mof-account-page', openAccountPage);
     if (sessionStorage.getItem('pepperOpenAccountAfterGoogle') === '1') {

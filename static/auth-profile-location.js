@@ -162,12 +162,8 @@
     const countriesByIso = new Map(COUNTRY_OPTIONS.map((country) => [country.iso, country]));
     const countriesByName = new Map(COUNTRY_OPTIONS.map((country) => [country.name.toLowerCase(), country]));
 
-    function flagUrl(country) {
-        return `https://flagcdn.com/w40/${String(country.iso || '').toLowerCase()}.png`;
-    }
-
     function flagMarkup(country) {
-        return `<span class="flag" style="background-image: url('${flagUrl(country)}')" aria-hidden="true"></span>`;
+        return `<span class="flag has-emoji" aria-hidden="true">${country.flag || ''}</span>`;
     }
 
     function setFlagElement(element, country) {
@@ -176,13 +172,15 @@
             element.textContent = '';
             element.style.backgroundImage = '';
             element.classList.add('is-empty');
+            element.classList.remove('has-emoji');
             element.removeAttribute('aria-label');
             element.removeAttribute('title');
             return;
         }
-        element.textContent = '';
-        element.style.backgroundImage = `url('${flagUrl(country)}')`;
+        element.textContent = country.flag || '';
+        element.style.backgroundImage = '';
         element.classList.remove('is-empty');
+        element.classList.add('has-emoji');
         element.setAttribute('aria-label', `${country.name} flag`);
         element.title = country.name;
     }
@@ -229,18 +227,156 @@
         return COUNTRY_OPTIONS.find((country) => raw === country.name.toLowerCase() || raw.startsWith(`${country.name.toLowerCase()} - `)) || null;
     }
 
+    const mobileSelectQuery = window.matchMedia('(max-width: 520px), (pointer: coarse) and (max-height: 520px)');
+    let mobileSelectRoot = null;
+    let mobileSelectRestoreFocus = true;
+
+    function mobileSelectCopy(kind) {
+        const language = (document.documentElement.lang || 'en').toLowerCase().split('-')[0];
+        const copy = {
+            en: { country: 'Select country or region', region: 'Select region', close: 'Close' },
+            zh: { country: '选择国家或地区', region: '选择区域', close: '关闭' },
+            ms: { country: 'Pilih negara atau rantau', region: 'Pilih wilayah', close: 'Tutup' }
+        }[language] || { country: 'Select country or region', region: 'Select region', close: 'Close' };
+        return { title: copy[kind === 'region' ? 'region' : 'country'], close: copy.close };
+    }
+
+    function ensureMobileSelectDialog() {
+        let dialog = document.getElementById('authSelectDialog');
+        if (dialog) return dialog;
+
+        dialog = document.createElement('dialog');
+        dialog.id = 'authSelectDialog';
+        dialog.className = 'auth-select-dialog';
+        dialog.setAttribute('aria-labelledby', 'authSelectDialogTitle');
+        dialog.innerHTML = `
+            <section class="auth-select-sheet">
+                <header class="auth-select-sheet-header">
+                    <h2 class="auth-select-sheet-title" id="authSelectDialogTitle"></h2>
+                    <button type="button" class="auth-select-sheet-close" aria-label="Close" title="Close">
+                        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                    </button>
+                </header>
+                <div class="auth-select-sheet-options" role="listbox"></div>
+            </section>
+        `;
+        document.body.appendChild(dialog);
+
+        dialog.querySelector('.auth-select-sheet-close').addEventListener('click', () => closeMobileSelectDialog());
+        dialog.addEventListener('cancel', (event) => {
+            event.preventDefault();
+            closeMobileSelectDialog();
+        });
+        dialog.addEventListener('click', (event) => {
+            if (event.target === dialog) closeMobileSelectDialog();
+        });
+        dialog.addEventListener('close', () => {
+            const previousRoot = mobileSelectRoot;
+            const trigger = previousRoot?.querySelector('.custom-select-trigger');
+            previousRoot?.classList.remove('open', 'mobile-sheet-open');
+            trigger?.setAttribute('aria-expanded', 'false');
+            dialog.classList.remove('is-closing');
+            dialog.querySelector('.auth-select-sheet-options').replaceChildren();
+            document.body.classList.remove('auth-select-dialog-open');
+            mobileSelectRoot = null;
+            if (mobileSelectRestoreFocus && trigger?.isConnected) {
+                window.requestAnimationFrame(() => trigger.focus({ preventScroll: true }));
+            }
+            mobileSelectRestoreFocus = true;
+        });
+        return dialog;
+    }
+
+    function finishMobileSelectClose(dialog) {
+        if (dialog.open) dialog.close();
+    }
+
+    function closeMobileSelectDialog({ restoreFocus = true, immediate = false } = {}) {
+        const dialog = document.getElementById('authSelectDialog');
+        if (!dialog?.open) return;
+        mobileSelectRestoreFocus = restoreFocus;
+        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (immediate || reducedMotion) {
+            finishMobileSelectClose(dialog);
+            return;
+        }
+        if (dialog.classList.contains('is-closing')) return;
+        dialog.classList.add('is-closing');
+        const sheet = dialog.querySelector('.auth-select-sheet');
+        const finish = () => {
+            if (dialog.classList.contains('is-closing')) finishMobileSelectClose(dialog);
+        };
+        sheet.addEventListener('animationend', finish, { once: true });
+        // Animation events can be suppressed by browser lifecycle changes.
+        window.setTimeout(finish, 260);
+    }
+
+    function openMobileSelectDialog(root) {
+        const dialog = ensureMobileSelectDialog();
+        const trigger = root.querySelector('.custom-select-trigger');
+        const sourceMenu = root.querySelector('.custom-select-menu');
+        if (!trigger || !sourceMenu || typeof dialog.showModal !== 'function') return false;
+
+        if (dialog.open) closeMobileSelectDialog({ restoreFocus: false, immediate: true });
+        mobileSelectRoot = root;
+        mobileSelectRestoreFocus = true;
+        root.classList.remove('open');
+        root.classList.add('mobile-sheet-open');
+        trigger.setAttribute('aria-expanded', 'true');
+        trigger.setAttribute('aria-controls', dialog.id);
+
+        const kind = root.dataset.selectKind || (root.classList.contains('region-select') ? 'region' : 'country');
+        const copy = mobileSelectCopy(kind);
+        const title = dialog.querySelector('.auth-select-sheet-title');
+        const closeButton = dialog.querySelector('.auth-select-sheet-close');
+        const optionsHost = dialog.querySelector('.auth-select-sheet-options');
+        title.textContent = copy.title;
+        closeButton.setAttribute('aria-label', copy.close);
+        closeButton.title = copy.close;
+        optionsHost.setAttribute('aria-label', copy.title);
+        optionsHost.replaceChildren();
+
+        Array.from(sourceMenu.querySelectorAll('.custom-option')).forEach((sourceOption) => {
+            const option = sourceOption.cloneNode(true);
+            option.addEventListener('click', () => {
+                const currentOption = Array.from(sourceMenu.querySelectorAll('.custom-option'))
+                    .find((candidate) => candidate.dataset.value === sourceOption.dataset.value);
+                currentOption?.click();
+            });
+            optionsHost.appendChild(option);
+        });
+
+        document.body.classList.add('auth-select-dialog-open');
+        dialog.classList.remove('is-closing');
+        dialog.showModal();
+        window.requestAnimationFrame(() => {
+            const selected = optionsHost.querySelector('[aria-selected="true"]') || optionsHost.querySelector('.custom-option');
+            selected?.focus({ preventScroll: true });
+            selected?.scrollIntoView({ block: 'nearest' });
+        });
+        return true;
+    }
+
     function closeAllSelects(exceptRoot) {
-        document.querySelectorAll('.custom-select.open').forEach((root) => {
+        if (mobileSelectRoot && mobileSelectRoot !== exceptRoot) closeMobileSelectDialog();
+        document.querySelectorAll('.custom-select.open, .custom-select.mobile-sheet-open').forEach((root) => {
             if (root === exceptRoot) return;
-            root.classList.remove('open');
+            root.classList.remove('open', 'mobile-sheet-open');
             const trigger = root.querySelector('.custom-select-trigger');
             if (trigger) trigger.setAttribute('aria-expanded', 'false');
         });
     }
 
     function toggleSelect(root, open) {
-        const shouldOpen = typeof open === 'boolean' ? open : !root.classList.contains('open');
+        const isOpen = root.classList.contains('open') || root.classList.contains('mobile-sheet-open');
+        const shouldOpen = typeof open === 'boolean' ? open : !isOpen;
         closeAllSelects(shouldOpen ? root : null);
+        if (shouldOpen && mobileSelectQuery.matches && openMobileSelectDialog(root)) return;
+        if (!shouldOpen && mobileSelectRoot === root) {
+            closeMobileSelectDialog();
+            return;
+        }
+        root.classList.remove('mobile-sheet-open');
         root.classList.toggle('open', shouldOpen);
         const trigger = root.querySelector('.custom-select-trigger');
         if (trigger) trigger.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
@@ -254,6 +390,10 @@
         });
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') closeAllSelects();
+        });
+        mobileSelectQuery.addEventListener?.('change', () => {
+            if (mobileSelectRoot) closeMobileSelectDialog({ immediate: true });
+            closeAllSelects();
         });
     }
 
@@ -325,6 +465,8 @@
 
         bindGlobalClose();
         const requireCountrySelection = options.requireCountrySelection === true;
+        phoneRoot.dataset.selectKind = 'country';
+        regionRoot.dataset.selectKind = 'region';
 
         if (phoneRoot.dataset.bound !== '1') {
             phoneRoot.dataset.bound = '1';

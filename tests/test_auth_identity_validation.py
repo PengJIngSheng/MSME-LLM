@@ -54,6 +54,15 @@ class AuthIdentityValidationTests(unittest.TestCase):
         self.assertIn("This code will expire in 10 minutes.", rendered)
         self.assertNotIn("Request ID", rendered)
 
+    def test_password_reset_email_uses_a_specific_safe_template(self):
+        rendered = auth.build_otp_email_html(
+            "654321", "ignored", "ignored", "ignored", "en", purpose="password_reset"
+        )
+        self.assertIn("Your bisnes.ai password reset code", rendered)
+        self.assertIn(">654321<", rendered)
+        self.assertIn("If you didn’t request a password reset", rendered)
+        self.assertNotIn("continue signing in", rendered)
+
 
 if __name__ == "__main__":
     unittest.main()
