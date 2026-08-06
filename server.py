@@ -13,7 +13,7 @@ import ipaddress
 import urllib.parse
 import urllib.request
 from datetime import datetime
-from fastapi import FastAPI, Request, UploadFile, File
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File
 from copy import deepcopy
 from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -52,6 +52,7 @@ sys.path.append(os.path.join(_BASE, "Model Networking"))
 
 # ── Load central config ──────────────────────────────────
 from config_loader import cfg
+import text_utils
 os.environ.setdefault("OLLAMA_HOST", cfg.ollama_base_url)
 _ollama_client = _ol.Client(host=cfg.ollama_base_url)
 
@@ -368,6 +369,23 @@ def _response_profile(text: str, agent_mode: bool = False, web_mode: bool = Fals
     }
 
 
+_shared_web_researcher = None
+
+
+def _get_shared_web_researcher():
+    """One process-wide WebResearcher.
+
+    Building one per request also rebuilt the Crawl4AI fetcher wrapper, the
+    pgvector cache handle, and the embedding closure on every web-mode turn.
+    Per-request settings (location, result/page budget) are passed to
+    prepare() instead of being written onto private attributes.
+    """
+    global _shared_web_researcher
+    if _shared_web_researcher is None:
+        _shared_web_researcher = WebResearcher(cfg)
+    return _shared_web_researcher
+
+
 def _model_supports_thinking(model_name: str) -> bool:
     name = (model_name or "").lower()
     _non_thinking = ("gemma",)
@@ -398,7 +416,11 @@ def _generate_search_query_response(messages) -> str:
                         "temperature": 0.1,
                         "top_p": 0.9,
                         "num_predict": 256,
-                        "num_ctx": 2048,
+                        # Same window as every other call. This helper often runs
+                        # on the same model as the chat itself, so a smaller
+                        # num_ctx here would make Ollama reload the model on the
+                        # way in and again on the way out (~7.8s each).
+                        "num_ctx": cfg.ollama_num_ctx,
                         "num_gpu": cfg.ollama_num_gpu,
                         "num_thread": cfg.ollama_num_thread,
                         "use_mmap": True,
@@ -489,12 +511,17 @@ def _classify_previous_image_route(user_text: str, image_ref: dict) -> str:
                 "temperature": 0.0,
                 "top_p": 1.0,
                 "num_predict": 192,
-                "num_ctx": 2048,
+                # Must match the chat window: this router runs on cfg.fast_model,
+                # which is the same model the chat uses, so a different num_ctx
+                # would reload it on every routing decision.
+                "num_ctx": cfg.ollama_num_ctx,
                 "num_gpu": cfg.ollama_num_gpu,
                 "num_thread": cfg.ollama_num_thread,
                 "use_mmap": True,
             },
-            keep_alive="8m",
+            # Same keep_alive as the chat path, so a routing call cannot expire
+            # the model out from under an active conversation.
+            keep_alive="45m",
         )
         msg = resp.get("message") if isinstance(resp, dict) else getattr(resp, "message", None)
         content = msg.get("content") if isinstance(msg, dict) else getattr(msg, "content", "")
@@ -716,7 +743,42 @@ async def startup_event():
 
     _think_label = "ENABLED" if _think_mode_supported else "DISABLED (model does not emit <think> tags)"
     print(f"ℹ️ Think mode          : {_think_label}")
+
+    await _prewarm_retrieval()
+
     print(f"✅ Ready on http://127.0.0.1:{cfg.port}")
+
+
+async def _prewarm_retrieval():
+    """Build the vector stores and fill their connection pools before serving.
+
+    Both costs used to land on the first real user instead:
+
+      - Constructing the two PGVector stores concurrently raced on
+        langchain_postgres' shared table registry, so the first turn after every
+        restart lost both the knowledge base and long-term memory.
+      - Opening the first pooled connections took 3.22s for a burst of five,
+        blowing the 3-second retrieval budget so those turns were dropped.
+
+    Doing it here makes both sequential and off the critical path. Retrieval is
+    optional, so every failure degrades to a warning rather than blocking
+    startup on an unreachable PostgreSQL.
+    """
+    try:
+        import pgvector_store
+    except Exception as exc:
+        print(f"⚠️ Retrieval pre-warm skipped (import failed): {exc}")
+        return
+
+    for label, module in (("memory", memory_agent), ("knowledge", knowledge_agent)):
+        if module is None:
+            continue
+        try:
+            store = await asyncio.to_thread(module.get_vectorstore)
+            opened = await asyncio.to_thread(pgvector_store.prewarm, store)
+            print(f"ℹ️ {label.capitalize()} store    : ready ({opened} pooled connections)")
+        except Exception as exc:
+            print(f"⚠️ {label.capitalize()} store pre-warm failed: {exc}")
 
 class ChatRequest(BaseModel):
     chat_id: Optional[str] = None
@@ -740,6 +802,10 @@ class SettingsRequest(BaseModel):
 # ---- Conversation helpers ----
 
 SLIDING_WINDOW_TURNS = 12  # keep this many messages (= 6 user+assistant pairs)
+
+# Wall-clock budget for inline memory / knowledge retrieval during a chat turn.
+# Covers one Ollama embedding call plus a pgvector similarity search.
+RETRIEVAL_TIMEOUT_SECONDS = float(os.getenv("RETRIEVAL_TIMEOUT_SECONDS", "3.0"))
 
 def _apply_sliding_window(messages: list, window: int = SLIDING_WINDOW_TURNS) -> list:
     """Return at most `window` messages from the tail of the list."""
@@ -1190,10 +1256,10 @@ async def get_chat(chat_id: str, request: Request):
             chat["_id"] = str(chat["_id"])
             if isinstance(chat.get("updated_at"), datetime):
                 chat["updated_at"] = chat["updated_at"].isoformat()
-            
+
             fb_docs = feedbacks_col.find({"chat_id": chat_id, "user_id": user_id})
             chat["feedback"] = {str(doc["msg_index"]): doc["rating"] for doc in fb_docs}
-            
+
             return JSONResponse(content={"chat": chat})
         return JSONResponse(status_code=404, content={"error": "Not found"})
     except Exception as e:
@@ -1247,6 +1313,7 @@ async def stream_generator(
     user_country="",
     skill_type="",
 ):
+
     async def _client_gone():
         if client_request is None:
             return False
@@ -1301,7 +1368,9 @@ async def stream_generator(
     agent_user_msg = latest_user_msg
     if regenerate_pdf:
         agent_user_msg = (agent_user_msg + "\n\nRegenerate the current PDF report and produce a new downloadable PDF.").strip()
-    user_lang = detect_language(latest_user_msg)
+    # Chinese input is still detected correctly for sizing, but the reply
+    # language is clamped to a supported one (English / Malay).
+    user_lang = text_utils.resolve_reply_language(detect_language(latest_user_msg))
     has_pdf = any(
         att.get("saved_path", "").lower().endswith(".pdf")
         for att in (attachments or [])
@@ -1321,14 +1390,31 @@ async def stream_generator(
         has_pdf=(has_pdf or has_financial_data_context),
     )
 
+    # Detect if this is a simple/quick query that doesn't need memory/knowledge.
+    # Sized in script-aware units so Chinese and Malay questions are measured the
+    # same way English ones are (see text_utils.message_units).
+    _is_ultra_simple = text_utils.is_greeting(latest_user_msg)
+    _is_simple_query = text_utils.is_simple_query(latest_user_msg)
+    _is_regulatory_query = text_utils.is_regulatory_query(latest_user_msg)
+
     # --- History compression: summarise old turns, then apply sliding window ---
+    # Skip for simple queries to avoid unnecessary computation
     if agent_mode and not image_route_request:
         inference_messages = list(messages)
+    elif _is_ultra_simple:
+        # Ultra-simple queries: just current message + system prompt, no history
+        inference_messages = [messages[0]] + [messages[-1]] if len(messages) > 1 and messages[0].get("role") == "system" else [messages[-1]]
+    elif _is_simple_query:
+        # For simple queries, just take the last few messages - no summarization needed
+        inference_messages = list(messages[-5:]) if len(messages) > 5 else list(messages)
     else:
-        inference_messages = _summarise_history(messages)
+        # _summarise_history makes a blocking LLM call. Run it off the event
+        # loop: several seconds of blocking here freezes every other user's
+        # in-flight SSE stream, not just this one.
+        inference_messages = await asyncio.to_thread(_summarise_history, messages)
         inference_messages = _apply_sliding_window(inference_messages)
 
-    _chat_doc = chats_col.find_one({"_id": chat_id})
+    _chat_doc = await asyncio.to_thread(chats_col.find_one, {"_id": chat_id})
     _stream_user_id = _chat_doc.get("user_id") if _chat_doc else None
     _pre_agent_state = pdf_agent.agent_memory.get(chat_id, {}) if agent_mode else {}
     _active_document_id = _pre_agent_state.get("active_document_id") if _pre_agent_state else None
@@ -1444,10 +1530,52 @@ async def stream_generator(
         yield "data: [DONE]\n\n"
         return
 
-    # Memory Retrieval (Run in thread to avoid blocking loop)
+    # Memory & Knowledge Retrieval (Skip for simple queries, run async for complex ones)
     memory_injection = ""
-    if _stream_user_id and not image_route_request and not (agent_mode and (has_pdf or route_financial_data_agent)):
-        memory_injection = await asyncio.to_thread(
+    knowledge_injection = ""
+
+    # Both retrievals cost an Ollama embedding round-trip plus a pgvector
+    # similarity search. The previous 1.0s budget was shorter than that takes,
+    # so retrieval effectively never landed — and because TimeoutError was
+    # swallowed without logging, it failed silently.
+    #
+    # asyncio.wait_for cannot cancel a thread once it is running: on timeout we
+    # stop waiting, but the worker still finishes. The budget therefore has to
+    # be realistic rather than aspirational, or every turn burns a full
+    # retrieval whose result is thrown away.
+    async def _retrieve_with_budget(label: str, fn, *args):
+        try:
+            return await asyncio.wait_for(
+                asyncio.to_thread(fn, *args),
+                timeout=RETRIEVAL_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError:
+            print(
+                f"[{label}] Retrieval exceeded {RETRIEVAL_TIMEOUT_SECONDS}s and was "
+                f"dropped for this turn (the worker thread still completes)."
+            )
+            return ""
+        except Exception as e:
+            print(f"[{label}] Retrieval Error: {e}")
+            return ""
+
+    # Retrieval is skipped for cheap turns, but never for a question asking for
+    # a specific regulatory figure or date. Those are short enough to look
+    # "simple" to the length heuristic ("When is the SST deadline?" is eight
+    # words) while being precisely the questions that must be grounded: the
+    # knowledge base holds the LHDN and SSM material, and answering from model
+    # memory instead is what produced generic "stay compliant" replies.
+    _skip_retrieval = (
+        image_route_request
+        or (agent_mode and (has_pdf or route_financial_data_agent))
+        or (_is_simple_query and not _is_regulatory_query)
+    )
+
+    async def _get_memory():
+        if _skip_retrieval or not _stream_user_id:
+            return ""
+        return await _retrieve_with_budget(
+            "Memory Retrieval",
             memory_agent.retrieve_memory_context,
             _stream_user_id,
             latest_user_msg,
@@ -1455,12 +1583,30 @@ async def stream_generator(
             _active_document_id if agent_mode else None,
         )
 
-    knowledge_injection = ""
-    if not image_route_request and not (agent_mode and (has_pdf or route_financial_data_agent)):
-        knowledge_injection = await asyncio.to_thread(
+    async def _get_knowledge():
+        if _skip_retrieval:
+            return ""
+        return await _retrieve_with_budget(
+            "Knowledge Retrieval",
             knowledge_agent.retrieve_knowledge_context,
             latest_user_msg,
         )
+
+    # Show the client that the request has started before pre-processing kicks in.
+    # This helps avoid long 'Warming up model...' hangs before the first SSE event.
+    if not _is_simple_query and not image_route_request:
+        yield _sse({"status": "model_starting"})
+
+    # For simple queries, skip retrieval entirely. For complex ones, run in parallel with aggressive timeout
+    if not _is_simple_query:
+        try:
+            memory_injection, knowledge_injection = await asyncio.gather(
+                _get_memory(),
+                _get_knowledge(),
+                return_exceptions=False
+            )
+        except Exception:
+            memory_injection, knowledge_injection = "", ""
 
     final_messages = inference_messages
     raw_accum_text = ""
@@ -1625,7 +1771,7 @@ async def stream_generator(
 
     # Resolve effective max tokens
     max_new_tok = max_tokens_override if max_tokens_override else ms.MAX_NEW_TOKENS
-    
+
     agent_system_context = ""
     if agent_mode and not image_route_request:
         if has_pdf:
@@ -1662,22 +1808,32 @@ async def stream_generator(
                 else:
                     inference_messages = list(scoped_messages)
             else:
-                inference_messages = _summarise_history(scoped_messages)
+                # Blocking LLM call — keep it off the event loop (see above).
+                inference_messages = await asyncio.to_thread(_summarise_history, scoped_messages)
                 inference_messages = _apply_sliding_window(inference_messages)
             final_messages = inference_messages
 
         # ── Intercept Google Connector Requests via Google Agent ──
         _agent_user_id = _stream_user_id
-        
-        if agent_mode and _agent_user_id and google_agent.is_google_request(latest_user_msg, _agent_user_id):
+
+        # is_google_request does a synchronous Mongo read when a user_id is
+        # supplied (to detect a pending Gmail draft), so it cannot run inline.
+        _is_google_intent = bool(
+            agent_mode
+            and _agent_user_id
+            and await asyncio.to_thread(
+                google_agent.is_google_request, latest_user_msg, _agent_user_id
+            )
+        )
+        if _is_google_intent:
             yield _sse({"status": "executing Google Agent"})
-            
+
             async def google_cb(msgs):
                 return await asyncio.to_thread(
-                    ms.generate_response, cfg.fast_model, tokenizer, msgs, 
+                    ms.generate_response, cfg.fast_model, tokenizer, msgs,
                     think_mode=False, show_thinking=False, stream=False
                 )
-            
+
             _agent_mem_pdf = pdf_agent.agent_memory.get(chat_id, {}).get("last_generated_pdf", None)
             if not _agent_mem_pdf:
                 _agent_mem_pdf = pdf_agent.agent_memory.get(chat_id, {}).get("last_pdf", None)
@@ -1719,14 +1875,14 @@ async def stream_generator(
                 file_kind=_agent_mem_file.get("type") if _agent_mem_file else None,
                 user_timezone=user_timezone or "",
             )
-            
+
             if _out == "__NORMAL_CHAT_FALLBACK__":
                 # The agent explicitly refused to hijack this message for Google Workspace.
                 # Fall through to normal conversational LLM generation.
                 pass
             else:
                 yield _sse({"text": _out + "\n\n"})
-                
+
                 # Save Google Agent result to DB and finish early
                 _db_msgs = deepcopy(messages)
                 _db_msgs.append({"role": "assistant", "content": _out})
@@ -1735,7 +1891,7 @@ async def stream_generator(
                     "updated_at": dt.datetime.utcnow().isoformat(),
                 }})
                 yield "data: [DONE]\n\n"
-                
+
                 return
         # ── End Google Intercept ──
 
@@ -1838,33 +1994,69 @@ async def stream_generator(
 
     sources = []
 
-    # Web mode
-    if web_mode:
+    # Web mode. Only a bare greeting skips the search: web_mode is an explicit
+    # user action, so a short question ("SST 税率多少?") must still search.
+    if web_mode and not _is_ultra_simple:
         if WebResearcher is None:
             yield _sse({'text': 'Error: WebResearcher not available.'})
             yield "data: [DONE]\n\n"
             return
         yield _sse({'status': 'searching'})
-        wa = WebResearcher(cfg, user_location=user_country)
+        wa = _get_shared_web_researcher()
+        _search_timed_out = False
         try:
-            prepare_task = asyncio.create_task(wa.prepare(inference_messages, force_search=True))
+            prepare_task = asyncio.create_task(
+                wa.prepare(
+                    inference_messages,
+                    user_location=user_country,
+                    force_search=True,
+                    max_results=cfg.web_search_chat_max_results,
+                    max_pages=cfg.web_search_chat_max_pages,
+                )
+            )
+            # Hard wall-clock cap. asyncio.wait's timeout only paces the
+            # heartbeat; without this deadline a slow provider or crawl could
+            # keep the user waiting indefinitely.
+            _search_deadline = time.monotonic() + cfg.web_search_chat_deadline_seconds
             while True:
-                done, _ = await asyncio.wait({prepare_task}, timeout=8)
+                done, _ = await asyncio.wait({prepare_task}, timeout=2)
                 if done:
                     break
                 if await _client_gone():
                     prepare_task.cancel()
                     print(f"[STREAM] Client disconnected during web search; chat_id={chat_id}")
                     return
+                if time.monotonic() >= _search_deadline:
+                    prepare_task.cancel()
+                    _search_timed_out = True
+                    print(
+                        f"[WEB SEARCH] Deadline of {cfg.web_search_chat_deadline_seconds}s exceeded; "
+                        f"answering without live sources. chat_id={chat_id}"
+                    )
+                    break
                 yield _sse({"heartbeat": True, "status": "searching"})
-            final_messages, sources = await prepare_task
+
+            if _search_timed_out:
+                try:
+                    await prepare_task
+                except (asyncio.CancelledError, Exception):
+                    pass
+                final_messages = [{"role": "system", "content": (
+                    "WEB SEARCH ATTEMPTED: Live search did not return in time, so no fresh sources "
+                    "are available for this turn. Answer from your own knowledge, state plainly that "
+                    "you could not verify against live sources, and do not invent citations, prices, "
+                    "dates, or figures."
+                )}] + list(inference_messages)
+                sources = []
+            else:
+                final_messages, sources = await prepare_task
         except Exception as e:
             yield _sse({'text': f'Web Search Error: {e}'})
             yield "data: [DONE]\n\n"
             return
         yield _sse({'sources': sources})
         yield _sse({'status': 'answering'})
-        
+
         # Inject identity, language, agent context, and memory into web mode system prompt
         _web_additions = []
         _today = dt.datetime.now().strftime("%Y-%m-%d")
@@ -1882,7 +2074,8 @@ async def stream_generator(
             f"IDENTITY: Your name is bisnes.ai. You are an AI assistant created and trained by bisnes.ai. "
             f"If asked who you are, always say: 'I am bisnes.ai, an AI assistant built by bisnes.ai.'\n"
             f"LANGUAGE: Detect the language of the user's message and reply in that exact same language. "
-            f"Only use Chinese (中文), English, or Malay (Bahasa Malaysia). Never use any other language."
+            f"Reply only in English or Malay (Bahasa Malaysia). If the user writes in any other "
+            f"language, answer in English. Never reply in Chinese."
         )
         _web_additions.append(_web_context)
         _web_additions.append(_identity_lang)
@@ -1895,6 +2088,10 @@ async def stream_generator(
             _web_additions.append(knowledge_injection)
         if _web_additions and len(final_messages) > 0 and final_messages[0]["role"] == "system":
             final_messages[0]["content"] = "\n\n".join(_web_additions) + "\n\n" + final_messages[0]["content"]
+    elif web_mode:
+        # Bare greeting in web mode - nothing to research, just answer.
+        final_messages = inference_messages
+        yield _sse({'status': 'answering'})
     else:
         # Use day-level precision so Ollama can reuse the KV-cache for the system
         # prompt across all requests on the same day (minutes would bust the cache
@@ -1914,9 +2111,43 @@ async def stream_generator(
             f"- For technical or math questions, be precise and include examples.\n\n"
             f"{response_profile['instruction']}\n\n"
             f"LANGUAGE: Detect the language of the user's message and reply in that exact same language. "
-            f"Only use Chinese (中文), English, or Malay (Bahasa Malaysia). Never switch to another language."
+            f"Reply only in English or Malay (Bahasa Malaysia). If the user writes in any other "
+            f"language, answer in English. Never reply in Chinese."
         )
-        
+
+        # Regulatory questions ask for a figure that is either in the retrieved
+        # sources or nowhere. Retrieval returning *something* is not the same as
+        # it returning the answer: measured on this knowledge base, "When is the
+        # SST filing deadline" pulls 5KB that contains neither "SST" nor any
+        # date, while the LHDN equivalent pulls material with real dates in it.
+        #
+        # So the rule is applied to every regulatory turn and phrased against
+        # the sources, letting the model check its own grounding. Gating on
+        # "nothing was retrieved" would have made this dead code -- retrieval
+        # almost always returns something.
+        #
+        # A confident wrong deadline costs an MSME a penalty; "I could not
+        # verify this" costs them a search.
+        if _is_regulatory_query:
+            system_instruction = (
+                "REGULATORY ACCURACY RULE: The user is asking for a specific date, "
+                "rate, threshold, fee, or penalty set by a Malaysian authority.\n"
+                "- State such a figure ONLY if it appears in the sources provided in "
+                "this conversation. Quote it as it appears and name the source.\n"
+                "- If the figure is not in those sources, say so plainly and up front, "
+                "in one sentence, before anything else.\n"
+                "- Never fill the gap with a remembered or estimated figure, and never "
+                "claim to have consulted sources you were not given.\n"
+                "- Never substitute general compliance advice for the specific figure "
+                "that was asked for. Answering 'compliance is important' when asked "
+                "for a deadline is a failure, not a safe answer.\n"
+                "- Point the user at the authority to confirm with (LHDN, SSM, Kastam, "
+                "MyInvois) and what to look for there.\n"
+                "- You may still explain how the obligation works in general terms, "
+                "kept clearly separate from any unverified specifics.\n\n"
+                f"{system_instruction}"
+            )
+
         if agent_system_context:
             system_instruction = f"{agent_system_context}\n\n{system_instruction}"
         if memory_injection:
@@ -1979,6 +2210,11 @@ async def stream_generator(
 
     answer_text = ""
 
+    # === For simple queries in normal chat mode, signal model_starting IMMEDIATELY ===
+    if _is_simple_query and not web_mode and not agent_mode and not image_route_request:
+        yield _sse({"status": "model_starting"})
+        yield _sse({"status": "streaming"})  # Show user something is happening immediately
+
     # === GGUF/Ollama Model (served by Ollama) ===
     if model_type in ("gguf", "ollama") or tokenizer == "ollama":
         if is_resume and final_messages and isinstance(final_messages[-1], dict) and final_messages[-1].get("role") == "assistant":
@@ -2006,40 +2242,95 @@ async def stream_generator(
         if final_messages and isinstance(final_messages[0], dict):
             _system_text = final_messages[0].get("content", "")
         _web_factual = web_mode and "MODE: 事实检索模式" in _system_text
-        _web_no_sources = web_mode and "WEB SEARCH ATTEMPTED: No reliable live sources" in _system_text
+        # Matches both "no reliable sources retrieved" (from WebResearcher) and
+        # "search timed out" (from the deadline path above).
+        _web_no_sources = web_mode and "WEB SEARCH ATTEMPTED:" in _system_text
 
         # --- KV-cache window: smaller window = less VRAM = faster generation ---
-        # Agent (PDF) needs the full window for document context.
-        # Web search needs room for search snippets.
-        # Regular chat rarely exceeds 4 K tokens of useful context.
-        if agent_mode:
-            _ctx = response_profile["ctx"]
-        elif web_mode:
-            _ctx = min(response_profile["ctx"], 4096 if _web_factual else 6144)
-        else:
-            _ctx = response_profile["ctx"]
+        # Agent (PDF) needs the full window for document context, and web search
+        # needs room for the retrieved snippets. Both are explicit user modes, so
+        # they are checked BEFORE the short-message heuristics — otherwise a
+        # short question would shrink the window below the injected context and
+        # Ollama would silently truncate the system prompt that carries it.
+        #
+        # IMPORTANT: num_ctx is deliberately CONSTANT across every request.
+        #
+        # Ollama allocates the KV cache when a model is loaded. Sending a
+        # different num_ctx forces it to tear the model down and reload with the
+        # new window. Measured on this box (gemma4, 2x RTX 5090):
+        #
+        #     same num_ctx repeated ....... 0.61 s   (warm hit)
+        #     num_ctx changed ............. 7.8  s   (full reload, every time)
+        #
+        # The old code derived num_ctx per request (1024 / 2048 / 6144 /
+        # response_profile), so a mixed multi-user workload reloaded the model
+        # on almost every turn — and a reload blocks *every* other in-flight
+        # request, which is what made the app stutter with several users.
+        #
+        # Sizing the window per request saved no VRAM in practice (the slot is
+        # allocated up front regardless) and cost seconds per turn. One value,
+        # sized for the largest workload, is strictly better.
+        _ctx = cfg.ollama_num_ctx
 
         # --- Output token cap per mode ---
-        # Regular chat answers are almost never longer than 2048 tokens.
-        # Web/agent responses can be longer but still capped to avoid runaway generation.
+        # Same ordering rule as the context window above: agent and web are
+        # explicit modes and set their own budget. Note CJK output costs roughly
+        # 1-2 tokens per character, so caps that look generous in English are
+        # tight in Chinese — hence the 256 floor for greetings.
+        _has_content_keywords = any(
+            kw in latest_user_msg.lower()
+            for kw in ["framework", "explain", "how", "what is", "guide", "step", "list", "create", "write", "develop", "design"]
+        )
         if agent_mode:
             _max_predict = min(max_new_tok, response_profile["max_predict"]) + _think_budget
+        elif _is_ultra_simple:
+            _max_predict = 256 + _think_budget  # greeting reply
         elif web_mode:
-            _web_cap = 384 if _web_no_sources else (2048 if _web_factual else 3072)
+            # Faster web generation: shorter responses
+            if _web_no_sources:
+                _web_cap = 512  # Brief when the answer is unverified
+            elif _web_factual:
+                _web_cap = 1536  # Concise factual answer
+            elif _has_content_keywords:
+                _web_cap = 2048  # Allow more for detailed web queries
+            else:
+                _web_cap = 1024  # Typical web search response
             _max_predict = min(max_new_tok, response_profile["max_predict"], _web_cap) + _think_budget
+        elif _is_simple_query and _has_content_keywords:
+            _max_predict = 2048 + _think_budget  # Allow full response for content requests
+        elif _is_simple_query:
+            _max_predict = 1024 + _think_budget  # Default for simple Q&A
         else:
             _max_predict = min(max_new_tok, response_profile["max_predict"]) + _think_budget
 
+
         _is_gemma4 = "gemma4" in (_ollama_model or "").lower()
-        if _is_gemma4 and web_mode:
-            _temperature = 0.30 if _web_factual else 0.36
-            _top_p = 0.88
+
+        # For simple queries, use faster/greedier decoding
+        if _is_simple_query:
+            _temperature = 0.3
+            _top_p = 0.90
+            _min_p = 0.02
+            _repeat_penalty = 1.05
+        elif _is_gemma4 and web_mode:
+            # Faster decoding for web mode (greedier = faster)
+            _temperature = 0.20 if _web_factual else 0.25  # Lower temp = greedier, faster
+            _top_p = 0.85
+            _min_p = 0.02
+            _repeat_penalty = 1.05
         else:
             _temperature = 0.42 if _is_gemma4 else ms.TEMPERATURE
             _top_p = 0.90 if _is_gemma4 else ms.TOP_P
-        _min_p = 0.03 if _is_gemma4 else 0.05
-        _repeat_penalty = 1.08 if _is_gemma4 else ms.REPETITION_PENALTY
-        _num_batch = 1024 if _ctx <= 8192 else 512
+            _min_p = 0.03 if _is_gemma4 else 0.05
+            _repeat_penalty = 1.08 if _is_gemma4 else ms.REPETITION_PENALTY
+
+        # Batch size optimization: simple queries get smaller batch for speed
+        if _is_ultra_simple:
+            _num_batch = 256  # Smallest batch for ultra-fast processing
+        elif _is_simple_query:
+            _num_batch = 512
+        else:
+            _num_batch = 1024 if _ctx <= 8192 else 512
 
         _ollama_opts = {
             "temperature":    _temperature if ms.DO_SAMPLE else 0.0,
@@ -2064,13 +2355,10 @@ async def stream_generator(
         think_raw  = ""   # 思考内容（用于存档）
         answer_raw = ""   # 回答内容（用于存档 + 显示）
 
-
-
         # Only reasoning models such as DeepSeek/QwQ are expected to emit <think>.
         # Gemma and other standard instruct models should stream directly as answers.
         gguf_phase      = initial_phase if initial_phase else ("thinking" if _ollama_has_think_tags else "answering")
         gguf_sent_start = (gguf_phase == "answering")
-        detected_think_tag = True if _ollama_has_think_tags else False
 
         try:
             ollama_stream = _ollama_client.chat(
@@ -2102,6 +2390,7 @@ async def stream_generator(
                         f"prompt={prompt_tokens} tok @ {prompt_rate:.1f} tok/s | "
                         f"output={output_tokens} tok @ {output_rate:.1f} tok/s"
                     )
+
                     continue
 
                 piece = chunk['message']['content']
@@ -2109,21 +2398,10 @@ async def stream_generator(
                     continue
                 gguf_all += piece
 
-                # 动态探测非思考模式下的模型是否在吐出 <think>
-                if detected_think_tag is None and not initial_phase and not think_mode:
-                    if "<think>" in gguf_all:
-                        detected_think_tag = True
-                    elif len(gguf_all) >= 100:
-                        detected_think_tag = False
-                        # 确定该模型不吐出 <think>，立刻切换为回答模式并将累积内容当作正文
-                        gguf_phase = "answering"
-                        answer_raw += gguf_all
-                        answer_text += gguf_all
-                        yield _sse({'text': gguf_all})
-                        continue
-                    else:
-                        # 长度不足100且还没看到 <think>，暂时缓存不发送
-                        continue
+                # 注：此处原有一段"动态探测模型是否吐 <think>"的逻辑，条件是
+                # detected_think_tag is None，但该变量初始化时只可能是 True/False，
+                # 永远不会是 None，所以整段从未执行。是否有 <think> 由
+                # _model_supports_thinking() 按模型名判定，已足够，故删除。
 
                 # ── 思考阶段 ────────────────────────────────────
                 if gguf_phase == "thinking":
@@ -2220,13 +2498,13 @@ async def stream_generator(
         for event in streamer:
             yield _sse(event)
             # Track ALL text including tags for DB
-            if event.get('think_start'): 
+            if event.get('think_start'):
                 raw_accum_text += '<think>\n'
             if event.get('think_end'):
                 if '<think>' not in raw_accum_text:
                     raw_accum_text = '<think>\n' + raw_accum_text
                 raw_accum_text += '\n</think>\n'
-                
+
             if 'text' in event:
                 if event.get('thinking') and '<think>' not in raw_accum_text:
                     raw_accum_text += '<think>\n'
@@ -2264,12 +2542,12 @@ async def stream_generator(
         pdf_agent.agent_memory[chat_id]["generate_pdf_now"] = False
         pdf_source = answer_text if answer_text else raw_accum_text
         _doc_type  = _mem.get("doc_type", "general")
-        
+
         # ── Last-resort placeholder sanitizer ──
         # Catch any [Value], [Amount], [X], [Name] etc. that the LLM failed to replace
         import re as _re
         pdf_source = _re.sub(r'\[(?:Value|value|Amount|amount|X|x|Name|name|数据|金额|数值)\]', 'N/A', pdf_source)
-        
+
         print(f"[PDF GEN] Generating PDF, source_len={len(pdf_source)}, type={_doc_type}")
         try:
             _has_template = bool(_mem.get("template_data"))
@@ -2306,7 +2584,7 @@ async def stream_generator(
     if _pdf_filename:
         new_msg["pdf_url"]  = f"/api/download_pdf/{_pdf_filename}"
         new_msg["pdf_name"] = _pdf_filename
-        
+
     if is_resume and messages:
         chats_col.update_one(
             {"_id": chat_id},
@@ -2317,7 +2595,7 @@ async def stream_generator(
             {"_id": chat_id},
             {"$push": {"messages": new_msg}}
         )
-        
+
     # Schedule Long-Term Memory Extraction
     if _stream_user_id:
         async def _bg_mem_cb(msgs):
@@ -2336,7 +2614,7 @@ async def stream_generator(
                 document_id=_doc_id_for_memory,
             )
         )
-        
+
     yield "data: [DONE]\n\n"
 
 
@@ -2414,18 +2692,18 @@ async def download_pdf(filename: str, request: Request):
     import re
     if not re.match(r'^[\w\-\.]+\.pdf$', filename):
         return JSONResponse(status_code=400, content={"error": "Invalid filename"})
-    
+
     try:
         file_doc = fs.find_one({"filename": filename})
         if not file_doc:
             return JSONResponse(status_code=404, content={"error": "File not found in database"})
         if not _user_can_access_file(user_id, filename):
             raise HTTPException(status_code=403, detail="You do not have access to this file")
-            
+
         file_size = file_doc.length
         if file_size == 0:
             return JSONResponse(status_code=500, content={"error": "File is corrupted (0 bytes)."})
-            
+
         return StreamingResponse(
             io.BytesIO(file_doc.read()),
             media_type="application/pdf",

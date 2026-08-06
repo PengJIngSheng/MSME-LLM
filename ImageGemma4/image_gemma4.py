@@ -690,7 +690,11 @@ def generate_image_with_model(
                     "top_p": 0.92,
                     "repeat_penalty": 1.05,
                     "num_predict": 4096,
-                    "num_ctx": min(cfg.ollama_num_ctx_cap, 8192),
+                    # Same window as the chat path. This runs on fast_model,
+                    # which is the model the chat also uses, so a different
+                    # num_ctx makes Ollama reload it (~7.8s) on the way in and
+                    # again on the way back.
+                    "num_ctx": cfg.ollama_num_ctx,
                     "num_gpu": cfg.ollama_num_gpu,
                     "num_thread": cfg.ollama_num_thread,
                     "use_mmap": True,

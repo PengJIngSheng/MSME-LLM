@@ -1,11 +1,15 @@
 runtime:
   name: "bisnes.ai shared defaults"
 
+# Fallbacks only. Every profile in this directory sets its own model block;
+# these values apply when a profile omits one. They previously still named the
+# retired DeepSeek build, which made the repository look like it ran a model
+# it no longer ships.
 model:
-  think_model: "deepseek-r1-distill-qwen-14b"
-  fast_model: "deepseek-r1-14b-fast"
+  think_model: "gemma4:12b"
+  fast_model: "gemma4:12b"
   search_query_model: ""
-  gguf_path: "./DeepSeek-R1-Distill-Qwen-14B-Q5_K_M.gguf"
+  gguf_path: ""
   quant_mode: "4bit"
   context_length: 12288
 
@@ -43,8 +47,10 @@ services:
   smtp:
     host: "smtp.gmail.com"
     port: 587
-    username: "digitalsocial2022@gmail.com"
-    app_password: "uuhrjpwzcgczctge"
+    # Never put real credentials here — this file is committed.
+    # Set SMTP_USERNAME and SMTP_APP_PASSWORD in config/secrets.<profile>.env.
+    username: ""
+    app_password: ""
     from_name: "bisnes.ai"
   google:
     # Leave blank to reuse oauth_client_id for login. Set only when login needs a separate web client.
@@ -112,10 +118,20 @@ web_search:
   cache_ttl_hours: 24      # how long fetched pages stay cached in pgvector
   max_results: 15          # max search results to consider per query
   max_pages: 6             # max pages to fetch and extract per query
+  # Interactive chat budget (the user is watching a spinner).
+  chat_max_results: 6      # search results considered during a chat turn
+  chat_max_pages: 2        # pages crawled during a chat turn
+  chat_deadline_seconds: 15  # hard cap; on expiry the turn answers without live sources
 
 knowledge_rag:
   enabled: true
   collection: "mof_finetune_knowledge"
   top_k: 8
-  score_threshold: 0.70
+  # Cosine distance cutoff for nomic-embed-text; lower is stricter.
+  # Calibrated against this knowledge base: on-topic questions match at
+  # 0.21-0.31, off-topic ones ("how do I bake bread") at 0.44-0.49. The old
+  # 0.70 admitted everything, so every turn got ~5KB of knowledge injected
+  # whatever was asked -- which also meant the "no verified source" guard in
+  # server.py could never fire, because the injection was never empty.
+  score_threshold: 0.37
   max_context_chars: 5000

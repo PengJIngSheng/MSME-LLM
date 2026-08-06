@@ -178,7 +178,7 @@ _DEFAULTS = {
         "enabled": True,
         "collection": "mof_finetune_knowledge",
         "top_k": 5,
-        "score_threshold": 0.82,
+        "score_threshold": 0.37,
         "max_context_chars": 6500,
     },
 }
@@ -358,7 +358,7 @@ class _Config:
 
     @property
     def knowledge_rag_score_threshold(self) -> float:
-        return float(self._env("KNOWLEDGE_RAG_SCORE_THRESHOLD", "knowledge_rag.score_threshold", 0.82))
+        return float(self._env("KNOWLEDGE_RAG_SCORE_THRESHOLD", "knowledge_rag.score_threshold", 0.37))
 
     @property
     def knowledge_rag_max_context_chars(self) -> int:
@@ -376,6 +376,20 @@ class _Config:
     @property
     def ollama_num_ctx_cap(self) -> int:
         return int(self._env("OLLAMA_NUM_CTX_CAP", "services.ollama.num_ctx_cap", 8192))
+
+    @property
+    def ollama_num_ctx(self) -> int:
+        """The single context window used for every chat request.
+
+        Must not vary per request: Ollama reloads the model whenever num_ctx
+        changes (measured ~7.8s per change on this hardware), and a reload
+        stalls all other in-flight requests. Size it for the largest workload
+        (agent mode with a long PDF) and leave it alone.
+
+        VRAM cost scales with num_ctx x OLLAMA_NUM_PARALLEL, so raise this only
+        after checking headroom with `nvidia-smi`.
+        """
+        return int(self._env("OLLAMA_NUM_CTX", "services.ollama.num_ctx", self.ollama_num_ctx_cap))
 
     @property
     def ollama_num_gpu(self) -> int:
@@ -515,6 +529,25 @@ class _Config:
     @property
     def web_search_max_pages(self) -> int:
         return int(self._env("WEB_SEARCH_MAX_PAGES", "web_search.max_pages", 4))
+
+    # Interactive chat uses a tighter budget than the standalone research API:
+    # the user is watching a spinner, so fewer pages and a hard wall-clock cap.
+    @property
+    def web_search_chat_max_results(self) -> int:
+        return int(self._env("WEB_SEARCH_CHAT_MAX_RESULTS", "web_search.chat_max_results", 6))
+
+    @property
+    def web_search_chat_max_pages(self) -> int:
+        return int(self._env("WEB_SEARCH_CHAT_MAX_PAGES", "web_search.chat_max_pages", 2))
+
+    @property
+    def web_search_chat_deadline_seconds(self) -> float:
+        """Hard wall-clock cap for web research inside a chat turn.
+
+        On expiry the turn degrades to answering without live sources rather
+        than leaving the user on an open-ended heartbeat.
+        """
+        return float(self._env("WEB_SEARCH_CHAT_DEADLINE_SECONDS", "web_search.chat_deadline_seconds", 15))
 
     def print_summary(self) -> None:
         secret_state = "SET" if self.smtp_app_password else "not set"

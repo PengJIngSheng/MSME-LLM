@@ -2,10 +2,19 @@ runtime:
   name: "bisnes.ai Copilot - Cyberjaya MYS1a"
   platform: "Ubuntu 24.04 + RTX 5090 (32GB VRAM)"
 
+# Active model: Gemma 4 E4B (8.0B params, Q4_K_M, 131072 max context).
+#
+# Measured against the previous gemma4:12b on this box (2x RTX 5090), 10
+# concurrent requests, num_ctx=4096, num_predict=192:
+#     gemma4:12b   wall 27.4s   TTFT median 18.35s   70 tok/s aggregate
+#     gemma4:e4b   wall 11.2s   TTFT median  5.53s  167 tok/s aggregate
+#
+# ROLLBACK: set both models back to "gemma4:12b" (still installed) and restart
+# the server. See docs/MODEL_ROLLBACK.md.
 model:
-  think_model: "gemma4:26b"
-  fast_model: "gemma4:26b"
-  search_query_model: "qwen2.5:3b-instruct"
+  think_model: "gemma4:e4b"
+  fast_model: "gemma4:e4b"
+  search_query_model: ""
   gguf_path: ""
   context_length: 32768
 
@@ -34,6 +43,11 @@ services:
   ollama:
     base_url: "http://127.0.0.1:11434"
     num_ctx_cap: 16384
+    # Single context window for EVERY request. Changing num_ctx between
+    # requests makes Ollama reload the model (~7.8s measured) and stalls all
+    # other in-flight requests, which was the main cause of multi-user
+    # stuttering. VRAM cost = num_ctx x OLLAMA_NUM_PARALLEL.
+    num_ctx: 16384
     num_gpu: 99
     num_thread: 8
 
