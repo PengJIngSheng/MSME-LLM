@@ -227,3 +227,63 @@ PG 连接峰值 6/200。
 
 预热保留的价值在别处：稳定省下 70-80 ms，且把两个 store 的构造挪到启动时**顺序
 执行**，使第 ③ 项的 MetaData 竞态不再依赖锁去赢，而是根本不发生。
+
+## 8. 知识库构成审计
+
+### 近一半是马来语词典，且重复灌了三遍
+
+| 来源 | chunks | 占比 |
+|---|---|---|
+| `Finetune/dictionary/kamus_dewan_cleaned.jsonl` | 26,706 | 28.6% |
+| `Finetune/dictionary/Kamus-dewan-bahasa-edisi-keempat.pdf` | 11,930 | 12.8% |
+| `Finetune/dictionary/kamus_dewan_cleaned.json` | 6,941 | 7.4% |
+| **词典小计** | **45,577** | **48.8%** |
+| `Finetune/knowledge/knowledge_base.cleaned.jsonl` | 23,960 | 25.7% |
+| `Finetune/knowledge/final_ai_training_data.cleaned.jsonl` | 23,721 | 25.4% |
+| `Finetune/msme/msmelatest.json` | 62 | 0.1% |
+| `Finetune/msme/bank.json` | 44 | 0.0% |
+
+同一部《Kamus Dewan》以 jsonl、json、PDF 三种形式各灌了一遍。而 MSME 专有资料
+（`msme/`）只有 106 个 chunk，占 0.1%。
+
+### 干扰程度：不均匀，但对短问题是灾难性的
+
+前 10 检索结果中词典条目的占比：
+
+| 查询 | 词典占比 |
+|---|---|
+| LHDN e-invoice deadline for small business | 0/10 |
+| SSM company registration requirements | 0/10 |
+| SST registration threshold Malaysia | 0/10 |
+| grants and financing for MSME | 0/10 |
+| how to improve cash flow for a retail shop | 0/10 |
+| **what is SST** | **10/10** |
+
+长而具体的问题不受影响，但 `"what is SST"` 这类**短定义式问题会被词典完全劫持**
+（命中 `stet`、`ssm i`、`ssb`、`sakhlat` 等条目），而这正是 MSME 用户高频提问的形式。
+
+### 0.37 阈值恰好构成有效防线
+
+| 查询 | 最佳距离 | 结果 |
+|---|---|---|
+| `what is SST` → 词典条目 | 0.401 – 0.439 | 全部 > 0.37，**注入 0 字符** |
+| `what is LHDN e-invoice` → 业务内容 | 0.231 – 0.256 | 全部 < 0.37，注入 5230 字符 |
+
+阈值挡住了词典劫持。但这是靠距离侥幸分开的，不是结构性隔离——词典仍占据
+48.8% 的索引体积和 HNSW 构建成本，且任何一次阈值调整都可能让它重新涌入。
+
+**建议**：把词典移出 `mof_finetune_knowledge` 集合。若语言功能确实需要它，应放进
+独立集合按需查询，而不是混在业务问答的检索路径里。此操作会删除 45,577 个 chunk，
+属破坏性变更，未执行。
+
+## 9. MongoDB 索引
+
+`chats` 集合（392 条 / 0.7 MB）此前只有 `_id` 索引，`/api/history` 的
+`{user_id}` 过滤 + `updated_at` 排序走全集合扫描。
+
+已补 `chats_user_updated_idx {user_id: 1, updated_at: -1}`，扫描文档数
+392 → 39（仅读需要的），排序阶段消除。
+
+**但耗时前后都是 0 ms** —— 集合太小、完全驻留内存，当前并非瓶颈。这与 pgvector
+的情况有本质区别（那里 93,585 个向量 / 894 MB，缺索引实测 306 ms）。此索引是
+防止随用量增长后劣化的预防措施，不是对既有性能问题的修复。
