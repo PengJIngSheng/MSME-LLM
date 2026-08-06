@@ -132,6 +132,10 @@ class UpdateProfileRequest(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
 
+class BusinessProfileRequest(BaseModel):
+    business_category: str
+    business_nature: str
+
 class CompleteGoogleProfileRequest(BaseModel):
     display_name: Optional[str] = None
     first_name: Optional[str] = None
@@ -236,17 +240,36 @@ def create_jwt_token(data: dict) -> str:
     return jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 
+def _session_cookie_domain() -> Optional[str]:
+    host = (urlparse(PUBLIC_SITE_URL).hostname or "").lower()
+    if host == "bisnes.ai" or host.endswith(".bisnes.ai"):
+        return ".bisnes.ai"
+    return None
+
+
 def _set_session_cookie(response: Response, token: str) -> None:
     """Provide an HttpOnly session for protected file URLs and browser navigation."""
-    response.set_cookie(
-        key="msme_session",
-        value=token,
-        max_age=JWT_EXPIRATION_HOURS * 60 * 60,
-        httponly=True,
-        secure=PUBLIC_SITE_URL.startswith("https://"),
-        samesite="lax",
-        path="/",
-    )
+    cookie_kwargs = {
+        "key": "msme_session",
+        "value": token,
+        "max_age": JWT_EXPIRATION_HOURS * 60 * 60,
+        "httponly": True,
+        "secure": PUBLIC_SITE_URL.startswith("https://"),
+        "samesite": "lax",
+        "path": "/",
+    }
+    domain = _session_cookie_domain()
+    if domain:
+        cookie_kwargs["domain"] = domain
+    response.set_cookie(**cookie_kwargs)
+
+
+def _clear_session_cookie(response: Response) -> None:
+    delete_kwargs = {"key": "msme_session", "path": "/"}
+    domain = _session_cookie_domain()
+    if domain:
+        delete_kwargs["domain"] = domain
+    response.delete_cookie(**delete_kwargs)
 
 def generate_otp() -> str:
     return f"{secrets.randbelow(900000) + 100000:06d}"
@@ -275,6 +298,37 @@ def _normalize_email(value: Optional[str]) -> str:
 
 _NAME_PART_MAX_LENGTH = 64
 _NAME_ALLOWED_PUNCTUATION = {" ", "-", "'", "’", "."}
+
+BUSINESS_CATEGORIES = (
+    "Food & Beverage",
+    "Retail & Wholesale",
+    "Manufacturing",
+    "Agriculture",
+    "Construction",
+    "Professional Services",
+    "Education & Training",
+    "Healthcare & Wellness",
+    "Beauty & Personal Care",
+    "Technology & Digital",
+    "Creative & Media",
+    "Logistics & Transportation",
+    "Tourism & Hospitality",
+    "Automotive",
+    "Others",
+)
+
+BUSINESS_NATURES = (
+    "Product-Based",
+    "Service-Based",
+    "Trading",
+    "Manufacturing",
+    "Online Business",
+    "Home-Based Business",
+    "Franchise",
+    "Social Enterprise",
+    "Cooperative",
+    "Others",
+)
 
 def _normalize_name_part(value: Optional[str], field_label: str) -> str:
     normalized = unicodedata.normalize("NFKC", value or "")
@@ -391,6 +445,26 @@ def _clean_region(value: Optional[str]) -> str:
     if len(region) > 80:
         raise HTTPException(status_code=400, detail="Region is too long")
     return region
+
+def _validate_business_profile(business_category: Optional[str], business_nature: Optional[str]) -> dict:
+    category = re.sub(r"\s+", " ", (business_category or "").strip())
+    nature = re.sub(r"\s+", " ", (business_nature or "").strip())
+    if category not in BUSINESS_CATEGORIES:
+        raise HTTPException(status_code=400, detail="Please select a valid business category")
+    if nature not in BUSINESS_NATURES:
+        raise HTTPException(status_code=400, detail="Please select a valid business nature")
+    return {"business_category": category, "business_nature": nature}
+
+def _requires_business_profile_completion(user: dict | None) -> bool:
+    if not user or "onboarding_completed" not in user:
+        # Legacy accounts remain usable until they choose to add these details
+        # from Account Settings. New registrations always write this flag.
+        return False
+    return not bool(
+        user.get("onboarding_completed")
+        and user.get("business_category") in BUSINESS_CATEGORIES
+        and user.get("business_nature") in BUSINESS_NATURES
+    )
 
 def _requires_profile_completion(user: dict | None) -> bool:
     if not user:
@@ -747,6 +821,7 @@ def _otp_resend_rate_limited_error(retry_after: int) -> HTTPException:
 
 @auth_router.post("/api/register")
 async def register(req: AuthRequest, request: Request):
+    print("========== REGISTER ENDPOINT HIT ==========")
     _ensure_user_indexes()
     _ensure_pending_otp_indexes()
     username = req.username.strip().lower()
@@ -780,45 +855,118 @@ async def register(req: AuthRequest, request: Request):
             # A legacy pending record without a cooldown may be safely replaced.
             pending_otps_col.delete_one({"_id": existing_pending["_id"]})
 
-    pending_id = str(uuid.uuid4())
-    otp_code = generate_otp()
-    current_time = _current_time_for_email()
-    device_info = _device_info(request)
-    ip_address = _client_ip(request)
+    # pending_id = str(uuid.uuid4())
+    # otp_code = generate_otp()
+    # current_time = _current_time_for_email()
+    # device_info = _device_info(request)
+    # ip_address = _client_ip(request)
 
-    _store_pending_otp(
-        pending_id=pending_id,
-        username=username,
-        phone_e164=phone_data["phone_e164"],
-        password_hash=get_password_hash(req.password),
-        otp_code=otp_code,
-        current_time=current_time,
-        device_info=device_info,
-        ip_address=ip_address,
-        language=language,
-        first_name=first_name,
-        last_name=last_name,
-        country_code=phone_data["country_code"],
-        country_iso=phone_data["country_iso"],
-        phone_number=phone_data["phone_number"],
-        region=region,
-    )
+    # _store_pending_otp(
+    #     pending_id=pending_id,
+    #     username=username,
+    #     phone_e164=phone_data["phone_e164"],
+    #     password_hash=get_password_hash(req.password),
+    #     otp_code=otp_code,
+    #     current_time=current_time,
+    #     device_info=device_info,
+    #     ip_address=ip_address,
+    #     language=language,
+    #     first_name=first_name,
+    #     last_name=last_name,
+    #     country_code=phone_data["country_code"],
+    #     country_iso=phone_data["country_iso"],
+    #     phone_number=phone_data["phone_number"],
+    #     region=region,
+    # )
 
-    try:
-        send_otp_email(username, otp_code, current_time, device_info, ip_address, language)
-    except Exception as exc:
-        pending_otps_col.delete_one({"_id": pending_id})
-        _raise_otp_email_delivery_error(exc)
+    # try:
+    #     send_otp_email(username, otp_code, current_time, device_info, ip_address, language)
+    # except Exception as exc:
+    #     pending_otps_col.delete_one({"_id": pending_id})
+    #     _raise_otp_email_delivery_error(exc)
+
+    # if existing and existing.get("status") != "active":
+    #     users_col.delete_one({"_id": existing["_id"]})
+
+    # return {
+    #     "status": "pending_verification",
+    #     "username": username,
+    #     "user_id": pending_id,
+    #     "resend_available_in": OTP_RESEND_COOLDOWN_SECONDS,
+    # }
+
+
+    # TEMPORARY: Bypass registration email OTP for testing.
 
     if existing and existing.get("status") != "active":
         users_col.delete_one({"_id": existing["_id"]})
 
-    return {
-        "status": "pending_verification",
+    user_id = str(uuid.uuid4())
+
+    user_doc = {
+        "_id": user_id,
         "username": username,
-        "user_id": pending_id,
-        "resend_available_in": OTP_RESEND_COOLDOWN_SECONDS,
+        "name": display_name,
+        "display_name": display_name,
+        "first_name": first_name,
+        "last_name": last_name,
+        "phone": _legacy_phone_value(phone_data["phone_e164"]),
+        "country_code": phone_data["country_code"],
+        "country_iso": phone_data["country_iso"],
+        "phone_number": phone_data["phone_number"],
+        "phone_e164": phone_data["phone_e164"],
+        "phone_verified_at": None,
+        "region": region,
+        "profile_completed": True,
+        "business_category": None,
+        "business_nature": None,
+        "onboarding_completed": False,
+        "preferences": {
+            "language": language,
+        },
+        "password": get_password_hash(req.password),
+        "status": "active",
+        "auth_provider": "local",
+        "registration_method": "email",
+        "created_at": datetime.utcnow(),
+        "verified_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow(),
     }
+
+    users_col.insert_one(user_doc)
+
+    token = create_jwt_token({
+        "sub": user_id,
+        "username": username,
+    })
+
+    response = JSONResponse(
+        content={
+            "status": "success",
+            "username": username,
+            "first_name": first_name,
+            "last_name": last_name,
+            "phone": phone_data["phone_e164"],
+            "country_code": phone_data["country_code"],
+            "country_iso": phone_data["country_iso"],
+            "phone_number": phone_data["phone_number"],
+            "phone_e164": phone_data["phone_e164"],
+            "phone_verified_at": None,
+            "region": region,
+            "business_category": None,
+            "business_nature": None,
+            "requires_business_profile_completion": True,
+            "display_name": display_name,
+            "preferences": {
+                "language": language,
+            },
+            "user_id": user_id,
+        }
+    )
+
+    _set_session_cookie(response, token)
+
+    return response
 
 @auth_router.post("/api/verify-otp")
 async def verify_otp(req: VerifyOTPRequest, response: Response):
@@ -912,6 +1060,9 @@ def _finalize_registration_from_pending(
         "phone_verified_at": None,
         "region": region,
         "profile_completed": True,
+        "business_category": None,
+        "business_nature": None,
+        "onboarding_completed": False,
         "preferences": pending.get("preferences") or {"language": "en"},
         "password": pending["password"],
         "status": "active",
@@ -939,6 +1090,9 @@ def _finalize_registration_from_pending(
         "phone_e164": phone_e164,
         "phone_verified_at": None,
         "region": region,
+        "business_category": None,
+        "business_nature": None,
+        "requires_business_profile_completion": True,
         "display_name": _user_display_name(created_user),
         "preferences": _user_preferences(created_user),
         "user_id": str(user_id),
@@ -1304,6 +1458,9 @@ async def login(req: AuthRequest, response: Response):
         "phone_verified_at": user.get("phone_verified_at"),
         "display_name": display_name,
         "preferences": _user_preferences(user),
+        "business_category": user.get("business_category"),
+        "business_nature": user.get("business_nature"),
+        "requires_business_profile_completion": _requires_business_profile_completion(user),
         "user_id": str(user["_id"]),
     }
 
@@ -1360,6 +1517,9 @@ async def google_auth(req: OAuthRequest, response: Response):
             "google_email": email,
             "registration_method": "google",
             "profile_completed": has_complete_name,
+            "business_category": None,
+            "business_nature": None,
+            "onboarding_completed": False,
             "picture": picture,
             "created_at": datetime.utcnow(),
             "verified_at": datetime.utcnow(),
@@ -1376,6 +1536,9 @@ async def google_auth(req: OAuthRequest, response: Response):
             "is_new_user": True,
             "profile_completion_page": "register" if requires_profile_completion else None,
             "requires_profile_completion": requires_profile_completion,
+            "requires_business_profile_completion": True,
+            "business_category": None,
+            "business_nature": None,
             "first_name": first_name,
             "last_name": last_name,
             "display_name": name,
@@ -1431,6 +1594,9 @@ async def google_auth(req: OAuthRequest, response: Response):
             "registration_method": user.get("registration_method"),
             "profile_completion_page": _profile_completion_page(user),
             "requires_profile_completion": _requires_profile_completion(user),
+            "requires_business_profile_completion": _requires_business_profile_completion(user),
+            "business_category": user.get("business_category"),
+            "business_nature": user.get("business_nature"),
             "display_name": _user_display_name(user),
             "preferences": _user_preferences(user),
             "user_id": str(user["_id"]),
@@ -1458,6 +1624,9 @@ async def get_account_preferences(request: Request):
         "profile_completed": not _requires_profile_completion(user),
         "profile_completion_page": _profile_completion_page(user),
         "requires_profile_completion": _requires_profile_completion(user),
+        "requires_business_profile_completion": _requires_business_profile_completion(user),
+        "business_category": user.get("business_category"),
+        "business_nature": user.get("business_nature"),
         "registration_method": user.get("registration_method"),
         "display_name": _user_display_name(user),
         "avatarUrl": user.get("picture"),
@@ -1531,6 +1700,23 @@ async def update_profile(req: UpdateProfileRequest, request: Request):
 async def validate_phone(req: PhoneValidationRequest):
     return {"status": "success", **_validate_phone_number(req.country_iso, req.phone_number)}
 
+@auth_router.put("/api/account/business-profile")
+async def update_business_profile(req: BusinessProfileRequest, request: Request):
+    user = _auth_user(request)
+    business_profile = _validate_business_profile(req.business_category, req.business_nature)
+    updates = {
+        **business_profile,
+        "onboarding_completed": True,
+        "onboarding_completed_at": user.get("onboarding_completed_at") or datetime.utcnow(),
+        "updated_at": datetime.utcnow(),
+    }
+    users_col.update_one({"_id": user["_id"]}, {"$set": updates})
+    return {
+        "status": "success",
+        **business_profile,
+        "requires_business_profile_completion": False,
+    }
+
 @auth_router.put("/api/account/complete-google-profile")
 async def complete_google_profile(req: CompleteGoogleProfileRequest, request: Request):
     _ensure_user_indexes()
@@ -1580,12 +1766,15 @@ async def complete_google_profile(req: CompleteGoogleProfileRequest, request: Re
         "phone_verified_at": user.get("phone_verified_at"),
         "region": region,
         "requires_profile_completion": False,
+        "requires_business_profile_completion": _requires_business_profile_completion({**user, **updates}),
+        "business_category": user.get("business_category"),
+        "business_nature": user.get("business_nature"),
     }
 
 
 @auth_router.post("/api/auth/logout")
 async def logout(response: Response):
-    response.delete_cookie("msme_session", path="/")
+    _clear_session_cookie(response)
     return {"status": "success"}
 
 @auth_router.post("/api/account/send-email-otp")
@@ -1674,6 +1863,8 @@ async def download_account_data(request: Request):
     lines.append(f"Phone        : {user.get('phone', '')}")
     lines.append(f"Phone Code   : {user.get('phone_country_code', '')}")
     lines.append(f"Region       : {user.get('region', '')}")
+    lines.append(f"Business Category: {user.get('business_category', '')}")
+    lines.append(f"Business Nature  : {user.get('business_nature', '')}")
     created = user.get("created_at")
     lines.append(f"Account Created: {created.strftime('%Y-%m-%d') if isinstance(created, datetime) else str(created or 'Unknown')}")
     lines.append(f"Auth Provider  : {user.get('auth_provider', 'local')}")

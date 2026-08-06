@@ -41,6 +41,22 @@ class AuthIdentityValidationTests(unittest.TestCase):
             auth._resolve_identity("Ada123", "Lovelace")
         self.assertIn("can only contain letters", error.exception.detail)
 
+    def test_business_profile_accepts_only_supported_single_select_values(self):
+        result = auth._validate_business_profile("Technology & Digital", "Online Business")
+        self.assertEqual(result["business_category"], "Technology & Digital")
+        self.assertEqual(result["business_nature"], "Online Business")
+        with self.assertRaises(HTTPException) as error:
+            auth._validate_business_profile("Unknown industry", "Online Business")
+        self.assertIn("valid business category", error.exception.detail)
+
+    def test_legacy_accounts_are_not_forced_into_new_onboarding(self):
+        self.assertFalse(auth._requires_business_profile_completion({"username": "legacy@example.com"}))
+        self.assertTrue(auth._requires_business_profile_completion({
+            "onboarding_completed": False,
+            "business_category": None,
+            "business_nature": None,
+        }))
+
     def test_resend_cooldown_reports_remaining_seconds(self):
         now = datetime(2026, 7, 15, 8, 0, 0)
         pending = {"resend_available_at": now + timedelta(seconds=60)}

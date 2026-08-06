@@ -20,16 +20,28 @@ python server.py
 
 `MOF_PROFILE` is also accepted. If neither variable is set, the app uses `local.windows`.
 
+## Remote GPU hosting (Plesk + IPServerOne)
+
+If the web app is hosted on Plesk but the LLM/GPU runtime lives on IPServerOne, point the app at the GPU host instead of `localhost`.
+
+```bash
+export OLLAMA_HOST=http://<ipserverone-host-or-ip>:11434
+export PUBLIC_SITE_URL=https://your-plesk-domain.com
+export APP_PROFILE=server.ubuntu
+python server.py
+```
+
+The app already reads `OLLAMA_HOST` through the config loader, so this is the simplest way to switch from local inference to a remote Ollama endpoint.
+
 ## File order
 
 The loader merges settings in this order:
 
 1. Built-in defaults
 2. `config/default.yaml`
-3. legacy `config.yaml`
-4. `config/<profile>.yaml`
-5. `CONFIG_FILE`, if set
-6. environment variables and `config/secrets*.env`
+3. `config/<profile>.yaml`
+4. `CONFIG_FILE`, if set
+5. environment variables and `config/secrets*.env`
 
 Secrets should live in `config/secrets.local.windows.env` or `config/secrets.server.ubuntu.env`.
 Copy `config/secrets.example.env` as a starting point. `JWT_SECRET` is mandatory and
