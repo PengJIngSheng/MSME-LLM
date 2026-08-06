@@ -59,7 +59,7 @@
             zh: { title: '验证邮箱', subtitle: '请输入发送到您邮箱的六位验证码。', verify: '验证账户', resend: '重新发送验证码', invalid: '请输入完整的六位验证码。', failed: '验证失败。', resent: '新的验证码已发送。' },
             ms: { title: 'Sahkan e-mel anda', subtitle: 'Masukkan kod enam digit yang dihantar ke e-mel anda.', verify: 'Sahkan akaun', resend: 'Hantar semula kod', invalid: 'Masukkan kesemua enam digit.', failed: 'Pengesahan gagal.', resent: 'Kod baharu telah dihantar.' },
         };
-        const lang = ['zh', 'ms'].includes(localStorage.getItem('pepperLang')) ? localStorage.getItem('pepperLang') : 'en';
+        const lang = ['ms'].includes(localStorage.getItem('pepperLang')) ? localStorage.getItem('pepperLang') : 'en';
         const t = copy[lang];
         document.documentElement.lang = lang;
         document.getElementById('title').textContent = t.title;

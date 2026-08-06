@@ -29,33 +29,80 @@ _gwt_spec.loader.exec_module(_gwt)
 #  Intent Detection
 # ══════════════════════════════════════════════════════════════════════════════
 
-# Target nouns (the "what")
-_TARGETS = [
-    "google docs", "google drive", "google doc", "gdocs", "gdrive",
-    "google sheets", "google sheet", "gsheets", "spreadsheet", "sheet",
-    "google slides", "google slide", "gslides", "slide deck", "presentation", "powerpoint", "pptx", "ppt",
-    "gmail", "calendar", "google calendar", "email", "mail", "draft", "letter", "message",
-    "image", "photo", "picture", "logo", "poster", "png", "jpg", "jpeg",
-    "邮箱", "邮件", "云盘", "云端硬盘", "文档", "日历", "日程", "表格", "电子表格", "幻灯片", "演示文稿", "简报",
-    "图片", "图像", "照片", "相片", "海报", "标志",
-    "docs", "drive", "sheets", "slides",
-    "meeting", "appointment", "event", "schedule", "meet", "google meet", "video call", "video conference",
-    "会议", "预约", "排期", "安排", "约会", "视频会议", "视频通话", "会议链接", "谷歌会议",
-    "recipient", "subject", "body", "attachment", "content", "text",
-    "收件人", "主题", "正文", "内容", "附件",
+# ── Intent vocabulary ─────────────────────────────────────────────────────────
+#
+# This router decides whether to HIJACK a chat turn away from the conversational
+# model. A false positive is expensive: the user asks a normal business question
+# and instead gets a Workspace tool attempt (or, at best, an extra LLM round-trip
+# through the __NORMAL_CHAT_FALLBACK__ path).
+#
+# Two rules keep the false-positive rate down:
+#
+#   1. Latin terms are matched on word boundaries, never as substrings.
+#   2. Chinese terms must be unambiguous multi-character words. Single
+#      characters are forbidden: "发" appears inside 开发/发展/发现/发票,
+#      "加" inside 增加/参加, "排" inside 安排/排除. Matching those turned
+#      "帮我开发一个内容营销方案" into a Google Workspace request.
+#
+# Generic nouns (content/text/message/subject/body/内容/正文/表格/文档) were
+# removed outright: they appear in ordinary business conversation constantly,
+# and "balance sheet" alone was enough to trigger the Sheets path.
+
+# Explicit Google branding → always a Workspace request, no verb needed.
+_EXPLICIT_BRANDS = [
+    "google docs", "google doc", "google drive", "gdocs", "gdrive",
+    "google sheets", "google sheet", "gsheets",
+    "google slides", "google slide", "gslides",
+    "gmail", "google calendar", "google meet",
+    "谷歌文档", "谷歌云盘", "谷歌云端硬盘", "谷歌日历", "谷歌表格", "谷歌幻灯片", "谷歌会议",
 ]
 
-# Action verbs (the "do")
-_VERBS = [
-    "发送", "发", "存进", "写入", "上传", "保存", "创建", "新建",
-    "写进", "写到", "同步", "导出", "传到", "放到", "存到",
-    "安排", "预约", "排", "加", "增加", "追加", "修改", "换", "更新", "换成",
-    "查找", "搜索", "找", "读取", "查看", "读", "列出", "导入", "转换",
-    "send", "upload", "save", "create", "write", "export",
-    "sync", "put", "move", "transfer", "compose", "draft", "import", "convert",
-    "schedule", "book", "set up", "arrange", "add", "append", "update", "change", "modify", "replace",
-    "find", "search", "read", "view", "list", "inspect", "check"
+# Service-specific artifact nouns. Each must only make sense as a Workspace
+# target — no generic business vocabulary.
+_TARGETS_LATIN = [
+    "spreadsheet", "slide deck", "presentation", "powerpoint", "pptx", "ppt",
+    "email", "e-mail", "mailbox", "inbox",
+    "calendar", "meeting invite", "calendar event", "appointment",
+    "video call", "video conference", "meet link", "meeting link",
+    "drive folder", "shared drive", "docs", "sheets", "slides",
 ]
+_TARGETS_CJK = [
+    "邮箱", "邮件", "电子邮件", "云盘", "云端硬盘",
+    "日历", "日程", "电子表格", "幻灯片", "演示文稿", "简报",
+    "视频会议", "视频通话", "会议链接", "会议邀请", "收件人", "附件",
+]
+
+# Action verbs implying a transfer, creation, or scheduling side effect.
+_VERBS_LATIN = [
+    "send", "upload", "save", "create", "write", "export", "email", "mail",
+    "sync", "put", "move", "transfer", "compose", "draft", "import", "convert",
+    "schedule", "book", "set up", "arrange", "append", "attach",
+    "add", "update", "change", "modify", "replace",
+    "find", "search", "read", "view", "list", "inspect", "check", "open", "share",
+]
+_VERBS_CJK = [
+    "发送", "发到", "发给", "发邮件", "存进", "存到", "写入", "写进", "写到",
+    "上传", "保存", "创建", "新建", "同步", "导出", "传到", "放到",
+    "安排", "预约", "排期", "增加", "追加", "修改", "更新", "换成",
+    "查找", "搜索", "读取", "查看", "列出", "导入", "转换", "分享", "共享",
+]
+
+# Latin terms are matched as whole words so "sheet" never fires inside
+# "balance sheet" and "add" never fires inside "address".
+_TARGET_LATIN_RE = re.compile(
+    r"\b(?:" + "|".join(re.escape(t) for t in _TARGETS_LATIN) + r")\b", re.IGNORECASE
+)
+_VERB_LATIN_RE = re.compile(
+    r"\b(?:" + "|".join(re.escape(v) for v in _VERBS_LATIN) + r")\b", re.IGNORECASE
+)
+
+
+def _has_target(low: str, raw: str) -> bool:
+    return bool(_TARGET_LATIN_RE.search(low)) or any(t in raw for t in _TARGETS_CJK)
+
+
+def _has_verb(low: str, raw: str) -> bool:
+    return bool(_VERB_LATIN_RE.search(low)) or any(v in raw for v in _VERBS_CJK)
 
 # Gmail confirmation pending storage is now handled persistently via MongoDB in _gwt.users_col
 
@@ -66,32 +113,31 @@ _CANCEL_GMAIL = "[CANCEL_GMAIL_SEND]"
 def is_google_request(msg: str, user_id: str = None) -> bool:
     """
     Fast keyword-based intent detection.
-    Returns True only when BOTH a target noun AND an action verb are present,
-    OR when an explicit branded phrase like "google docs" is detected with
-    any surrounding context implying action.
+    Returns True when an explicit Google brand name appears, or when BOTH a
+    service-specific target noun AND an action verb are present.
     Also intercepts Gmail confirm/cancel messages.
+
+    Note: this performs a synchronous MongoDB read when `user_id` is given, so
+    callers on the event loop should dispatch it to a worker thread.
     """
     if not msg or not msg.strip():
         return False
 
-    low = msg.lower().strip()
+    raw = msg.strip()
+    low = raw.lower()
 
     # Gmail confirm/cancel → always intercept
-    if msg.strip() in (_CONFIRM_GMAIL, _CANCEL_GMAIL):
+    if raw in (_CONFIRM_GMAIL, _CANCEL_GMAIL):
         return True
 
     # Explicit branded phrases → immediate intercept
-    explicit_brands = ["google docs", "google doc", "google drive", "gdocs", "gdrive", "google sheets", "google sheet", "gsheets", "google slides", "google slide", "gslides", "gmail", "google calendar", "google meet"]
-    if any(b in low for b in explicit_brands):
+    if any(b in low for b in _EXPLICIT_BRANDS):
         return True
 
-    # Otherwise require target + verb
-    has_target = any(t in low for t in _TARGETS)
-    has_verb = any(v in low for v in _VERBS)
-    
-    if has_target and has_verb:
+    # Otherwise require a service-specific target AND an action verb.
+    if _has_target(low, raw) and _has_verb(low, raw):
         return True
-        
+
     # Aggressive interception if user has a pending Gmail draft
     if user_id:
         user_doc = _gwt.users_col.find_one({"_id": user_id})
@@ -127,10 +173,15 @@ def _build_enabled_schemas(active_scopes: str) -> list:
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _detect_lang(text: str) -> str:
-    """Return 'zh' if text is mostly Chinese, else 'en'."""
-    cn = len(re.findall(r'[\u4e00-\u9fff]', text))
-    total = max(len(text.strip()), 1)
-    return "zh" if cn / total > 0.15 else "en"
+    """Return the reply language code for `text`.
+
+    Only 'en' and 'ms' are supported; Chinese was retired from the product, so
+    Chinese input is answered in English. The zh branches further down this
+    module are consequently unreachable and kept only to avoid a wide edit.
+    """
+    low = (text or "").lower()
+    malay_markers = ("saya", "anda", "boleh", "hantar", "fail", "kepada", "sila", "terima kasih")
+    return "ms" if any(m in low for m in malay_markers) else "en"
 
 
 def _extract_requested_output_name(text: str) -> str:

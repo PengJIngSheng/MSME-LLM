@@ -206,9 +206,21 @@ def _is_regenerate_request(t):
 
 
 # ─── Language Helpers ─────────────────────────────────────────────────────────
+# Reply languages the product actually ships. Detection below can still
+# recognise more, but anything outside this set is answered in English --
+# Chinese was retired from the UI, locales, and prompt templates.
+_SUPPORTED_REPLY_LANGS = {"en", "ms"}
+
+
 def _detect_reply_lang(text: str) -> str:
+    """Reply language for `text`, clamped to a language the product supports."""
+    detected = _detect_raw_lang(text)
+    return detected if detected in _SUPPORTED_REPLY_LANGS else "en"
+
+
+def _detect_raw_lang(text: str) -> str:
     """
-    Detect the reply language from the latest user message.
+    Detect the language of the latest user message.
     We keep this lightweight and deterministic for routing stability.
     """
     t = (text or "").strip()

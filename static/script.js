@@ -16,7 +16,12 @@ let currentUserId = localStorage.getItem('pepperUserId') || null;
 let currentUsername = localStorage.getItem('pepperUsername') || null;
 
 function authenticatedHeaders(headers = {}) {
-    return { ...headers };
+    const token = localStorage.getItem('pepperSession');
+    const result = { ...headers };
+    if (token && token !== 'cookie') {
+        result['Authorization'] = `Bearer ${token}`;
+    }
+    return result;
 }
 
 // JWTs used by older releases must not remain script-readable.
@@ -165,15 +170,31 @@ window.addEventListener('popstate', (event) => {
     }
 });
 
+// The UI ships English and Bahasa Melayu only. Chinese was retired; anything
+// else (including a stored 'zh' from before the change) resolves to English.
+const SUPPORTED_LANGS = ['en', 'ms'];
+const DEFAULT_LANG = 'en';
+
+function normalizeLang(value) {
+    return SUPPORTED_LANGS.includes(value) ? value : DEFAULT_LANG;
+}
+
 function getBrowserLanguagePreference() {
     const raw = (navigator.language || navigator.userLanguage || 'en').toLowerCase();
-    if (raw.startsWith('zh')) return 'zh';
     if (raw.startsWith('ms') || raw.includes('my')) return 'ms';
-    return 'en';
+    return DEFAULT_LANG;
 }
 
 function getPreferredLanguage() {
-    return localStorage.getItem('pepperLang') || getBrowserLanguagePreference();
+    // Single read path for the whole app, so the migration below covers every
+    // caller: a user who had picked Chinese silently lands on English instead
+    // of requesting a locale file that no longer exists.
+    const stored = localStorage.getItem('pepperLang');
+    const resolved = stored ? normalizeLang(stored) : getBrowserLanguagePreference();
+    if (stored && stored !== resolved) {
+        localStorage.setItem('pepperLang', resolved);
+    }
+    return resolved;
 }
 
 function passwordMeetsPolicy(password) {
@@ -320,14 +341,6 @@ function getUiCopy() {
 
 function getTimeGreeting(lang) {
     const h = new Date().getHours();
-    if (lang === 'zh') {
-        if (h < 5)  return '深夜了，还在忙吗？';
-        if (h < 12) return '早上好，今天有什么计划？';
-        if (h < 14) return '中午好，今天进展如何？';
-        if (h < 18) return '下午好，有什么需要我帮忙的吗？';
-        if (h < 22) return '晚上好，今天有什么计划？';
-        return '夜深了，有什么我能帮到你的？';
-    }
     if (lang === 'ms') {
         if (h < 12) return 'Selamat pagi! Apa yang boleh saya bantu?';
         if (h < 18) return 'Selamat petang! Ada apa yang anda perlukan?';
@@ -390,6 +403,30 @@ function storeAccountProfileFields(data = {}) {
     if (Object.prototype.hasOwnProperty.call(data, 'requires_profile_completion')) {
         localStorage.setItem('pepperRequiresProfileCompletion', data.requires_profile_completion ? 'true' : 'false');
     }
+    if (Object.prototype.hasOwnProperty.call(data, 'business_category')) {
+        if (data.business_category) localStorage.setItem('pepperBusinessCategory', data.business_category);
+        else localStorage.removeItem('pepperBusinessCategory');
+    }
+    if (Object.prototype.hasOwnProperty.call(data, 'business_nature')) {
+        if (data.business_nature) localStorage.setItem('pepperBusinessNature', data.business_nature);
+        else localStorage.removeItem('pepperBusinessNature');
+    }
+    if (Object.prototype.hasOwnProperty.call(data, 'requires_business_profile_completion')) {
+        localStorage.setItem('pepperRequiresBusinessProfileCompletion', data.requires_business_profile_completion ? 'true' : 'false');
+    }
+}
+
+function handleSessionExpired(options = {}) {
+    const { redirect = true } = options;
+    clearStoredAccountFields();
+    currentUserId = null;
+    currentUsername = null;
+    document.body.classList.add('is-guest');
+    document.body.classList.remove('is-logged-in');
+    syncGuestAccessState();
+    if (redirect && !window.location.pathname.endsWith('/static/login.html')) {
+        window.location.href = '/static/login.html';
+    }
 }
 
 function clearStoredAccountFields() {
@@ -405,6 +442,9 @@ function clearStoredAccountFields() {
         'pepperCountry',
         'pepperRegion',
         'pepperRequiresProfileCompletion',
+        'pepperBusinessCategory',
+        'pepperBusinessNature',
+        'pepperRequiresBusinessProfileCompletion',
         'pepperGoogleFullscreenAuth',
         'pepperGoogleEmail',
         'pepperGoogleLinked',
@@ -414,6 +454,7 @@ function clearStoredAccountFields() {
         'pepperGuestQuestionCount'
     ].forEach(key => localStorage.removeItem(key));
     sessionStorage.removeItem('pepperCompleteGoogleProfile');
+    sessionStorage.removeItem('pepperCompleteBusinessProfile');
     sessionStorage.removeItem('pepperSkipGoogleProfileCompletion');
     sessionStorage.removeItem('pepperGoogleFullscreenAuth');
 }
@@ -428,12 +469,17 @@ async function saveUserPreferences(partial = {}) {
     try {
         const res = await fetch('/api/account/preferences', {
             method: 'PUT',
+            credentials: 'same-origin',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
+                ...authenticatedHeaders(),
             },
             body: JSON.stringify(body)
         });
+        if (res.status === 401) {
+            handleSessionExpired();
+            return;
+        }
         if (res.ok) {
             const data = await res.json();
             if (data.preferences) applyStoredPreferences(data.preferences);
@@ -448,8 +494,13 @@ async function loadUserPreferences() {
     if (!token) return;
     try {
         const res = await fetch('/api/account/preferences', {
-            headers: { 'Authorization': `Bearer ${token}` }
+            credentials: 'same-origin',
+            headers: authenticatedHeaders(),
         });
+        if (res.status === 401) {
+            handleSessionExpired();
+            return;
+        }
         if (!res.ok) return;
         const data = await res.json();
         if (data.username) localStorage.setItem('pepperUsername', data.username);
@@ -476,8 +527,15 @@ async function loadUserPreferences() {
                     window.location.href = '/static/login.html?complete=google';
                 }
             }
+        } else if (data.requires_business_profile_completion) {
+            sessionStorage.removeItem('pepperCompleteGoogleProfile');
+            sessionStorage.setItem('pepperCompleteBusinessProfile', '1');
+            if (!window.location.pathname.endsWith('/static/login.html')) {
+                window.location.href = '/static/login.html?complete=business';
+            }
         } else {
             sessionStorage.removeItem('pepperCompleteGoogleProfile');
+            sessionStorage.removeItem('pepperCompleteBusinessProfile');
             sessionStorage.removeItem(PROFILE_COMPLETION_SKIP_KEY);
         }
     } catch (err) {
@@ -718,8 +776,14 @@ async function handleGoogleFullscreenReturn() {
                 sessionStorage.setItem('pepperCompleteGoogleProfile', '1');
                 window.location.href = '/static/login.html?complete=google';
                 return;
+            } else if (data.requires_business_profile_completion) {
+                sessionStorage.removeItem('pepperCompleteGoogleProfile');
+                sessionStorage.setItem('pepperCompleteBusinessProfile', '1');
+                window.location.href = '/static/login.html?complete=business';
+                return;
             } else {
                 sessionStorage.removeItem('pepperCompleteGoogleProfile');
+                sessionStorage.removeItem('pepperCompleteBusinessProfile');
                 sessionStorage.removeItem(PROFILE_COMPLETION_SKIP_KEY);
             }
             document.body.classList.remove('is-guest');
@@ -2276,7 +2340,7 @@ function createGeneratedFileCard(fileUrl, fileName = 'generated-file', fileType 
 
 function createImageGenerationLoader() {
     const lang = getPreferredLanguage();
-    const label = lang === 'zh' ? '生成图片中...' : (lang === 'ms' ? 'Menjana imej...' : 'Generating image...');
+    const label = lang === 'ms' ? 'Menjana imej...' : 'Generating image...';
     const loader = document.createElement('div');
     loader.className = 'image-generation-loader';
 
@@ -3262,6 +3326,7 @@ async function handleSend(isResume = false, resumeIndex = null) {
     try {
         const response = await fetch('/api/chat', {
             method: 'POST',
+            credentials: 'same-origin',
             headers: authenticatedHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({
                 chat_id: currentChatId,
@@ -3838,7 +3903,6 @@ function getRecentFileKind(name = '', contentType = '') {
 
 function getDefaultImageAnalysisPrompt() {
     const lang = getPreferredLanguage();
-    if (lang === 'zh') return '请分析我上传的图片，描述可见内容，提取图片里的文字，并指出重要细节。';
     if (lang === 'ms') return 'Sila analisis imej yang saya muat naik, terangkan kandungan yang kelihatan, ekstrak teks, dan nyatakan butiran penting.';
     return 'Please analyze the uploaded image(s), describe the visible content, extract any text, and point out important details.';
 }
@@ -5002,7 +5066,7 @@ async function loadChatPreview(chatId, title, liElement) {
                 .init({
                     lng: lang,
                     fallbackLng: 'en',
-                    supportedLngs: ['en', 'zh', 'ms'],
+                    supportedLngs: SUPPORTED_LANGS,
                     backend: { loadPath: '/static/locales/{{lng}}.json' }
                 })
                 .then(updateDOM)
@@ -5215,8 +5279,44 @@ loadUserPreferences();
     const deleteConfirmBtn = document.getElementById('accountDeleteConfirmBtn');
     if (!overlay) return;
 
-    const languageLabels = { en: 'EN', zh: '中文', ms: 'BM' };
-    const languageOrder = ['en', 'zh', 'ms'];
+    const languageLabels = { en: 'EN', ms: 'BM' };
+    const languageOrder = SUPPORTED_LANGS;
+    const accountBusinessCategories = [
+        'Food & Beverage', 'Retail & Wholesale', 'Manufacturing', 'Agriculture',
+        'Construction', 'Professional Services', 'Education & Training',
+        'Healthcare & Wellness', 'Beauty & Personal Care', 'Technology & Digital',
+        'Creative & Media', 'Logistics & Transportation', 'Tourism & Hospitality',
+        'Automotive', 'Others'
+    ];
+    const accountBusinessNatures = [
+        'Product-Based', 'Service-Based', 'Trading', 'Manufacturing', 'Online Business',
+        'Home-Based Business', 'Franchise', 'Social Enterprise', 'Cooperative', 'Others'
+    ];
+    const accountBusinessLabels = {
+        zh: {
+            'Food & Beverage': '餐饮', 'Retail & Wholesale': '零售与批发', 'Manufacturing': '制造业',
+            'Agriculture': '农业', 'Construction': '建筑业', 'Professional Services': '专业服务',
+            'Education & Training': '教育与培训', 'Healthcare & Wellness': '医疗与健康',
+            'Beauty & Personal Care': '美容与个人护理', 'Technology & Digital': '科技与数码',
+            'Creative & Media': '创意与媒体', 'Logistics & Transportation': '物流与运输',
+            'Tourism & Hospitality': '旅游与酒店', 'Automotive': '汽车行业', 'Others': '其他',
+            'Product-Based': '产品型', 'Service-Based': '服务型', 'Trading': '贸易',
+            'Online Business': '线上业务', 'Home-Based Business': '居家业务', 'Franchise': '特许经营',
+            'Social Enterprise': '社会企业', 'Cooperative': '合作社'
+        },
+        ms: {
+            'Food & Beverage': 'Makanan & Minuman', 'Retail & Wholesale': 'Runcit & Borong',
+            'Manufacturing': 'Pembuatan', 'Agriculture': 'Pertanian', 'Construction': 'Pembinaan',
+            'Professional Services': 'Perkhidmatan Profesional', 'Education & Training': 'Pendidikan & Latihan',
+            'Healthcare & Wellness': 'Kesihatan & Kesejahteraan', 'Beauty & Personal Care': 'Kecantikan & Penjagaan Diri',
+            'Technology & Digital': 'Teknologi & Digital', 'Creative & Media': 'Kreatif & Media',
+            'Logistics & Transportation': 'Logistik & Pengangkutan', 'Tourism & Hospitality': 'Pelancongan & Hospitaliti',
+            'Automotive': 'Automotif', 'Others': 'Lain-lain', 'Product-Based': 'Berasaskan Produk',
+            'Service-Based': 'Berasaskan Perkhidmatan', 'Trading': 'Perdagangan',
+            'Online Business': 'Perniagaan Dalam Talian', 'Home-Based Business': 'Perniagaan Dari Rumah',
+            'Franchise': 'Francais', 'Social Enterprise': 'Perusahaan Sosial', 'Cooperative': 'Koperasi'
+        }
+    };
     const accountCopy = {
         zh: {
             welcomePrefix: '欢迎，',
@@ -5230,6 +5330,16 @@ loadUserPreferences();
             profileSubtitle: '管理您的账户信息。',
             labelName: '全名',
             labelEmail: '邮箱',
+            labelBusinessCategory: '业务类别（行业）',
+            labelBusinessNature: '业务性质（业务类型）',
+            editBusinessProfileBtn: '编辑资料',
+            editBusinessProfileTitle: '编辑业务资料',
+            editBusinessProfileDesc: '选择最符合您业务的类别和类型。',
+            selectBusinessCategory: '选择业务类别',
+            selectBusinessNature: '选择业务类型',
+            businessProfileRequired: '请选择业务类别和业务类型。',
+            businessProfileSaveFailed: '无法保存业务资料，请重试。',
+            notProvided: '尚未填写',
             labelSubscription: '订阅',
             subscriptionText: '管理您的订阅',
             manageSubBtn: '管理 ↗',
@@ -5311,6 +5421,16 @@ loadUserPreferences();
             profileSubtitle: 'Manage your account information.',
             labelName: 'Full name',
             labelEmail: 'Email',
+            labelBusinessCategory: 'Business category (Industry)',
+            labelBusinessNature: 'Business nature (Business type)',
+            editBusinessProfileBtn: 'Edit details',
+            editBusinessProfileTitle: 'Edit business details',
+            editBusinessProfileDesc: 'Choose the category and type that best describe your business.',
+            selectBusinessCategory: 'Select a business category',
+            selectBusinessNature: 'Select a business type',
+            businessProfileRequired: 'Select both your business category and business type.',
+            businessProfileSaveFailed: 'Could not save your business details. Please try again.',
+            notProvided: 'Not provided',
             labelSubscription: 'Subscription',
             subscriptionText: 'Manage your subscription',
             manageSubBtn: 'Manage ↗',
@@ -5392,6 +5512,16 @@ loadUserPreferences();
             profileSubtitle: 'Urus maklumat akaun anda.',
             labelName: 'Nama penuh',
             labelEmail: 'E-mel',
+            labelBusinessCategory: 'Kategori perniagaan (Industri)',
+            labelBusinessNature: 'Jenis perniagaan',
+            editBusinessProfileBtn: 'Edit maklumat',
+            editBusinessProfileTitle: 'Edit maklumat perniagaan',
+            editBusinessProfileDesc: 'Pilih kategori dan jenis yang paling sesuai dengan perniagaan anda.',
+            selectBusinessCategory: 'Pilih kategori perniagaan',
+            selectBusinessNature: 'Pilih jenis perniagaan',
+            businessProfileRequired: 'Pilih kategori dan jenis perniagaan anda.',
+            businessProfileSaveFailed: 'Maklumat perniagaan tidak dapat disimpan. Sila cuba lagi.',
+            notProvided: 'Belum diberikan',
             labelSubscription: 'Langganan',
             subscriptionText: 'Urus langganan anda',
             manageSubBtn: 'Urus ↗',
@@ -5499,6 +5629,49 @@ loadUserPreferences();
         if (langLabel) langLabel.textContent = languageLabels[lang] || 'EN';
     }
 
+    function accountBusinessLabel(value) {
+        const lang = getPreferredLanguage();
+        return accountBusinessLabels[lang]?.[value] || value;
+    }
+
+    function renderAccountBusinessSelectOptions() {
+        const lang = getPreferredLanguage();
+        const copy = accountCopy[lang] || accountCopy.en;
+        const definitions = [
+            [document.getElementById('editBusinessCategory'), accountBusinessCategories, copy.selectBusinessCategory],
+            [document.getElementById('editBusinessNature'), accountBusinessNatures, copy.selectBusinessNature],
+        ];
+        definitions.forEach(([select, values, placeholder]) => {
+            if (!select) return;
+            const selected = select.value || select.dataset.selectedValue || '';
+            select.replaceChildren();
+            const emptyOption = document.createElement('option');
+            emptyOption.value = '';
+            emptyOption.textContent = placeholder;
+            emptyOption.disabled = true;
+            emptyOption.selected = !selected;
+            select.appendChild(emptyOption);
+            values.forEach((value) => {
+                const option = document.createElement('option');
+                option.value = value;
+                option.textContent = accountBusinessLabel(value);
+                option.selected = value === selected;
+                select.appendChild(option);
+            });
+            select.dataset.selectedValue = selected;
+        });
+    }
+
+    function renderBusinessProfileValues() {
+        const copy = accountCopy[getPreferredLanguage()] || accountCopy.en;
+        const category = localStorage.getItem('pepperBusinessCategory') || '';
+        const nature = localStorage.getItem('pepperBusinessNature') || '';
+        const categoryElement = document.getElementById('accountBusinessCategory');
+        const natureElement = document.getElementById('accountBusinessNature');
+        if (categoryElement) categoryElement.textContent = category ? accountBusinessLabel(category) : copy.notProvided;
+        if (natureElement) natureElement.textContent = nature ? accountBusinessLabel(nature) : copy.notProvided;
+    }
+
     function renderAccountLanguage() {
         const lang = getPreferredLanguage();
         const copy = accountCopy[lang] || accountCopy.en;
@@ -5508,6 +5681,8 @@ loadUserPreferences();
         });
         updateDeletePrompt();
         syncAccountLanguageLabel();
+        renderAccountBusinessSelectOptions();
+        renderBusinessProfileValues();
     }
 
     function getAccountEmail() {
@@ -5601,12 +5776,13 @@ loadUserPreferences();
             if (stored) {
                 const d = new Date(stored);
                 const lang = getPreferredLanguage();
-                profileCreatedEl.textContent = d.toLocaleDateString(lang === 'zh' ? 'zh-CN' : lang === 'ms' ? 'ms-MY' : 'en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+                profileCreatedEl.textContent = d.toLocaleDateString(lang === 'ms' ? 'ms-MY' : 'en-US', { year: 'numeric', month: 'long', day: 'numeric' });
             } else {
                 profileCreatedEl.textContent = '—';
             }
         }
         if (profileAvatarEl) renderAvatar(profileAvatarEl);
+        renderBusinessProfileValues();
 
         const token = localStorage.getItem('pepperSession');
         if (token) {
@@ -5620,6 +5796,7 @@ loadUserPreferences();
                     if (data.google_email) localStorage.setItem('pepperGoogleEmail', data.google_email);
                     else localStorage.removeItem('pepperGoogleEmail');
                     storeAccountProfileFields(data);
+                    renderBusinessProfileValues();
                     if (!data.google_linked) clearConnectorChecks();
                     updateLoginMethodButtons(data.has_password, data.google_linked, data.auth_provider);
                 }
@@ -5639,8 +5816,19 @@ loadUserPreferences();
             security: document.getElementById('accountSecuritySection'),
             data: document.getElementById('accountDataSection')
         };
-        Object.values(sections).forEach(s => { if (s) s.hidden = true; });
-        if (sections[sectionKey]) sections[sectionKey].hidden = false;
+        Object.values(sections).forEach(s => {
+            if (!s) return;
+            s.hidden = true;
+            s.classList.remove('account-section-enter');
+        });
+        if (sections[sectionKey]) {
+            sections[sectionKey].hidden = false;
+            void sections[sectionKey].offsetWidth;
+            sections[sectionKey].classList.add('account-section-enter');
+            sections[sectionKey].addEventListener('animationend', () => {
+                sections[sectionKey]?.classList.remove('account-section-enter');
+            }, { once: true });
+        }
 
         overlay.querySelectorAll('.account-nav-item').forEach(btn => {
             const isActive = btn.dataset.accountSection === sectionKey;
@@ -5709,7 +5897,7 @@ loadUserPreferences();
     if (langBtn) {
         langBtn.addEventListener('click', () => {
             const currentLang = getPreferredLanguage();
-            const nextLang = languageOrder[(languageOrder.indexOf(currentLang) + 1) % languageOrder.length] || 'zh';
+            const nextLang = languageOrder[(languageOrder.indexOf(currentLang) + 1) % languageOrder.length] || DEFAULT_LANG;
             localStorage.setItem('pepperLang', nextLang);
             if (window.applyPepperLang) window.applyPepperLang(nextLang);
             renderAccountLanguage();
@@ -5861,6 +6049,75 @@ loadUserPreferences();
             }
         });
     }
+
+    // ---- Edit Business Profile Dialog ----
+    const editBusinessProfileBtn = document.getElementById('editBusinessProfileBtn');
+    const editBusinessProfileDialog = document.getElementById('editBusinessProfileDialog');
+    const editBusinessCategory = document.getElementById('editBusinessCategory');
+    const editBusinessNature = document.getElementById('editBusinessNature');
+    const editBusinessProfileError = document.getElementById('editBusinessProfileError');
+    const editBusinessProfileCancelBtn = document.getElementById('editBusinessProfileCancelBtn');
+    const editBusinessProfileSaveBtn = document.getElementById('editBusinessProfileSaveBtn');
+
+    function closeBusinessProfileDialog() {
+        if (editBusinessProfileDialog) editBusinessProfileDialog.hidden = true;
+    }
+
+    if (editBusinessProfileBtn && editBusinessProfileDialog) {
+        editBusinessProfileBtn.addEventListener('click', () => {
+            if (editBusinessProfileError) editBusinessProfileError.textContent = '';
+            if (editBusinessCategory) editBusinessCategory.dataset.selectedValue = localStorage.getItem('pepperBusinessCategory') || '';
+            if (editBusinessNature) editBusinessNature.dataset.selectedValue = localStorage.getItem('pepperBusinessNature') || '';
+            renderAccountBusinessSelectOptions();
+            editBusinessProfileDialog.hidden = false;
+            setTimeout(() => editBusinessCategory?.focus(), 0);
+        });
+    }
+    editBusinessProfileCancelBtn?.addEventListener('click', closeBusinessProfileDialog);
+    editBusinessProfileDialog?.addEventListener('click', (event) => {
+        if (event.target === editBusinessProfileDialog) closeBusinessProfileDialog();
+    });
+    [editBusinessCategory, editBusinessNature].forEach((select) => {
+        select?.addEventListener('change', () => {
+            select.dataset.selectedValue = select.value;
+            if (editBusinessProfileError) editBusinessProfileError.textContent = '';
+        });
+    });
+
+    editBusinessProfileSaveBtn?.addEventListener('click', async () => {
+        const copy = accountCopy[getPreferredLanguage()] || accountCopy.en;
+        if (!editBusinessCategory?.value || !editBusinessNature?.value) {
+            if (editBusinessProfileError) editBusinessProfileError.textContent = copy.businessProfileRequired;
+            return;
+        }
+        const token = localStorage.getItem('pepperSession');
+        if (!token) return;
+        editBusinessProfileSaveBtn.disabled = true;
+        try {
+            const response = await fetch('/api/account/business-profile', {
+                method: 'PUT',
+                credentials: 'same-origin',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    business_category: editBusinessCategory.value,
+                    business_nature: editBusinessNature.value,
+                }),
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || data.status !== 'success') {
+                throw new Error(data.detail || copy.businessProfileSaveFailed);
+            }
+            localStorage.setItem('pepperBusinessCategory', data.business_category);
+            localStorage.setItem('pepperBusinessNature', data.business_nature);
+            localStorage.setItem('pepperRequiresBusinessProfileCompletion', 'false');
+            closeBusinessProfileDialog();
+            renderBusinessProfileValues();
+        } catch (error) {
+            if (editBusinessProfileError) editBusinessProfileError.textContent = error.message || copy.businessProfileSaveFailed;
+        } finally {
+            editBusinessProfileSaveBtn.disabled = false;
+        }
+    });
 
     // ---- Edit Email Dialog (multi-step) ----
     const updateEmailBtn = document.getElementById('updateEmailBtn');

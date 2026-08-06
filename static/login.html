@@ -8,7 +8,8 @@
         // Google treats bisnes.ai. and bisnes.ai as different OAuth origins.
         // Normalize the dotted form before Google Identity Services is loaded.
         (() => {
-            if (window.location.hostname.toLowerCase() !== 'bisnes.ai.') return;
+            const host = window.location.hostname.toLowerCase();
+            if (host !== 'bisnes.ai.' && host !== 'www.bisnes.ai') return;
             const canonical = new URL(window.location.href);
             canonical.hostname = 'bisnes.ai';
             window.location.replace(canonical.toString());
@@ -71,6 +72,15 @@
                 resetExpired: "Your reset session has expired. Start again to receive a new code.",
                 completeTitle: "Complete your profile",
                 completeDesc: "Google sign-in was successful. Please add your name, phone number, and region to continue.",
+                businessProfileTitle: "Tell us more",
+                businessProfileDesc: "Help us tailor bisnes.ai to your business.",
+                businessCategory: "Business category (Industry)",
+                businessNature: "Business nature (Business type)",
+                selectBusinessCategory: "Select a business category",
+                selectBusinessNature: "Select a business type",
+                businessProfileRequired: "Please select both your business category and business type.",
+                businessProfileFailed: "Could not save your business details. Please try again.",
+                continueToBisnes: "Continue to bisnes.ai",
                 emailUser: "Email",
                 name: "Name",
                 firstName: "First name",
@@ -110,96 +120,6 @@
                 googleEmailRegistered: "This email is registered with Google. Please sign in with Google.",
                 genericError: "Something went wrong. Please try again.",
                 tos: "By continuing you agree to bisnes.ai's <a href='#' style='color:inherit;'>Terms of Service</a> and <a href='#' style='color:inherit;'>Privacy Policy</a>. More information: <a href='https://airakanniaga.pepperlabs.my/' target='_blank' rel='noopener noreferrer' style='color:inherit;'>airakanniaga.pepperlabs.my</a>."
-            },
-            zh: {
-                title1: "登录您的账户",
-                emailLog: "使用邮箱登录",
-                googleLog: "使用 Google 登录",
-                noAccount: "没有账户？",
-                regLink: "注册",
-                title2: "使用邮箱登录",
-                registerTitle1: "创建您的账户",
-                registerEmailLog: "使用邮箱注册",
-                registerGoogleLog: "使用 Google 注册",
-                registerNoAccount: "已有账户？",
-                registerLink: "登录",
-                registerTitle2: "使用邮箱注册",
-                registerSubmit: "注册 Register",
-                registerAuth: "注册中 / Registering...",
-                registerFailed: "注册失败。",
-                otpTitle: "验证邮箱",
-                otpDescription: "请输入我们发送到您邮箱的六位验证码。",
-                otpVerify: "验证账户",
-                otpVerifying: "验证中...",
-                otpResend: "重新发送验证码",
-                otpResending: "发送中...",
-                otpResendIn: "{seconds} 秒后可重新发送",
-                otpMissing: "请输入完整的六位验证码。",
-                otpFailed: "验证失败，请重试。",
-                otpResent: "新的验证码已发送。",
-                otpBack: "返回",
-                otpDigitLabel: "第 {number} 位，共 6 位",
-                cancel: "取消",
-                cancelGoogleProfile: "取消并退出登录",
-                forgotPassword: "忘记密码？",
-                resetRequestTitle: "重置您的密码",
-                resetRequestDescription: "请输入与您的 bisnes.ai 账户关联的邮箱地址。",
-                sendResetCode: "发送重置验证码",
-                sendingResetCode: "正在发送验证码...",
-                resetRequestSent: "若此邮箱已有账户，我们已发送验证码。",
-                resetOtpTitle: "查看您的邮箱",
-                resetOtpDescription: "请输入我们发送到您邮箱的六位验证码。",
-                verifyResetCode: "验证验证码",
-                verifyingResetCode: "验证中...",
-                resendResetCode: "重新发送验证码",
-                resetPasswordTitle: "设置新密码",
-                resetPasswordDescription: "请为您的 bisnes.ai 账户设置一个新密码。",
-                updatePassword: "更新密码",
-                updatingPassword: "正在更新密码...",
-                passwordUpdated: "您的密码已更新，请登录。",
-                resetInvalidEmail: "请输入您的账户邮箱地址。",
-                resetExpired: "重置会话已过期，请重新获取验证码。",
-                completeTitle: "补全您的资料",
-                completeDesc: "Google 登录已成功。请填写您的名字、电话号码和所在区域后继续。",
-                emailUser: "邮箱 (Email)",
-                name: "名字 (Name)",
-                firstName: "名字 (First name)",
-                lastName: "姓氏 (Last name)",
-                phone: "手机号 (Phone number)",
-                region: "所在区域 (Region)",
-                selectCountry: "选择国家或地区",
-                selectRegion: "选择区域",
-                pass: "密码 (Password)",
-                submit: "登录 Login",
-                continueBtn: "继续 Continue",
-                saving: "保存中...",
-                invalidName: "请输入您的名字。",
-                invalidFirstName: "请输入有效的名字（只可使用文字）。",
-                invalidLastName: "请输入有效的姓氏（只可使用文字）。",
-                invalidPhone: "请输入有效的电话号码。",
-                phoneDigitsOnly: "电话号码只能输入数字。",
-                phoneInvalidForCountry: "请输入符合所选国家或地区格式的电话号码。",
-                phoneValidationUnavailable: "电话号码验证暂时不可用，请刷新页面后重试。",
-                countryRequired: "请先选择国家或地区。",
-                invalidRegion: "请选择您的所在区域。",
-                completeFailed: "无法保存资料，请重试。",
-                loginFailed: "登录失败。",
-                auth: "登录中 / Authenticating...",
-                showPassword: "显示密码",
-                hidePassword: "隐藏密码",
-                passwordRule: "密码至少需要 8 个字符，首位为大写字母，并包含一个特殊符号。",
-                passwordMinLength: "至少 8 个字符",
-                passwordStartsUppercase: "首位大写",
-                passwordSpecialCharacter: "1 个特殊符号",
-                networkError: "网络错误，请重试。",
-                googleOAuthLoading: "Google 登录仍在加载，请稍后重试。",
-                googleOAuthConfiguration: "Google 登录暂时不可用。请从 bisnes.ai 重新尝试。",
-                invalidCredentials: "邮箱或密码错误。",
-                usernameTaken: "此邮箱已注册。",
-                phoneAlreadyRegistered: "此手机号已注册。",
-                googleEmailRegistered: "此邮箱已通过 Google 注册，请使用 Google 登录。",
-                genericError: "操作失败，请重试。",
-                tos: "继续即表示您同意 bisnes.ai 的 <a href='#' style='color:inherit;'>服务条款</a> 和 <a href='#' style='color:inherit;'>隐私政策</a>。更多信息请访问 <a href='https://airakanniaga.pepperlabs.my/' target='_blank' rel='noopener noreferrer' style='color:inherit;'>airakanniaga.pepperlabs.my</a>。"
             },
             ms: {
                 title1: "Log masuk akaun anda",
@@ -251,6 +171,15 @@
                 resetExpired: "Sesi tetapan semula anda telah tamat tempoh. Mulakan semula untuk menerima kod baharu.",
                 completeTitle: "Lengkapkan profil anda",
                 completeDesc: "Log masuk Google berjaya. Sila tambah nama, nombor telefon dan wilayah anda untuk meneruskan.",
+                businessProfileTitle: "Beritahu kami lebih lanjut",
+                businessProfileDesc: "Bantu kami menyesuaikan bisnes.ai dengan perniagaan anda.",
+                businessCategory: "Kategori perniagaan (Industri)",
+                businessNature: "Jenis perniagaan",
+                selectBusinessCategory: "Pilih kategori perniagaan",
+                selectBusinessNature: "Pilih jenis perniagaan",
+                businessProfileRequired: "Sila pilih kategori dan jenis perniagaan anda.",
+                businessProfileFailed: "Maklumat perniagaan tidak dapat disimpan. Sila cuba lagi.",
+                continueToBisnes: "Teruskan ke bisnes.ai",
                 emailUser: "E-mel",
                 name: "Nama",
                 firstName: "Nama pertama",
@@ -296,7 +225,7 @@
         let currentLang = 'en';
         (function() {
             const browserLang = (navigator.language || navigator.userLanguage || 'en').toLowerCase();
-            const defaultLang = browserLang.startsWith('zh') ? 'zh' : (browserLang.startsWith('ms') || browserLang.includes('my') ? 'ms' : 'en');
+            const defaultLang = (browserLang.startsWith('ms') || browserLang.includes('my')) ? 'ms' : 'en';
             currentLang = localStorage.getItem('pepperLang') || defaultLang;
             if (!authTranslations[currentLang]) currentLang = defaultLang;
             document.documentElement.lang = currentLang;
@@ -926,7 +855,7 @@
             .otp-input { height: 48px; font-size: 1rem; }
         }
     </style>
-    <link href="/static/auth-screen.css?v=1.0.12" rel="stylesheet">
+    <link href="/static/auth-screen.css?v=1.0.13" rel="stylesheet">
     <link href="/static/auth-profile-location.css?v=1.0.6" rel="stylesheet">
 </head>
 <body class="auth-page">
@@ -1114,6 +1043,32 @@
                     <p class="otp-resend-row"><button type="button" id="emailOtpResendBtn" data-i18n="otpResend">Resend code</button></p>
                 </div>
 
+                <!-- New-account business onboarding (in-page, after verification) -->
+                <div id="stepBusinessProfileForm" class="auth-step business-profile-step hidden">
+                    <div class="onboarding-kicker" aria-hidden="true"><span></span><span></span><span class="is-current"></span></div>
+                    <h2 class="auth-title" data-i18n="businessProfileTitle">Tell us more</h2>
+                    <p class="form-helper" data-i18n="businessProfileDesc">Help us tailor bisnes.ai to your business.</p>
+
+                    <form id="businessProfileForm" novalidate>
+                        <div class="input-group">
+                            <label for="businessCategory" data-i18n="businessCategory">Business category (Industry)</label>
+                            <div class="auth-select-wrap">
+                                <select id="businessCategory" class="input-field auth-native-select" required aria-required="true"></select>
+                                <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label for="businessNature" data-i18n="businessNature">Business nature (Business type)</label>
+                            <div class="auth-select-wrap">
+                                <select id="businessNature" class="input-field auth-native-select" required aria-required="true"></select>
+                                <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+                            </div>
+                        </div>
+                        <p class="field-error business-profile-error" id="businessProfileError" role="alert"></p>
+                        <button type="submit" class="submit-btn" id="businessProfileSubmitBtn" data-i18n="continueToBisnes">Continue to bisnes.ai</button>
+                    </form>
+                </div>
+
                 <!-- STEP 5: Password Reset Email Request -->
                 <div id="stepPasswordResetRequest" class="auth-step hidden">
                     <button type="button" class="back-btn" id="backFromPasswordResetRequestBtn" aria-label="Back" title="Back"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i></button>
@@ -1243,6 +1198,66 @@
 
     <script src="/static/auth-profile-location.js?v=1.0.2"></script>
     <script>
+        const BUSINESS_CATEGORIES = [
+            'Food & Beverage', 'Retail & Wholesale', 'Manufacturing', 'Agriculture',
+            'Construction', 'Professional Services', 'Education & Training',
+            'Healthcare & Wellness', 'Beauty & Personal Care', 'Technology & Digital',
+            'Creative & Media', 'Logistics & Transportation', 'Tourism & Hospitality',
+            'Automotive', 'Others'
+        ];
+        const BUSINESS_NATURES = [
+            'Product-Based', 'Service-Based', 'Trading', 'Manufacturing',
+            'Online Business', 'Home-Based Business', 'Franchise', 'Social Enterprise',
+            'Cooperative', 'Others'
+        ];
+        const BUSINESS_OPTION_LABELS = {
+            ms: {
+                'Food & Beverage': 'Makanan & Minuman', 'Retail & Wholesale': 'Runcit & Borong',
+                'Manufacturing': 'Pembuatan', 'Agriculture': 'Pertanian', 'Construction': 'Pembinaan',
+                'Professional Services': 'Perkhidmatan Profesional', 'Education & Training': 'Pendidikan & Latihan',
+                'Healthcare & Wellness': 'Kesihatan & Kesejahteraan', 'Beauty & Personal Care': 'Kecantikan & Penjagaan Diri',
+                'Technology & Digital': 'Teknologi & Digital', 'Creative & Media': 'Kreatif & Media',
+                'Logistics & Transportation': 'Logistik & Pengangkutan', 'Tourism & Hospitality': 'Pelancongan & Hospitaliti',
+                'Automotive': 'Automotif', 'Others': 'Lain-lain',
+                'Product-Based': 'Berasaskan Produk', 'Service-Based': 'Berasaskan Perkhidmatan',
+                'Trading': 'Perdagangan', 'Online Business': 'Perniagaan Dalam Talian',
+                'Home-Based Business': 'Perniagaan Dari Rumah', 'Franchise': 'Francais',
+                'Social Enterprise': 'Perusahaan Sosial', 'Cooperative': 'Koperasi'
+            }
+        };
+
+        function businessOptionLabel(value) {
+            return BUSINESS_OPTION_LABELS[currentLang]?.[value] || value;
+        }
+
+        function renderBusinessSelectOptions() {
+            const t = authTranslations[currentLang] || authTranslations.en;
+            const definitions = [
+                [document.getElementById('businessCategory'), BUSINESS_CATEGORIES, t.selectBusinessCategory],
+                [document.getElementById('businessNature'), BUSINESS_NATURES, t.selectBusinessNature],
+            ];
+            definitions.forEach(([select, values, placeholder]) => {
+                if (!select) return;
+                const selected = select.value || select.dataset.selectedValue || '';
+                select.replaceChildren();
+                const emptyOption = document.createElement('option');
+                emptyOption.value = '';
+                emptyOption.textContent = placeholder;
+                emptyOption.disabled = true;
+                emptyOption.selected = !selected;
+                select.appendChild(emptyOption);
+                values.forEach((value) => {
+                    const option = document.createElement('option');
+                    option.value = value;
+                    option.textContent = businessOptionLabel(value);
+                    option.selected = value === selected;
+                    select.appendChild(option);
+                });
+                select.dataset.selectedValue = selected;
+                select.classList.toggle('has-value', Boolean(selected));
+            });
+        }
+
         // Apply Translations
         function applyTranslations() {
             const t = authTranslations[currentLang] || authTranslations.en;
@@ -1270,6 +1285,7 @@
             document.querySelectorAll('.password-requirements').forEach((requirements) => {
                 requirements.setAttribute('aria-label', t.passwordRule);
             });
+            renderBusinessSelectOptions();
         }
         applyTranslations(); // Run on load
 
@@ -1449,6 +1465,7 @@
         const stepLoginForm = document.getElementById('stepLoginForm');
         const stepRegisterForm = document.getElementById('stepRegisterForm');
         const stepEmailOtpForm = document.getElementById('stepEmailOtpForm');
+        const stepBusinessProfileForm = document.getElementById('stepBusinessProfileForm');
         const stepPasswordResetRequest = document.getElementById('stepPasswordResetRequest');
         const stepPasswordResetOtp = document.getElementById('stepPasswordResetOtp');
         const stepPasswordResetNewPassword = document.getElementById('stepPasswordResetNewPassword');
@@ -1456,6 +1473,7 @@
         const loginSelectionPanel = document.getElementById('loginSelectionPanel');
         const registerSelectionPanel = document.getElementById('registerSelectionPanel');
         const PROFILE_SKIP_KEY = 'pepperSkipGoogleProfileCompletion';
+        const BUSINESS_PROFILE_SESSION_KEY = 'pepperCompleteBusinessProfile';
         let activeAuthMode = 'login';
         let modeTransitionToken = 0;
         let authStepTransitionToken = 0;
@@ -1595,6 +1613,7 @@
             const transitionToken = ++authStepTransitionToken;
             const outgoing = [
                 stepSelection, stepLoginForm, stepRegisterForm, stepEmailOtpForm,
+                stepBusinessProfileForm,
                 stepPasswordResetRequest, stepPasswordResetOtp,
                 stepPasswordResetNewPassword, stepGoogleProfileForm,
             ]
@@ -1618,16 +1637,16 @@
         }
 
         function showFormStep(formStep, { animate = true } = {}) {
-            document.body.classList.remove('profile-completion-active');
+            document.body.classList.remove('profile-completion-active', 'business-profile-completion-active');
             document.body.classList.add('email-form-active');
-            document.querySelector('.auth-box').classList.remove('profile-mode');
+            document.querySelector('.auth-box').classList.remove('profile-mode', 'business-profile-mode');
             transitionToStep(formStep, { animate });
         }
 
         function backToSelection(fromStep, { animate = true } = {}) {
             const transitionToken = ++authStepTransitionToken;
-            document.body.classList.remove('profile-completion-active', 'email-form-active');
-            document.querySelector('.auth-box').classList.remove('profile-mode');
+            document.body.classList.remove('profile-completion-active', 'business-profile-completion-active', 'email-form-active');
+            document.querySelector('.auth-box').classList.remove('profile-mode', 'business-profile-mode');
             fromStep.classList.remove('form-entering');
             const revealSelection = () => {
                 if (transitionToken !== authStepTransitionToken) return;
@@ -1660,6 +1679,10 @@
             ) {
                 event.preventDefault();
                 returnFromPasswordReset();
+                return;
+            }
+            if (!stepBusinessProfileForm.classList.contains('hidden')) {
+                event.preventDefault();
                 return;
             }
             if (!document.body.classList.contains('profile-completion-active')) return;
@@ -1708,6 +1731,49 @@
             }
             if (updateUrl) updateEmailFormUrl('register', { replace: replaceUrl });
             showFormStep(stepRegisterForm, { animate });
+        }
+
+        function hasBusinessProfileCompletionIntent() {
+            const params = new URLSearchParams(window.location.search || '');
+            return params.get('complete') === 'business'
+                || sessionStorage.getItem(BUSINESS_PROFILE_SESSION_KEY) === '1';
+        }
+
+        function updateBusinessProfileUrl({ replace = true } = {}) {
+            const url = new URL(window.location.href);
+            url.search = '';
+            url.searchParams.set('complete', 'business');
+            window.history[replace ? 'replaceState' : 'pushState'](
+                { authStep: 'business-profile' },
+                '',
+                `${url.pathname}${url.search}${url.hash}`,
+            );
+        }
+
+        function storeBusinessProfileData(data = {}) {
+            if (data.business_category) localStorage.setItem('pepperBusinessCategory', data.business_category);
+            if (data.business_nature) localStorage.setItem('pepperBusinessNature', data.business_nature);
+            localStorage.setItem('pepperRequiresBusinessProfileCompletion', 'false');
+            sessionStorage.removeItem(BUSINESS_PROFILE_SESSION_KEY);
+        }
+
+        function openBusinessProfileForm({ animate = true, updateUrl = true } = {}) {
+            const category = document.getElementById('businessCategory');
+            const nature = document.getElementById('businessNature');
+            const error = document.getElementById('businessProfileError');
+            sessionStorage.setItem(BUSINESS_PROFILE_SESSION_KEY, '1');
+            localStorage.setItem('pepperRequiresBusinessProfileCompletion', 'true');
+            if (category) category.dataset.selectedValue = localStorage.getItem('pepperBusinessCategory') || '';
+            if (nature) nature.dataset.selectedValue = localStorage.getItem('pepperBusinessNature') || '';
+            renderBusinessSelectOptions();
+            if (error) error.textContent = '';
+            document.body.classList.remove('email-form-active');
+            document.body.classList.add('profile-completion-active', 'business-profile-completion-active');
+            document.querySelector('.auth-box').classList.remove('profile-mode');
+            document.querySelector('.auth-box').classList.add('business-profile-mode');
+            if (updateUrl) updateBusinessProfileUrl({ replace: true });
+            transitionToStep(stepBusinessProfileForm, { animate });
+            focusAfterStepEntrance(stepBusinessProfileForm, category, { animate });
         }
 
         function returnFromEmailForm(step, mode, { animate = true } = {}) {
@@ -1981,6 +2047,12 @@
             localStorage.setItem('pepperUsername', data.username);
             if (data.display_name) localStorage.setItem('pepperDisplayName', data.display_name);
             if (data.preferences?.language) localStorage.setItem('pepperLang', data.preferences.language);
+            if (data.business_category) localStorage.setItem('pepperBusinessCategory', data.business_category);
+            if (data.business_nature) localStorage.setItem('pepperBusinessNature', data.business_nature);
+            localStorage.setItem(
+                'pepperRequiresBusinessProfileCompletion',
+                data.requires_business_profile_completion === false ? 'false' : 'true'
+            );
             localStorage.removeItem('pendingUserId');
             sessionStorage.removeItem(EMAIL_OTP_ORIGIN_KEY);
             stopEmailOtpCooldown();
@@ -2010,7 +2082,11 @@
                 const data = await response.json().catch(() => ({}));
                 if (!response.ok || data.status !== 'success') throw new Error(data.detail || t.otpFailed);
                 storeVerifiedEmailSession(data);
-                window.location.assign('/');
+                if (data.requires_business_profile_completion !== false) {
+                    openBusinessProfileForm();
+                } else {
+                    window.location.assign('/');
+                }
             } catch (error) {
                 setEmailOtpBusy(false);
                 clearEmailOtpInputs({ focus: true });
@@ -2055,6 +2131,59 @@
 
         document.getElementById('backFromEmailOtpBtn').addEventListener('click', () => {
             returnFromEmailOtp();
+        });
+
+        ['businessCategory', 'businessNature'].forEach((selectId) => {
+            document.getElementById(selectId)?.addEventListener('change', (event) => {
+                event.currentTarget.dataset.selectedValue = event.currentTarget.value;
+                event.currentTarget.classList.toggle('has-value', Boolean(event.currentTarget.value));
+                event.currentTarget.setAttribute('aria-invalid', 'false');
+                document.getElementById('businessProfileError').textContent = '';
+            });
+        });
+
+        document.getElementById('businessProfileForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const t = authTranslations[currentLang] || authTranslations.en;
+            const category = document.getElementById('businessCategory');
+            const nature = document.getElementById('businessNature');
+            const error = document.getElementById('businessProfileError');
+            const button = document.getElementById('businessProfileSubmitBtn');
+            if (!category.value || !nature.value) {
+                category.setAttribute('aria-invalid', String(!category.value));
+                nature.setAttribute('aria-invalid', String(!nature.value));
+                error.textContent = t.businessProfileRequired;
+                showToast(t.businessProfileRequired, true);
+                return;
+            }
+            button.disabled = true;
+            button.textContent = t.saving;
+            error.textContent = '';
+            try {
+                const response = await fetch('/api/account/business-profile', {
+                    method: 'PUT',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('pepperSession') || ''}`,
+                    },
+                    body: JSON.stringify({
+                        business_category: category.value,
+                        business_nature: nature.value,
+                    }),
+                });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok || data.status !== 'success') {
+                    throw new Error(data.detail || t.businessProfileFailed);
+                }
+                storeBusinessProfileData(data);
+                window.location.assign('/');
+            } catch (submitError) {
+                error.textContent = submitError.message || t.businessProfileFailed;
+                showToast(error.textContent, true);
+                button.disabled = false;
+                button.textContent = t.continueToBisnes;
+            }
         });
 
         // Password reset stays in this same page, with its sensitive reset
@@ -2474,7 +2603,9 @@
             const storedCountry = localStorage.getItem('pepperCountry') || '';
             const storedRegion = localStorage.getItem('pepperRegion') || '';
             document.body.classList.add('profile-completion-active');
+            document.body.classList.remove('business-profile-completion-active');
             document.body.classList.remove('email-form-active');
+            document.querySelector('.auth-box').classList.remove('business-profile-mode');
             document.querySelector('.auth-box').classList.add('profile-mode');
             const profileName = splitDisplayNameForForm(localStorage.getItem('pepperDisplayName'));
             if (firstNameInput) firstNameInput.value = profileName.firstName;
@@ -2500,6 +2631,7 @@
             stepLoginForm.classList.add('hidden');
             stepRegisterForm.classList.add('hidden');
             stepEmailOtpForm.classList.add('hidden');
+            stepBusinessProfileForm.classList.add('hidden');
             stepPasswordResetRequest.classList.add('hidden');
             stepPasswordResetOtp.classList.add('hidden');
             stepPasswordResetNewPassword.classList.add('hidden');
@@ -2538,9 +2670,11 @@
                     'pepperSession', 'pepperUserId', 'pepperUsername', 'pepperDisplayName',
                     'pepperGoogleLinked', 'pepperAuthProvider', 'pepperGoogleEmail', 'pepperAvatar',
                     'pepperPhone', 'pepperPhoneCountryCode', 'pepperCountry', 'pepperCountryIso',
-                    'pepperRegion', 'pepperRequiresProfileCompletion'
+                    'pepperRegion', 'pepperRequiresProfileCompletion', 'pepperBusinessCategory',
+                    'pepperBusinessNature', 'pepperRequiresBusinessProfileCompletion'
                 ].forEach((key) => localStorage.removeItem(key));
                 sessionStorage.removeItem('pepperCompleteGoogleProfile');
+                sessionStorage.removeItem(BUSINESS_PROFILE_SESSION_KEY);
                 sessionStorage.removeItem(PROFILE_SKIP_KEY);
                 sessionStorage.removeItem('pepperGoogleFullscreenAuth');
                 localStorage.removeItem('pepperGoogleFullscreenAuth');
@@ -2571,6 +2705,12 @@
                     sessionStorage.setItem('pepperCompleteGoogleProfile', '1');
                     localStorage.setItem('pepperRequiresProfileCompletion', 'true');
                     openGoogleProfileForm();
+                } else if (data.requires_business_profile_completion) {
+                    sessionStorage.setItem(BUSINESS_PROFILE_SESSION_KEY, '1');
+                    localStorage.setItem('pepperRequiresBusinessProfileCompletion', 'true');
+                    if (data.business_category) localStorage.setItem('pepperBusinessCategory', data.business_category);
+                    if (data.business_nature) localStorage.setItem('pepperBusinessNature', data.business_nature);
+                    openBusinessProfileForm();
                 } else {
                     sessionStorage.removeItem('pepperCompleteGoogleProfile');
                     localStorage.setItem('pepperRequiresProfileCompletion', 'false');
@@ -2609,7 +2749,9 @@
         window.addEventListener('popstate', () => {
             const animateHistoryTransition = animateNextHistoryTransition;
             animateNextHistoryTransition = false;
-            if (hasPasswordResetIntent()) {
+            if (hasBusinessProfileCompletionIntent() && localStorage.getItem('pepperSession')) {
+                openBusinessProfileForm({ animate: false, updateUrl: true });
+            } else if (hasPasswordResetIntent()) {
                 const resetStep = passwordResetUrlStep();
                 if (resetStep === 'request') openPasswordResetRequest({ animate: false, updateUrl: false });
                 else if (resetStep === 'verify') openPasswordResetOtp({ animate: false, updateUrl: false });
@@ -2700,7 +2842,8 @@
         const GOOGLE_REDIRECT_FALLBACK_KEY = 'pepperGoogleRedirectFallbackAt';
         function canonicalBrowserOrigin() {
             const url = new URL(window.location.href);
-            if (url.hostname.toLowerCase() === 'bisnes.ai.') url.hostname = 'bisnes.ai';
+            const host = url.hostname.toLowerCase();
+            if (host === 'bisnes.ai.' || host === 'www.bisnes.ai') url.hostname = 'bisnes.ai';
             return url.origin;
         }
         function googleLoginRedirectUri() {
@@ -2765,6 +2908,17 @@
             if (Object.prototype.hasOwnProperty.call(data, 'requires_profile_completion')) {
                 localStorage.setItem('pepperRequiresProfileCompletion', data.requires_profile_completion ? 'true' : 'false');
             }
+            if (Object.prototype.hasOwnProperty.call(data, 'business_category')) {
+                if (data.business_category) localStorage.setItem('pepperBusinessCategory', data.business_category);
+                else localStorage.removeItem('pepperBusinessCategory');
+            }
+            if (Object.prototype.hasOwnProperty.call(data, 'business_nature')) {
+                if (data.business_nature) localStorage.setItem('pepperBusinessNature', data.business_nature);
+                else localStorage.removeItem('pepperBusinessNature');
+            }
+            if (Object.prototype.hasOwnProperty.call(data, 'requires_business_profile_completion')) {
+                localStorage.setItem('pepperRequiresBusinessProfileCompletion', data.requires_business_profile_completion ? 'true' : 'false');
+            }
         }
 
         async function finishGoogleAuthWithToken(accessToken) {
@@ -2786,6 +2940,10 @@
                 sessionStorage.removeItem(PROFILE_SKIP_KEY);
                 sessionStorage.setItem('pepperCompleteGoogleProfile', '1');
                 openGoogleProfileForm();
+            } else if (data.requires_business_profile_completion) {
+                clearGoogleProfileCompletionState();
+                sessionStorage.setItem(BUSINESS_PROFILE_SESSION_KEY, '1');
+                openBusinessProfileForm();
             } else {
                 clearGoogleProfileCompletionState();
                 window.location.href = '/';
@@ -2955,7 +3113,12 @@
                 if (country) localStorage.setItem('pepperCountry', country);
                 localStorage.setItem('pepperRegion', data.region || region);
                 clearGoogleProfileCompletionState();
-                window.location.href = '/';
+                if (data.requires_business_profile_completion !== false) {
+                    sessionStorage.setItem(BUSINESS_PROFILE_SESSION_KEY, '1');
+                    openBusinessProfileForm();
+                } else {
+                    window.location.href = '/';
+                }
             } catch(error) {
                 showToast(error.message || t.completeFailed, true);
                 btn.textContent = t.continueBtn;
@@ -2965,6 +3128,8 @@
 
         if (shouldCompleteGoogleProfile()) {
             openGoogleProfileForm();
+        } else if (hasBusinessProfileCompletionIntent() && localStorage.getItem('pepperSession')) {
+            openBusinessProfileForm({ animate: false, updateUrl: true });
         } else if (hasPasswordResetIntent()) {
             const resetStep = passwordResetUrlStep();
             if (resetStep === 'request') openPasswordResetRequest({ animate: false, updateUrl: false });
@@ -2977,6 +3142,7 @@
             else openLoginForm({ animate: false, updateUrl: false });
         } else if (!localStorage.getItem('pepperSession')) {
             sessionStorage.removeItem('pepperCompleteGoogleProfile');
+            sessionStorage.removeItem(BUSINESS_PROFILE_SESSION_KEY);
             sessionStorage.removeItem('pepperRestartGoogleRegistration');
             localStorage.setItem('pepperRequiresProfileCompletion', 'false');
         } else {
@@ -3015,7 +3181,15 @@
                     if(data.preferences) {
                         if(data.preferences.language) localStorage.setItem('pepperLang', data.preferences.language);
                     }
-                    window.location.href = '/';
+                    if (data.business_category) localStorage.setItem('pepperBusinessCategory', data.business_category);
+                    if (data.business_nature) localStorage.setItem('pepperBusinessNature', data.business_nature);
+                    if (data.requires_business_profile_completion) {
+                        sessionStorage.setItem(BUSINESS_PROFILE_SESSION_KEY, '1');
+                        openBusinessProfileForm();
+                    } else {
+                        localStorage.setItem('pepperRequiresBusinessProfileCompletion', 'false');
+                        window.location.href = '/';
+                    }
                 } else if (!res.ok && data.status === "unverified") {
                     // Keep verification inside this left-side auth flow.
                     openEmailOtpForm(data.user_id, { source: 'login' });
@@ -3077,13 +3251,28 @@
                     })
                 });
                 const data = await res.json();
-                if (res.ok && data.status === 'pending_verification') {
-                    openEmailOtpForm(data.user_id, {
-                        source: 'register',
-                        resendCooldownSeconds: Number(data.resend_available_in) || EMAIL_OTP_RESEND_COOLDOWN_SECONDS,
-                    });
+                // if (res.ok && data.status === 'pending_verification') {
+                //     openEmailOtpForm(data.user_id, {
+                //         source: 'register',
+                //         resendCooldownSeconds: Number(data.resend_available_in) || EMAIL_OTP_RESEND_COOLDOWN_SECONDS,
+                //     });
+                //     return;
+                // }
+                // if (res.ok && data.status === 'success') {
+                //     window.location.href = '/';
+                //     return;
+                // }
+                if (res.ok && data.status === 'success') {
+                    storeVerifiedEmailSession(data);
+
+                    if (data.requires_business_profile_completion !== false) {
+                        openBusinessProfileForm();
+                    } else {
+                        window.location.assign('/');
+                    }
                     return;
                 }
+
                 showToast(data.detail || t.registerFailed, true);
                 btn.textContent = t.registerSubmit;
                 btn.disabled = false;
