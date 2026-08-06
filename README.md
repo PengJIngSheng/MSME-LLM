@@ -202,7 +202,6 @@ Response streams to browser; files and metadata are persisted
 |-- server.py                         # FastAPI app and main chat pipeline
 |-- Model_StartUp.py                  # Local model loading and interactive runner
 |-- config_loader.py                  # Runtime configuration loader
-|-- config.yaml                       # Legacy/local override config
 |-- dev.py                            # Development runner with reload polling
 |-- USER_MANUAL.md                    # User-facing feature guide
 |-- config/
@@ -227,8 +226,8 @@ Response streams to browser; files and metadata are persisted
 |   |-- knowledge_agent.py            # Internal knowledge RAG
 |   `-- skill_impl/                   # DOCX/PDF/PPTX/XLSX file generation
 |-- Model Networking/
-|   |-- web_search.py                 # Web research implementation
-|   `-- web_agent.py                  # Legacy web agent
+|   `-- web_search.py                 # Web research implementation
+|-- text_utils.py                     # Script-aware message sizing (EN/ZH/MS)
 |-- ImageGemma4/                      # Optional image modules
 |-- scripts/                          # RAG ingestion and fine-tuning utilities
 |-- tests/                            # Unit tests
@@ -245,10 +244,9 @@ Configuration merge order:
 
 1. Built-in defaults
 2. `config/default.yaml`
-3. `config.yaml`
-4. `config/<APP_PROFILE>.yaml`
-5. `CONFIG_FILE`, if set
-6. Environment variables and secrets files
+3. `config/<APP_PROFILE>.yaml`
+4. `CONFIG_FILE`, if set
+5. Environment variables and secrets files
 
 Default profile:
 
