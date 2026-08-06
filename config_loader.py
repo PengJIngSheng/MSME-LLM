@@ -377,6 +377,35 @@ class _Config:
     def ollama_num_ctx_cap(self) -> int:
         return int(self._env("OLLAMA_NUM_CTX_CAP", "services.ollama.num_ctx_cap", 8192))
 
+    # ── Ollama HTTP timeouts ─────────────────────────────────────────────────
+    #
+    # The ollama client ships with no timeouts at all. Without these, a wedged
+    # Ollama blocks every caller forever and, because those calls occupy the
+    # shared asyncio thread pool, takes the whole application down with it.
+    #
+    # `read` is per-read rather than total, so it only needs to cover the gap
+    # before the first token (queue wait behind the parallel slots), not the
+    # length of a long answer.
+
+    @property
+    def ollama_connect_timeout(self) -> float:
+        """Seconds to establish the TCP connection. Ollama is local; be strict."""
+        return float(self._env("OLLAMA_CONNECT_TIMEOUT", "services.ollama.connect_timeout", 10.0))
+
+    @property
+    def ollama_read_timeout(self) -> float:
+        """Seconds to wait for the next chunk before giving up on a response."""
+        return float(self._env("OLLAMA_READ_TIMEOUT", "services.ollama.read_timeout", 120.0))
+
+    @property
+    def ollama_write_timeout(self) -> float:
+        return float(self._env("OLLAMA_WRITE_TIMEOUT", "services.ollama.write_timeout", 30.0))
+
+    @property
+    def ollama_pool_timeout(self) -> float:
+        """Seconds to wait for a free connection from the client pool."""
+        return float(self._env("OLLAMA_POOL_TIMEOUT", "services.ollama.pool_timeout", 15.0))
+
     @property
     def ollama_num_ctx(self) -> int:
         """The single context window used for every chat request.

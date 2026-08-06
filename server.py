@@ -9,6 +9,7 @@ import uuid
 import time
 import datetime as dt
 import queue as queue_module
+import httpx as _httpx
 import ipaddress
 import urllib.parse
 import urllib.request
@@ -54,7 +55,27 @@ sys.path.append(os.path.join(_BASE, "Model Networking"))
 from config_loader import cfg
 import text_utils
 os.environ.setdefault("OLLAMA_HOST", cfg.ollama_base_url)
-_ollama_client = _ol.Client(host=cfg.ollama_base_url)
+# The ollama client defaults to Timeout(None) on every phase -- no connect,
+# read, write, or pool timeout at all. A wedged Ollama therefore blocks the
+# caller forever, and these calls run in the shared asyncio thread pool
+# (20 threads on this box), so ~20 stuck requests take the whole application
+# down, not just chat. That is exactly what a hung Ollama produced here:
+# requests stopped reaching its handler entirely for eleven minutes.
+#
+# read is per-read, not total, which is the right shape for streaming: a
+# healthy generation delivers tokens continuously, so the budget only has to
+# cover the gap before the first byte (queue wait behind OLLAMA_NUM_PARALLEL
+# slots, measured under 60s even at 40 concurrent users), never the full
+# response length.
+_ollama_client = _ol.Client(
+    host=cfg.ollama_base_url,
+    timeout=_httpx.Timeout(
+        connect=cfg.ollama_connect_timeout,
+        read=cfg.ollama_read_timeout,
+        write=cfg.ollama_write_timeout,
+        pool=cfg.ollama_pool_timeout,
+    ),
+)
 
 import Model_StartUp as ms
 from ImageGemma4 import comfyui_local, image_gemma4, sd35_medium_local
