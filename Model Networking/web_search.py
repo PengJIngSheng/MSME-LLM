@@ -29,6 +29,13 @@ from urllib.parse import urlparse
 
 import httpx
 
+from url_guard import (
+    DEFAULT_TIMEOUT_SECONDS,
+    MAX_REDIRECTS,
+    MAX_RESPONSE_BYTES,
+    check_url,
+)
+
 logger = logging.getLogger(__name__)
 
 # ── config bootstrap ─────────────────────────────────────────────────────────
@@ -80,20 +87,54 @@ class SearchResult:
 
 @dataclass
 class WebPage:
+    """One fetched page, with enough provenance for the model to cite it.
+
+    Every field the model sees is recorded explicitly: a page that failed to
+    yield body text must be distinguishable from one that simply had little to
+    say, otherwise the model treats an empty extraction as "no information
+    exists" instead of "retrieval failed".
+    """
     url: str
     title: str
     content: str          # clean Markdown text
-    fit_content: str = "" # BM25-filtered relevant content (subset of content)
+    fit_content: str = "" # relevance-filtered content (subset of content)
     domain: str = ""
+    fetched_at: str = ""  # ISO-8601 UTC, so the model can judge freshness
+    error: str = ""       # empty when the fetch succeeded
+    extracted: bool = False  # did we get usable body text, not just a snippet?
 
     def __post_init__(self) -> None:
         if not self.domain:
             self.domain = urlparse(self.url).netloc.lower().lstrip("www.")
+        if not self.fetched_at:
+            self.fetched_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        if not self.extracted:
+            self.extracted = bool(self.content and len(self.content.strip()) >= 200)
 
     @property
     def best_content(self) -> str:
-        """Return BM25-filtered content if available, else full content."""
+        """Return relevance-filtered content if available, else full content."""
         return self.fit_content if len(self.fit_content) > 200 else self.content
+
+    @property
+    def content_length(self) -> int:
+        return len(self.best_content or "")
+
+    def as_source_block(self, max_chars: int = 2200) -> str:
+        """Render this page as the labelled block handed to the model."""
+        body = (self.best_content or "").strip()
+        truncated = len(body) > max_chars
+        if truncated:
+            body = body[:max_chars].rstrip() + "\n[...truncated]"
+        header = (
+            f"**[{self.title or self.domain} | {_source_kind(self.domain, self.title)}]"
+            f"({self.url})**\n"
+            f"source: {self.domain} | retrieved: {self.fetched_at} | "
+            f"chars: {self.content_length}"
+            f"{' | TRUNCATED' if truncated else ''}"
+            f"{' | EXTRACTION FAILED: ' + self.error if self.error else ''}"
+        )
+        return f"{header}\n{body}" if body else f"{header}\n(no body text extracted)"
 
 
 @dataclass
@@ -150,11 +191,31 @@ _LANG_SEARCH_CODES = {
 # ASCII/Malay: word-boundary safe
 _NEEDS_SEARCH_ASCII = re.compile(
     r"\b("
-    r"latest|terbaru|recently|current|now|today|tonight|"
+    # Bare "now" fired on ordinary speech ("for now", "the margins are fine
+    # for now"). The freshness cases it was meant to catch are already
+    # covered by latest/current/today plus the topic words below.
+    r"latest|terbaru|recently|current|right now|today|tonight|"
     r"2024|2025|2026|this year|this month|this week|"
     r"price|harga|cost|rate|kadar|berapa|how much|"
     r"policy|dasar|regulation|peraturan|guideline|garis panduan|"
     r"company|syarikat|registration|pendaftaran|ssm|lhdn|hasil|"
+    # Compliance timing. An MSME asking "when is the SST filing deadline"
+    # wants a date, and answering it from model memory is how the assistant
+    # ended up giving generic "stay compliant" advice instead. None of these
+    # terms appeared in the list before, so those questions never searched.
+    r"deadline|due date|due by|cut ?off|filing|file by|submit by|submission|"
+    r"when is|when are|when do|when does|when must|how long do|"
+    r"tarikh akhir|tarikh|bila|hantar|penghantaran|"
+    # Malaysian tax and filing vocabulary the assistant is asked about daily.
+    r"sst|gst|cukai|e-?invoice|einvois|myinvois|"
+    r"form e|form b|form be|form p|borang|cp204|cp500|"
+    r"annual return|penyata tahunan|audit|"
+    # Amounts and eligibility that change by year and must not be recalled.
+    # Deliberately excluded: Malay "had" (threshold) and bare "fine" -- both are
+    # everyday English words ("I had a question", "that's fine") and would fire
+    # a web search on ordinary conversation.
+    r"threshold|eligibility|kelayakan|syarat|qualify|exemption|pengecualian|"
+    r"penalty|penalti|denda|compound|kompaun|"
     r"news|berita|update|kemaskini|announce|pengumuman|"
     r"who is|siapa|ceo|minister|menteri|chairman|director|pengarah|"
     r"version|versi|release|launched|released|available|"
@@ -435,7 +496,19 @@ class Crawl4AIFetcher:
         Fetch and extract clean content from a URL.
         If query is provided, applies BM25 filtering to return the most
         relevant portions of the page.
+
+        Every URL passes the SSRF guard first. Search results are attacker-
+        influenceable input: without this check a poisoned result could make
+        the backend read cloud metadata (169.254.169.254), the local Ollama
+        API (127.0.0.1:11434), or a Docker-internal database, and hand the
+        response to the model as if it were a web page.
         """
+        verdict = check_url(url, blocklist=_SKIP_DOMAINS)
+        if not verdict:
+            logger.warning("Refusing to fetch %s: %s", url, verdict.reason)
+            return WebPage(url=url, title="", content="",
+                           error=f"blocked: {verdict.reason}")
+
         page = await self._fetch_crawl4ai(url, query)
         if page:
             return page
@@ -505,20 +578,50 @@ class Crawl4AIFetcher:
         """httpx + regex fallback for when Crawl4AI is unavailable."""
         headers = {"User-Agent": "Mozilla/5.0 (compatible; PepperBot/1.0)"}
         try:
-            async with httpx.AsyncClient(timeout=12.0, follow_redirects=True) as client:
-                resp = await client.get(url, headers=headers)
-                if resp.status_code != 200:
-                    return None
-                ctype = resp.headers.get("content-type", "")
-                if "html" not in ctype and "text" not in ctype:
-                    return None
-                text = _html_to_text(resp.text)
+            # A redirect chain is a second SSRF surface: a public URL can hop to
+            # an internal one, so the chain is short and every hop is checked.
+            async with httpx.AsyncClient(
+                timeout=DEFAULT_TIMEOUT_SECONDS,
+                follow_redirects=True,
+                max_redirects=MAX_REDIRECTS,
+            ) as client:
+                async with client.stream("GET", url, headers=headers) as resp:
+                    for hop in list(resp.history) + [resp]:
+                        hop_verdict = check_url(str(hop.url), blocklist=_SKIP_DOMAINS)
+                        if not hop_verdict:
+                            logger.warning("Redirect reached an unsafe URL %s: %s",
+                                           hop.url, hop_verdict.reason)
+                            return WebPage(url=url, title="", content="",
+                                           error=f"unsafe redirect: {hop_verdict.reason}")
+
+                    if resp.status_code != 200:
+                        return WebPage(url=url, title="", content="",
+                                       error=f"HTTP {resp.status_code}")
+                    ctype = resp.headers.get("content-type", "")
+                    if "html" not in ctype and "text" not in ctype:
+                        return WebPage(url=url, title="", content="",
+                                       error=f"unsupported content-type {ctype!r}")
+
+                    # Hard size cap so an enormous or endless body cannot
+                    # exhaust memory on a shared box.
+                    chunks, size = [], 0
+                    async for chunk in resp.aiter_bytes():
+                        size += len(chunk)
+                        if size > MAX_RESPONSE_BYTES:
+                            logger.info("Truncated oversized response from %s", url)
+                            break
+                        chunks.append(chunk)
+                    raw = b"".join(chunks).decode(resp.encoding or "utf-8", errors="replace")
+
+                text = _html_to_text(raw)
                 if len(text) < 150:
-                    return None
+                    return WebPage(url=url, title="", content=text,
+                                   error="too little text extracted")
                 return WebPage(url=url, title="", content=text)
         except Exception as exc:
             logger.debug("Simple fetch failed for %s: %s", url, exc)
-            return None
+            return WebPage(url=url, title="", content="",
+                           error=f"{type(exc).__name__}: {exc}")
 
 
 def _clean_md(text: str) -> str:
@@ -829,6 +932,31 @@ def _score(result: SearchResult, question: str) -> float:
 
 # ── secondary query builder ───────────────────────────────────────────────────
 
+# Topic detection for the secondary-angle query.
+#
+# Latin/Malay terms need \b so "rate" does not fire inside "corporate".
+# Chinese terms must NOT use \b: Python treats CJK characters as word
+# characters, so there is no boundary between 价格 and 多少 and a pattern like
+# r"\b多少\b" never matches inside a real sentence. Every Chinese term in this
+# function used to sit inside a \b(...)\b group and was therefore dead, which
+# silently reduced Chinese questions to the generic "+ Malaysia" fallback.
+# This mirrors the ASCII/CJK split already used by needs_web_search().
+_ANGLE_PATTERNS = [
+    # (latin regex, cjk regex, angle suffix)
+    (r"\b(?:latest|terbaru|news|berita|update|kemaskini)\b", r"(?:最新|新闻|消息|公告)", "official announcement"),
+    (r"\b(?:policy|dasar|regulation|peraturan|guideline|garis panduan)\b", r"(?:法规|政策|规定|条例)", "implementation guide"),
+    (r"\b(?:price|harga|rate|kadar|exchange|berapa)\b", r"(?:多少|费用|价格|汇率|收费)", None),  # None → year-stamped comparison
+    (r"\b(?:company|syarikat|register|daftar|ssm|sdn bhd)\b", r"(?:注册|登记|公司)", "requirements documents"),
+    (r"\b(?:grant|geran|loan|pinjaman|funding)\b", r"(?:资助|补助|贷款|拨款)", "eligibility criteria apply"),
+]
+
+_GAME_RE = re.compile(
+    r"(游戏|赛季|英雄|皮肤|版本|patch|season|hero|game|moba|hok|王者|"
+    r"lol|dota|valorant|mobile legend|mlbb|pubg|genshin|原神)",
+    re.IGNORECASE,
+)
+
+
 def _secondary_query(question: str) -> str:
     """
     Generate a complementary search query for the same question from a different angle.
@@ -840,33 +968,16 @@ def _secondary_query(question: str) -> str:
 
     q_lower = q.lower()
 
-    # News/latest → add "official" / "government" angle
-    if re.search(r"\b(latest|terbaru|最新|news|berita|新闻|update|kemaskini)\b", q_lower):
-        return q + " official announcement"
-
-    # Policy/regulation → add "guide" angle
-    if re.search(r"\b(policy|dasar|regulation|peraturan|法规|政策|guideline|garis panduan)\b",
-                 q_lower):
-        return q + " implementation guide"
-
-    # Price/rate → add "comparison" angle
-    if re.search(r"\b(price|harga|rate|kadar|exchange|berapa|多少|费用|汇率)\b", q_lower):
-        return q + " comparison 2025"
-
-    # Company/registration → add "requirements" angle
-    if re.search(r"\b(company|syarikat|register|daftar|注册|ssm|sdn bhd)\b", q_lower):
-        return q + " requirements documents"
-
-    # Grant/loan → add "eligibility" angle
-    if re.search(r"\b(grant|geran|loan|pinjaman|funding|助|资助|贷款)\b", q_lower):
-        return q + " eligibility criteria apply"
+    for latin_pat, cjk_pat, suffix in _ANGLE_PATTERNS:
+        if re.search(latin_pat, q_lower) or re.search(cjk_pat, q):
+            if suffix is None:
+                # The year must be computed, not hardcoded: a stale literal
+                # actively steers search away from current data.
+                return f"{q} comparison {datetime.now(timezone.utc).year}"
+            return f"{q} {suffix}"
 
     # Game/entertainment → patch notes / season update angle
-    if re.search(
-        r"(游戏|赛季|英雄|皮肤|版本|patch|season|hero|game|moba|hok|王者|"
-        r"lol|dota|valorant|mobile legend|mlbb|pubg|genshin|原神)",
-        q_lower,
-    ):
+    if _GAME_RE.search(q):
         return q + " patch notes season update"
 
     # For general queries: add "Malaysia" if not already there
@@ -876,8 +987,21 @@ def _secondary_query(question: str) -> str:
     return ""
 
 
-def _query_plan(question: str, user_location: str = "") -> List[str]:
-    """Small deterministic planner for multi-angle web search."""
+DEFAULT_MAX_QUERIES = 4
+
+
+def _query_plan(
+    question: str,
+    user_location: str = "",
+    supports_site_operator: bool = True,
+    max_queries: Optional[int] = None,
+) -> List[str]:
+    """Small deterministic planner for multi-angle web search.
+
+    supports_site_operator: Brave honours `site:` / `OR` search operators;
+    Tavily does not and treats them as literal text, which wastes an API call
+    and pollutes the results. Callers pass the active provider's capability.
+    """
     q = re.sub(r"\s+", " ", question.strip())
     if not q:
         return []
@@ -895,8 +1019,12 @@ def _query_plan(question: str, user_location: str = "") -> List[str]:
         queries.append(f"{q} {location}")
 
     if re.search(r"\b(policy|regulation|guideline|registration|ssm|lhdn|tax|grant|loan|permit|license|licence|requirement)\b", q_lower) or re.search(r"(政策|法规|规定|注册|登记|税|补助|贷款|执照|许可证)", q):
-        if "malaysia" in q_lower or "马来西亚" in q or "my" in location_lower:
+        is_malaysian = "malaysia" in q_lower or "马来西亚" in q or "my" in location_lower
+        if is_malaysian and supports_site_operator:
             queries.append(f"{q} site:gov.my OR site:ssm.com.my OR site:hasil.gov.my")
+        elif is_malaysian:
+            # Plain-language equivalent for providers without operator support.
+            queries.append(f"{q} official Malaysia government gov.my")
         else:
             queries.append(f"{q} official government source")
 
@@ -911,7 +1039,9 @@ def _query_plan(question: str, user_location: str = "") -> List[str]:
             continue
         seen.add(key)
         deduped.append(query)
-    return deduped[:4]
+
+    limit = max_queries if max_queries is not None else DEFAULT_MAX_QUERIES
+    return deduped[:max(1, limit)]
 
 
 # ── main orchestrator ─────────────────────────────────────────────────────────
@@ -974,6 +1104,7 @@ class WebResearcher:
             getattr(cfg, "max_results_total", 15)
         ) if cfg else 15
         self._max_pages = getattr(cfg, "web_search_max_pages", 6) if cfg else 6
+        self._max_queries = getattr(cfg, "max_queries", DEFAULT_MAX_QUERIES) if cfg else DEFAULT_MAX_QUERIES
         self._top_k_chunks = 10
 
     # ── public tool functions ─────────────────────────────────────────────────
@@ -1004,6 +1135,8 @@ class WebResearcher:
         messages: List[Dict],
         user_location: str = "",
         force_search: bool = False,
+        max_results: Optional[int] = None,
+        max_pages: Optional[int] = None,
     ) -> Tuple[List[Dict], List[Dict]]:
         """
         Build web-grounded messages for server.py.
@@ -1011,6 +1144,9 @@ class WebResearcher:
         server.py will prepend identity/date/language to the system message.
 
         user_location: e.g. "Malaysia", "Singapore" — used for currency/unit localization.
+        max_results / max_pages: per-call budget overrides. Interactive chat uses
+        a tighter budget than the standalone research API; passing them here lets
+        one shared researcher serve both instead of mutating private attributes.
         """
         user_msg = ""
         for m in reversed(messages):
@@ -1036,8 +1172,8 @@ class WebResearcher:
         try:
             result = await self._run_research(
                 user_msg,
-                max_results=self._max_results,
-                max_pages=self._max_pages,
+                max_results=max_results if max_results is not None else self._max_results,
+                max_pages=max_pages if max_pages is not None else self._max_pages,
                 user_location=location,
             )
         except Exception as exc:
@@ -1158,7 +1294,14 @@ class WebResearcher:
 
         country = _country_code_from_location(location)
         search_lang = _search_language_for_question(question)
-        queries = _query_plan(question, location)
+        queries = _query_plan(
+            question,
+            location,
+            # Only Brave parses site:/OR operators. _search_raw prefers Brave and
+            # falls back to Tavily, so plan for operators only when Brave exists.
+            supports_site_operator=bool(self._brave),
+            max_queries=self._max_queries,
+        )
 
         raw_batches = await asyncio.gather(
             *[
@@ -1207,8 +1350,20 @@ class WebResearcher:
                 sources.append({"title": r.title or r.domain, "url": r.url})
 
         # 1. Freshly fetched content first. Fresh/live evidence should lead the prompt.
+        #
+        # Each block carries its own provenance line — origin, retrieval time,
+        # and whether the text is the full page or only the search snippet. The
+        # model cannot tell those apart from the prose alone, and without the
+        # distinction it presents a one-line snippet with the same confidence
+        # as a fully extracted article.
+        retrieved_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
         for result, content in zip(top[:max_pages], fetched):
-            if isinstance(content, Exception) or not content:
+            fetch_error = ""
+            if isinstance(content, Exception):
+                fetch_error = f"{type(content).__name__}: {content}"
+                content = result.snippet
+            elif not content:
+                fetch_error = "no content extracted"
                 content = result.snippet
             relevance_blob = f"{result.title} {result.snippet} {result.domain} {content or ''}"
             if (
@@ -1219,8 +1374,20 @@ class WebResearcher:
             if content and result.url not in sources_seen:
                 _add_source(result)
                 label = f"{result.title or result.domain} | {_source_kind(result.domain, result.title)}"
+                body = content[:2200]
+                meta = [
+                    f"source: {result.domain}",
+                    f"retrieved: {retrieved_at}",
+                    "extract: full page" if not fetch_error else "extract: search snippet only",
+                ]
+                if result.published_date:
+                    meta.append(f"published: {result.published_date}")
+                if len(content) > 2200:
+                    meta.append("TRUNCATED")
+                if fetch_error:
+                    meta.append(f"fetch failed: {fetch_error}")
                 context_parts.append(
-                    f"**[{label}]({result.url})**\n{content[:2200]}"
+                    f"**[{label}]({result.url})**\n{' | '.join(meta)}\n{body}"
                 )
 
         # 2. Vector-similarity retrieval from cache supplements fresh crawls.
@@ -1241,8 +1408,15 @@ class WebResearcher:
                     if row["url"] not in sources_seen:
                         sources_seen.add(row["url"])
                         sources.append({"title": row["title"] or row["domain"], "url": row["url"]})
+                    # Cached text can be up to WEB_CACHE_TTL_HOURS old, so it is
+                    # labelled as such: the model must not present a day-old
+                    # figure as the current one.
+                    cached_meta = [f"source: {row['domain']}", "extract: cached page"]
+                    if row.get("fetched_at"):
+                        cached_meta.append(f"cached at: {row['fetched_at']}")
                     context_parts.append(
                         f"**[{row['title'] or row['domain']} | cached]({row['url']})**\n"
+                        f"{' | '.join(cached_meta)}\n"
                         f"{row['chunk_text']}"
                     )
 
