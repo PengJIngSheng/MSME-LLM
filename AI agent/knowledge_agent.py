@@ -10,31 +10,32 @@ from langchain_postgres.vectorstores import PGVector
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config_loader import cfg
+import pgvector_store
 
 
 CONNECTION_URI = cfg.pgvector_connection_uri
 COLLECTION_NAME = cfg.knowledge_rag_collection
 
 embedder = OllamaEmbeddings(model=cfg.ollama_embedding_model, base_url=cfg.ollama_base_url)
-_vectorstore = None
 
 
 def get_vectorstore() -> PGVector:
-    global _vectorstore
-    if _vectorstore is None:
-        _vectorstore = PGVector(
-            embeddings=embedder,
-            collection_name=COLLECTION_NAME,
-            connection=CONNECTION_URI,
-            use_jsonb=True,
-        )
-    return _vectorstore
+    """Return the shared knowledge store.
+
+    Construction goes through pgvector_store so it cannot race the memory
+    store's construction; server.py builds both concurrently on the first
+    chat turn, and langchain_postgres' table registration is not thread-safe.
+    """
+    return pgvector_store.get_store(
+        collection_name=COLLECTION_NAME,
+        connection_uri=CONNECTION_URI,
+        embeddings=embedder,
+    )
 
 
 def reset_knowledge_collection() -> None:
     """Delete the dedicated Finetune/RAG collection without touching user memory."""
-    global _vectorstore
-    _vectorstore = None
+    pgvector_store.reset_store(COLLECTION_NAME)
     with psycopg.connect(CONNECTION_URI.replace("+psycopg", "")) as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -103,7 +104,10 @@ def retrieve_knowledge_context(query: str, k: int | None = None) -> str:
         top_k = k or cfg.knowledge_rag_top_k
         threshold = cfg.knowledge_rag_score_threshold
         max_chars = cfg.knowledge_rag_max_context_chars
-        fetch_k = max(top_k * 12, 40)
+        # Over-fetch enough to let the lexical bonus re-rank, but no more: this
+        # runs inline on a chat turn under a wall-clock budget, and a 12x
+        # over-fetch made the retrieval too slow to ever finish in time.
+        fetch_k = min(max(top_k * 3, 24), 60)
         docs_and_scores = get_vectorstore().similarity_search_with_score(query, k=fetch_k)
         terms = _query_terms(query)
 

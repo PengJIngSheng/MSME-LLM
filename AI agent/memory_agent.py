@@ -8,19 +8,31 @@ from langchain_core.documents import Document
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config_loader import cfg
+import pgvector_store
 
 CONNECTION_URI = cfg.pgvector_connection_uri
 COLLECTION_NAME = cfg.pgvector_collection
 
 embedder = OllamaEmbeddings(model=cfg.ollama_embedding_model, base_url=cfg.ollama_base_url)
 
-# Initialize the PGVector store (this will automatically create tables if they don't exist)
-vectorstore = PGVector(
-    embeddings=embedder,
-    collection_name=COLLECTION_NAME,
-    connection=CONNECTION_URI,
-    use_jsonb=True,
-)
+
+
+def get_vectorstore() -> PGVector:
+    """Return the shared long-term-memory store.
+
+    Built on first use, not at import time: an unreachable PostgreSQL used to
+    stop the whole server from starting even though memory is optional and
+    every call site degrades gracefully.
+
+    Construction goes through pgvector_store so it cannot race the knowledge
+    store's construction -- server.py builds both concurrently on the first
+    chat turn, and langchain_postgres' table registration is not thread-safe.
+    """
+    return pgvector_store.get_store(
+        collection_name=COLLECTION_NAME,
+        connection_uri=CONNECTION_URI,
+        embeddings=embedder,
+    )
 
 async def extract_and_store_memory(user_id: str, messages: list, llm_callback, document_id: str = None):
     """
@@ -80,7 +92,7 @@ async def extract_and_store_memory(user_id: str, messages: list, llm_callback, d
                     )
                     for f in facts if isinstance(f, str)
                 ]
-                vectorstore.add_documents(docs)
+                get_vectorstore().add_documents(docs)
                 print(f"[Memory Agent] Saved {len(docs)} facts for user {user_id}")
     except Exception as e:
         print(f"[Memory Agent] Extractor Error for {user_id}: {e}")
@@ -97,7 +109,7 @@ def retrieve_memory_context(user_id: str, query: str, k: int = 3, document_id: s
         memory_filter = {"user_id": {"$eq": user_id}}
         if document_id:
             memory_filter["document_id"] = {"$eq": document_id}
-        docs_and_scores = vectorstore.similarity_search_with_score(
+        docs_and_scores = get_vectorstore().similarity_search_with_score(
             query, k=k, filter=memory_filter
         )
         
