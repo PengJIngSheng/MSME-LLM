@@ -7,7 +7,9 @@ if git rev-parse --verify --quiet HEAD >/dev/null; then
     git diff --cached --check
 fi
 
+staged_files=()
 while IFS= read -r path; do
+    staged_files+=("$path")
     case "$path" in
         data/backups/*|*.pem|*.key|*client_secret.json)
             echo "Blocked sensitive file: $path" >&2
@@ -21,3 +23,50 @@ while IFS= read -r path; do
             ;;
     esac
 done < <(git diff --cached --name-only --diff-filter=ACMR)
+
+[[ ${#staged_files[@]} -eq 0 ]] && exit 0
+
+# ── Credential scan for committed config ──────────────────────────────────────
+# config/*.yaml is committed, so a real credential pasted there ships to the
+# remote. A Gmail app password reached main this way. Values must come from
+# config/secrets.<profile>.env (gitignored) or the environment.
+for path in "${staged_files[@]}"; do
+    case "$path" in
+        config/*.yaml|config.yaml)
+            if git show ":$path" | grep -nEi '^[[:space:]]*(app_password|oauth_client_secret|jwt_secret|.*token_encryption_key|.*api_key|password)[[:space:]]*:[[:space:]]*["'\'']?[^"'\'' ]{8,}' >&2; then
+                echo "" >&2
+                echo "Blocked: $path appears to contain a real credential (see line above)." >&2
+                echo "Leave the value empty here and set it in config/secrets.<profile>.env instead." >&2
+                exit 1
+            fi
+            ;;
+    esac
+done
+
+# ── Syntax check ──────────────────────────────────────────────────────────────
+# Cheapest possible guard against committing a file that cannot even be parsed.
+python_files=()
+for path in "${staged_files[@]}"; do
+    [[ "$path" == *.py ]] && python_files+=("$path")
+done
+
+if [[ ${#python_files[@]} -gt 0 ]]; then
+    python_bin="$(command -v python3 || command -v python || true)"
+    if [[ -z "$python_bin" ]]; then
+        echo "Warning: no python interpreter found; skipping syntax check." >&2
+    else
+        # Check the STAGED content, not the working tree, so a broken file
+        # cannot slip through via `git add -p`.
+        tmpdir="$(mktemp -d)"
+        trap 'rm -rf "$tmpdir"' EXIT
+        for path in "${python_files[@]}"; do
+            staged_copy="$tmpdir/$(echo "$path" | tr '/' '_')"
+            git show ":$path" > "$staged_copy"
+            if ! "$python_bin" -c "import ast,sys; ast.parse(open(sys.argv[1],encoding='utf-8').read(), filename=sys.argv[2])" "$staged_copy" "$path"; then
+                echo "" >&2
+                echo "Blocked: $path has a syntax error." >&2
+                exit 1
+            fi
+        done
+    fi
+fi

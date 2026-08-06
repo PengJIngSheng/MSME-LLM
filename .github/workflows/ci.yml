@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test dependencies
+        # The full requirements.txt pulls heavyweight ML and browser packages
+        # that these checks do not need. Keep CI fast; the tests that require
+        # a live model, MongoDB, or pgvector are not part of this job.
+        run: pip install pytest pyyaml
+
+      - name: Syntax check every Python file
+        # Guards the cheapest possible failure: a file that cannot be parsed.
+        # A broken server.py reached the working tree this way.
+        run: |
+          python - <<'PY'
+          import ast, pathlib, sys
+          skip = {".git", "venv", ".venv", "node_modules", "__pycache__", "Finetune", "models"}
+          failures = []
+          for path in pathlib.Path(".").rglob("*.py"):
+              if skip & set(path.parts):
+                  continue
+              try:
+                  ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+              except SyntaxError as exc:
+                  failures.append(f"{path}:{exc.lineno}: {exc.msg}")
+          for failure in failures:
+              print(f"::error::{failure}")
+          print(f"checked files, {len(failures)} syntax error(s)")
+          sys.exit(1 if failures else 0)
+          PY
+
+      - name: Check committed config for credentials
+        # config/*.yaml is committed, so a real value pasted there ships to the
+        # remote. Mirrors the .githooks/pre-commit scan.
+        run: |
+          if grep -rnEi '^[[:space:]]*(app_password|oauth_client_secret|jwt_secret|.*token_encryption_key|.*api_key|password)[[:space:]]*:[[:space:]]*["'\'']?[^"'\'' ]{8,}' config/*.yaml; then
+            echo "::error::A committed config file appears to contain a real credential."
+            exit 1
+          fi
+          echo "No credentials found in committed config."
+
+      - name: Run tests
+        run: python -m pytest tests/ -v

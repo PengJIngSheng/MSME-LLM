@@ -53,3 +53,9 @@ config/secrets*.env
 !config/secrets.example.env
 *.pem
 *.key
+
+# User exports contain real names, emails, and phone numbers.
+# Never commit these -- git history is permanent.
+users_business.csv
+users_*.csv
+*_export.csv
