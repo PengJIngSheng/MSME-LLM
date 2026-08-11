@@ -67,15 +67,21 @@ os.environ.setdefault("OLLAMA_HOST", cfg.ollama_base_url)
 # cover the gap before the first byte (queue wait behind OLLAMA_NUM_PARALLEL
 # slots, measured under 60s even at 40 concurrent users), never the full
 # response length.
-_ollama_client = _ol.Client(
-    host=cfg.ollama_base_url,
-    timeout=_httpx.Timeout(
-        connect=cfg.ollama_connect_timeout,
-        read=cfg.ollama_read_timeout,
-        write=cfg.ollama_write_timeout,
-        pool=cfg.ollama_pool_timeout,
-    ),
+_ollama_timeout = _httpx.Timeout(
+    connect=cfg.ollama_connect_timeout,
+    read=cfg.ollama_read_timeout,
+    write=cfg.ollama_write_timeout,
+    pool=cfg.ollama_pool_timeout,
 )
+
+# Sync client for the short blocking helpers (routing, query rewriting) that
+# already run off the event loop.
+_ollama_client = _ol.Client(host=cfg.ollama_base_url, timeout=_ollama_timeout)
+
+# Async client for chat streaming. The stream is consumed inside an async
+# generator, so it must not block the loop between tokens -- see the comment at
+# the call site for the measurements.
+_ollama_async_client = _ol.AsyncClient(host=cfg.ollama_base_url, timeout=_ollama_timeout)
 
 import Model_StartUp as ms
 from ImageGemma4 import comfyui_local, image_gemma4, sd35_medium_local
@@ -1343,8 +1349,20 @@ async def stream_generator(
         except Exception:
             return False
 
-    def _close_stream(stream_obj):
+    async def _close_stream(stream_obj):
+        """Close a generation stream, sync or async.
+
+        The chat path streams from ollama.AsyncClient, whose generator exposes
+        aclose(); other call sites still hand over sync generators with close().
+        """
         if stream_obj is None:
+            return
+        aclose_fn = getattr(stream_obj, "aclose", None)
+        if callable(aclose_fn):
+            try:
+                await aclose_fn()
+            except Exception:
+                pass
             return
         close_fn = getattr(stream_obj, "close", None)
         if callable(close_fn):
@@ -2382,7 +2400,24 @@ async def stream_generator(
         gguf_sent_start = (gguf_phase == "answering")
 
         try:
-            ollama_stream = _ollama_client.chat(
+            # AsyncClient, not the sync one. This iteration lives inside an
+            # async generator, so a sync client's blocking socket read per token
+            # stalls the entire event loop -- every other user's stream,
+            # retrieval, heartbeat, and Mongo write included.
+            #
+            # Measured here with 300-token generations, event loop lag being how
+            # long a coroutine asking to sleep 10ms actually waited:
+            #
+            #    streams   sync wall   async wall   sync loop lag   async loop lag
+            #     1          2.21 s      2.21 s         2 202 ms         0.5 ms
+            #    10         22.16 s      6.56 s        22 154 ms         0.5 ms
+            #    30         66.10 s     19.04 s        66 091 ms         0.5 ms
+            #
+            # The sync column is exactly 2.21s x N: requests were served one
+            # after another, so Ollama's parallel slots sat idle and the GPUs
+            # ran at ~11%. Awaiting the reads is what actually lets concurrent
+            # users share the hardware.
+            ollama_stream = await _ollama_async_client.chat(
                 model=_ollama_model,
                 messages=final_messages,
                 stream=True,
@@ -2391,10 +2426,10 @@ async def stream_generator(
                 keep_alive="45m",
             )
 
-            for chunk in ollama_stream:
+            async for chunk in ollama_stream:
                 if await _client_gone():
                     print(f"[STREAM] Client disconnected; stopping Ollama stream for chat_id={chat_id}")
-                    _close_stream(ollama_stream)
+                    await _close_stream(ollama_stream)
                     return
 
                 if chunk.get("done"):
@@ -2464,10 +2499,10 @@ async def stream_generator(
                 await asyncio.sleep(0.005)
         except asyncio.CancelledError:
             print(f"[STREAM] Request cancelled; closing Ollama stream for chat_id={chat_id}")
-            _close_stream(ollama_stream)
+            await _close_stream(ollama_stream)
             return
         finally:
-            _close_stream(ollama_stream)
+            await _close_stream(ollama_stream)
 
         # ── 流结束后处理 ─────────────────────────────────────
         if gguf_phase == "thinking":
